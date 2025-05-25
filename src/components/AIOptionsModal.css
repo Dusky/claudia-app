@@ -1,0 +1,103 @@
+/* AIOptionsModal.css */
+.ai-options-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.ai-options-modal-content {
+  background-color: #2d2d2d;
+  color: #e0e0e0;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  border: 1px solid #444;
+}
+
+.ai-options-modal-content h2 {
+  margin-top: 0;
+  color: #61dafb; /* Accent color */
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.ai-options-modal-content .form-group {
+  margin-bottom: 20px;
+}
+
+.ai-options-modal-content .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #ccc;
+}
+.ai-options-modal-content .form-group label span {
+  font-weight: normal;
+  color: #61dafb;
+  margin-left: 8px;
+  background-color: #3a3a3a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+
+.ai-options-modal-content .form-group .description {
+  font-size: 0.85em;
+  color: #aaa;
+  margin-top: -5px;
+  margin-bottom: 10px;
+}
+
+.ai-options-modal-content input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Basic button styling - can be enhanced or use existing button styles */
+.ai-options-modal-content .modal-actions {
+  margin-top: 25px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #444;
+  padding-top: 20px;
+}
+
+.ai-options-modal-content .modal-actions button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.ai-options-modal-content .button-primary {
+  background-color: #61dafb;
+  color: #20232a;
+}
+
+.ai-options-modal-content .button-primary:hover {
+  background-color: #52c7e8;
+}
+
+.ai-options-modal-content .button-secondary {
+  background-color: #4a4a4a;
+  color: #e0e0e0;
+}
+
+.ai-options-modal-content .button-secondary:hover {
+  background-color: #5a5a5a;
+}
