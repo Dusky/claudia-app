@@ -1,7 +1,8 @@
-export { ClaudiaDatabase } from './database';
+// For browser builds, we use the mock database
+export { MockDatabase as ClaudiaDatabase } from './mockDatabase';
 export type { 
   ConversationMessage, 
-  Conversation, 
-  MemoryEntry, 
-  AppSettings 
-} from './database';
+  Conversation,
+  Setting,
+  AvatarImageCache
+} from './mockDatabase';

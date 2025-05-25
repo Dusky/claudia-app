@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TerminalTheme } from './themes';
+import type { TerminalTheme } from './themes';
 
 export interface TerminalLine {
   id: string;
@@ -88,6 +88,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   return (
     <div 
       className="terminal-container"
+      data-theme={theme.id}
       style={{
         backgroundColor: theme.colors.background,
         color: theme.colors.foreground,
@@ -147,13 +148,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           zIndex: 2,
           height: '100%',
           overflowY: 'auto',
-          paddingBottom: '50px' // Space for input line
+          paddingBottom: '100px' // Space for input line and status bar
         }}
       >
         {lines.map((line) => (
           <div 
             key={line.id}
             className={`terminal-line terminal-line-${line.type}`}
+            data-type={line.type}
             style={{
               color: getLineTypeColor(line.type),
               marginBottom: theme.spacing.lineSpacing,
@@ -234,20 +236,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             autoComplete="off"
             spellCheck={false}
           />
-          
-          {/* Cursor blink effect */}
-          {isInputFocused && (
-            <span 
-              className="cursor"
-              style={{
-                backgroundColor: theme.colors.cursor,
-                width: '8px',
-                height: '16px',
-                marginLeft: '2px',
-                animation: 'blink 1s infinite'
-              }}
-            />
-          )}
         </div>
       </div>
 

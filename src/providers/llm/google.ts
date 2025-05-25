@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
+import type { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
 import { getApiKey, config } from '../../config/env';
 
 export class GoogleProvider implements LLMProvider {
@@ -10,7 +10,7 @@ export class GoogleProvider implements LLMProvider {
   async initialize(providerConfig?: LLMProviderConfig): Promise<void> {
     this.config = {
       apiKey: providerConfig?.apiKey || getApiKey('google'),
-      model: providerConfig?.model || 'gemini-pro',
+      model: providerConfig?.model || 'gemini-1.5-flash',
       baseURL: providerConfig?.baseURL || 'https://generativelanguage.googleapis.com',
       timeout: config.llmTimeout,
       ...providerConfig
@@ -53,11 +53,14 @@ export class GoogleProvider implements LLMProvider {
 
     try {
       const response = await axios.post(
-        `${this.config.baseURL}/v1beta/models/${this.config.model}:generateContent?key=${this.config.apiKey}`,
+        `${this.config.baseURL}/v1beta/models/${this.config.model}:generateContent`,
         requestBody,
         {
           headers: {
             'Content-Type': 'application/json'
+          },
+          params: {
+            key: this.config.apiKey
           },
           timeout: this.config.timeout
         }
@@ -76,9 +79,29 @@ export class GoogleProvider implements LLMProvider {
           total_tokens: response.data.usageMetadata?.totalTokenCount
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google Gemini API error:', error);
-      throw new Error(`Google Gemini API error: ${error}`);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        if (status === 401) {
+          throw new Error('Google API key is invalid or not authorized. Please check your VITE_GOOGLE_API_KEY.');
+        } else if (status === 403) {
+          throw new Error('Google API access forbidden. Please check API key permissions.');
+        } else if (status === 404) {
+          throw new Error('Google API endpoint not found. Please check the model name or API version.');
+        } else if (status === 429) {
+          throw new Error('Google API rate limit exceeded. Please try again later.');
+        } else {
+          throw new Error(`Google API error (${status}): ${data?.error?.message || 'Unknown error'}`);
+        }
+      } else if (error.request) {
+        throw new Error('No response from Google API. Please check your internet connection.');
+      } else {
+        throw new Error(`Google API configuration error: ${error.message}`);
+      }
     }
   }
 }

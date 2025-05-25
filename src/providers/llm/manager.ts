@@ -1,4 +1,4 @@
-import { LLMProvider, LLMProviderConfig } from './types';
+import type { LLMProvider, LLMProviderConfig } from './types';
 import { AnthropicProvider } from './anthropic';
 import { GoogleProvider } from './google';
 import { LocalProvider } from './local';

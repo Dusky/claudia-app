@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
+import type { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
 import { config } from '../../config/env';
 
 export class LocalProvider implements LLMProvider {

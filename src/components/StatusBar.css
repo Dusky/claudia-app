@@ -1,0 +1,236 @@
+/* Status Bar Styles */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  transition: all 0.3s ease;
+  user-select: none;
+  backdrop-filter: blur(10px);
+  border-image: linear-gradient(90deg, transparent, var(--accent-color), transparent) 1;
+}
+
+.status-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--accent-color) 20%, 
+    var(--accent-color) 80%, 
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Theme-specific styling */
+
+/* PC80s Theme */
+[data-theme="pc80s"] .status-bar {
+  background: linear-gradient(180deg, #001122 0%, #000811 100%);
+  border-top: 1px solid #00ff88;
+  box-shadow: 
+    0 -2px 10px rgba(0, 255, 136, 0.2),
+    inset 0 1px 0 rgba(0, 255, 136, 0.1);
+}
+
+[data-theme="pc80s"] .status-bar::before {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    #00ff88 20%, 
+    #00ff88 80%, 
+    transparent 100%
+  );
+}
+
+[data-theme="pc80s"] .status-item:hover {
+  background: rgba(0, 255, 136, 0.1);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+/* Mainframe70s Theme */
+[data-theme="mainframe70s"] .status-bar {
+  background: linear-gradient(180deg, #001100 0%, #000800 100%);
+  border-top: 1px solid #00ff00;
+  box-shadow: 
+    0 -2px 10px rgba(0, 255, 0, 0.2),
+    inset 0 1px 0 rgba(0, 255, 0, 0.1);
+}
+
+[data-theme="mainframe70s"] .status-bar::before {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    #00ff00 20%, 
+    #00ff00 80%, 
+    transparent 100%
+  );
+}
+
+[data-theme="mainframe70s"] .status-item:hover {
+  background: rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
+
+/* BBS90s Theme */
+[data-theme="bbs90s"] .status-bar {
+  background: linear-gradient(180deg, #0000aa 0%, #000055 100%);
+  border-top: 1px solid #ffff55;
+  box-shadow: 
+    0 -2px 10px rgba(255, 255, 85, 0.2),
+    inset 0 1px 0 rgba(255, 255, 85, 0.1);
+}
+
+[data-theme="bbs90s"] .status-bar::before {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    #ffff55 20%, 
+    #ffff55 80%, 
+    transparent 100%
+  );
+}
+
+[data-theme="bbs90s"] .status-item:hover {
+  background: rgba(255, 255, 85, 0.1);
+  box-shadow: 0 0 10px rgba(255, 255, 85, 0.3);
+}
+
+/* Modern Theme */
+[data-theme="modern"] .status-bar {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-top: 1px solid #ffffff;
+  box-shadow: 
+    0 -2px 10px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="modern"] .status-bar::before {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    #ffffff 20%, 
+    #ffffff 80%, 
+    transparent 100%
+  );
+}
+
+[data-theme="modern"] .status-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+/* Special effects for status indicators */
+.status-item .connection-status span:first-child {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.provider-ai, .provider-img {
+  position: relative;
+}
+
+.provider-ai::after,
+.provider-img::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* Online status glow effect */
+.status-item:has(span[style*="color: #00ff88"]) .provider-ai::after,
+.status-item:has(span[style*="color: #00ff00"]) .provider-ai::after {
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+  opacity: 1;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .status-bar {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+  }
+  
+  .status-left,
+  .status-center,
+  .status-right {
+    gap: 12px !important;
+  }
+  
+  .status-item {
+    padding: 1px 4px;
+  }
+  
+  /* Hide less important items on small screens */
+  .time-info {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .status-center {
+    gap: 8px !important;
+  }
+  
+  .theme-info {
+    display: none;
+  }
+  
+  .status-left {
+    gap: 8px !important;
+  }
+}
+
+/* Accessibility */
+.status-bar:focus-within {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -2px;
+}
+
+/* Smooth transitions for theme changes */
+.status-bar * {
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Status bar entrance animation */
+.status-bar {
+  animation: slideInUp 0.5s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

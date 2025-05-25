@@ -1,5 +1,5 @@
-import { AvatarCommand, AvatarState, AvatarGenerationParams } from './types';
-import { ImageProviderManager, ImageGenerationRequest } from '../providers';
+import type { AvatarCommand, AvatarState, AvatarGenerationParams } from './types';
+import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
@@ -116,7 +116,6 @@ export class AvatarController {
 
   private async executeCommand(command: AvatarCommand): Promise<void> {
     let needsNewImage = false;
-    const previousState = { ...this.state };
 
     // Update state based on command
     if (command.hide) {

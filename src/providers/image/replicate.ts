@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ImageProvider, ImageGenerationRequest, ImageGenerationResponse, ImageProviderConfig, PredictionStatus } from './types';
+import type { ImageProvider, ImageGenerationRequest, ImageGenerationResponse, ImageProviderConfig, PredictionStatus } from './types';
 import { getApiKey, config } from '../../config/env';
 
 export class ReplicateProvider implements ImageProvider {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AvatarState, AvatarPosition } from './types';
+import type { AvatarState, AvatarPosition } from './types';
 
 interface AvatarDisplayProps {
   state: AvatarState;

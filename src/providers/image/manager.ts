@@ -1,4 +1,4 @@
-import { ImageProvider, ImageProviderConfig } from './types';
+import type { ImageProvider, ImageProviderConfig } from './types';
 import { ReplicateProvider } from './replicate';
 
 export class ImageProviderManager {
