@@ -245,26 +245,63 @@ html, body, #root {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (max-width: 768px) { /* Common tablet portrait / large phone landscape */
   .claudia-avatar {
     transform: scale(0.8);
+    /* Example: If avatar interferes with text, consider adjusting its position or max-width */
+    /* max-width: 150px; */ /* Adjust as needed if it's too wide */
   }
   
   .terminal-container {
-    font-size: 14px;
+    font-size: 14px; /* Slightly smaller font for tablets */
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 480px) { /* Common mobile phone portrait */
   .claudia-avatar {
-    transform: scale(0.6);
+    transform: scale(0.65); /* Further scale down avatar */
+    /* Consider even smaller or different fixed position if it obstructs content.
+       This might require JS to change the 'position' prop of AvatarState for mobile.
+       e.g., position: fixed; bottom: 60px; right: 10px; transform: scale(0.5); */
   }
   
   .terminal-container {
-    font-size: 12px;
-    padding: 10px;
+    font-size: 13px; /* Readable font size for mobile */
+    padding: 10px; /* Add some padding around the terminal content */
+  }
+
+  /* Reduce intensity of some animations on smaller screens if performance is a concern */
+  .App::before {
+    animation: backgroundPulse 12s ease-in-out infinite; /* Slower pulse */
+  }
+
+  .terminal-line[data-type="system"] {
+    animation: systemGlow 3s ease-in-out infinite; /* Slower glow */
   }
 }
+
+@media (max-width: 360px) { /* Very small mobile phone portrait */
+  .claudia-avatar {
+    transform: scale(0.55); /* Smallest avatar scale for very small devices */
+    /* On very small screens, ensure it doesn't cover crucial UI.
+       A common strategy is to hide non-critical decorative elements or significantly reduce them. */
+  }
+  
+  .terminal-container {
+    font-size: 12px; /* Ensure text remains legible */
+    padding: 8px; /* Adjust padding for very small screens */
+  }
+
+  /* Further reduce animation intensity or disable some for very small screens */
+  .App::after { /* Reduce noise opacity */
+    opacity: 0.4;
+  }
+  
+  .loading-dots span {
+    animation-duration: 1.8s; /* Slower loading pulse */
+  }
+}
+
 
 /* Special effects for different terminal themes */
 .terminal-container[data-theme="mainframe70s"] .terminal-line {
