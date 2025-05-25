@@ -37,6 +37,7 @@ export interface AppState {
   loadConversationMessages: (db: ClaudiaDatabase, id: string) => Promise<void>; // Kept if direct loading is needed
   initializeActiveConversation: (db: ClaudiaDatabase) => Promise<{ activeConvId: string | null, playBootAnimation: boolean }>;
   clearTerminalForNewSession: () => Promise<void>;
+  resetConversationAndTerminal: (db: ClaudiaDatabase) => Promise<void>; // New action
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -205,11 +206,39 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   clearTerminalForNewSession: async () => {
+    // This function is now mostly for specific commands like /conversation-clearhist
+    // that only want to clear lines and show boot messages without resetting the conversation.
+    // The /clear command uses resetConversationAndTerminal for a full reset.
     set({ lines: [
       { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
     ]});
     setTimeout(() => get().addLines({ id: 'boot-re1', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }), 300);
-    setTimeout(() => get().addLines({ id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia' }), 600);
+    setTimeout(() => get().addLines({ id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true }), 600);
+  },
+
+  resetConversationAndTerminal: async (db: ClaudiaDatabase) => {
+    const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
+    // Set new conversation active, but don't load messages (it's new and empty)
+    await get().setActiveConversationAndLoadMessages(db, newConv.id, false);
+
+    const now = new Date().toISOString();
+    const initialLines: TerminalLine[] = [
+      { 
+        id: `cleared-${now}`, 
+        type: 'system', 
+        content: 'Terminal cleared. New session started.', 
+        timestamp: now 
+      },
+      { 
+        id: `ready-${now}`, 
+        type: 'output', 
+        content: 'Ready for new commands!', 
+        timestamp: now, 
+        user: 'claudia',
+        isChatResponse: true // To get the "claudia>" prefix
+      }
+    ];
+    set({ lines: initialLines });
   },
 
 }));

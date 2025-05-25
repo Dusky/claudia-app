@@ -57,6 +57,7 @@ function App() {
   const loadConversationMessages = useAppStore(state => state.loadConversationMessages);
   const initializeActiveConversation = useAppStore(state => state.initializeActiveConversation);
   const clearTerminalForNewSession = useAppStore(state => state.clearTerminalForNewSession);
+  const resetConversationAndTerminal = useAppStore(state => state.resetConversationAndTerminal); // Get new action
   
   const effectRan = useRef(false);
 
@@ -185,20 +186,29 @@ function App() {
       commandRegistry,
       activeConversationId: activeConversationId,
       setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs),
+      resetConversationAndTerminal: (db) => resetConversationAndTerminal(db), // Pass new action
     };
 
     try {
       setLoading(true);
       const result = await commandRegistry.execute(input.trim(), context);
+      
+      // If the command returns lines (e.g., /help), add them.
+      // The /clear command will manage its lines via the store action, so it won't return lines here.
       if (result.lines && result.lines.length > 0) addLines(result.lines);
 
-      if (result.shouldContinue === false && (input.trim().toLowerCase().startsWith('/clear') ||
-        (input.trim().toLowerCase().startsWith('/conversation') &&
-          (input.includes('new') || input.includes('load') || input.includes('clearhist'))
-        ))) {
-        if (input.trim().toLowerCase().startsWith('/clear') || input.trim().toLowerCase() === '/conversation-clearhist') {
-          await clearTerminalForNewSession();
+      // Handle commands that might want to clear the terminal or change session fundamentally.
+      // The /clear command now handles its own state reset via the store action and returns shouldContinue: false.
+      // This block is now only for other commands like /conversation-clearhist that might use clearTerminalForNewSession.
+      if (result.shouldContinue === false) {
+        const commandName = input.trim().toLowerCase().split(' ')[0];
+        if (commandName === '/conversation-clearhist') {
+          // clearTerminalForNewSession only clears lines and shows boot messages,
+          // it does not affect conversation state.
+          await clearTerminalForNewSession(); 
         }
+        // Other commands that return shouldContinue: false (like /clear)
+        // are expected to manage their own UI/state reset.
       }
     } catch (error) {
       console.error('Input handling error:', error);
