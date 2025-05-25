@@ -7,7 +7,7 @@ import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
 import { askCommand, handleAIMessage } from './builtin/ai';
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
-import { testCommand } from './builtin/test'; // Assuming you have this file and it exports testCommand
+import { testCommand } from './builtin/test'; // Uncommented import
 
 // Import all personality commands (main and subcommands)
 import {
@@ -39,7 +39,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
     avatarCommand,
     imagineCommand,
     providersCommand,
-    testCommand, // Make sure testCommand is imported if it exists
+    testCommand, // Uncommented registration
     
     // Personality commands
     personalityCommand, // Main /personality
