@@ -1,6 +1,6 @@
 import type { Command, CommandResult, CommandContext } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
-import { DEFAULT_PERSONALITY, type Personality } from '../../types/personality'; // Added Personality type import
+import { DEFAULT_PERSONALITY } from '../../types/personality'; // Removed unused Personality type import
 import type { StorageService } from '../../storage/types'; // Changed MockDatabase to StorageService
 
 export const personalityCommand: Command = {
@@ -388,7 +388,7 @@ async function showCurrentPersonality(storage: StorageService): Promise<CommandR
   return { success: true, lines };
 }
 
-async function switchPersonality(id: string, storage: StorageService, context: CommandContext): Promise<CommandResult> {
+async function switchPersonality(id: string, storage: StorageService, _context: CommandContext): Promise<CommandResult> { // Mark context as unused
   const personality = await storage.getPersonality(id);
   const lines: TerminalLine[] = [];
   

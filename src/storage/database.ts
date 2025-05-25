@@ -375,15 +375,24 @@ export class ClaudiaDatabase implements StorageService {
 
   async getCachedAvatar(promptHash: string): Promise<CachedAvatarImage | null> {
     const stmt = this.db.prepare('SELECT * FROM avatar_cache WHERE prompt_hash = ?');
-    // Cast to include all fields from CachedAvatarImage plus DB specific 'id'
-    const row = stmt.get(promptHash) as (Omit<CachedAvatarImage, 'parameters'> & { parameters: string; id: number }) | undefined;
+    // Cast to include all fields from DB (snake_case) plus 'id'
+    const row = stmt.get(promptHash) as { 
+      id: number; 
+      prompt_hash: string; 
+      image_url: string; 
+      local_path?: string; 
+      parameters: string; 
+      created_at: string; 
+      accessed_at: string; 
+      file_size?: number;
+    } | undefined;
     
     if (!row) return null;
 
-    const accessedAt = new Date().toISOString();
+    const newAccessedAt = new Date().toISOString(); // Use a different variable name
     // Update accessed_at timestamp
     const updateStmt = this.db.prepare('UPDATE avatar_cache SET accessed_at = ? WHERE prompt_hash = ?');
-    updateStmt.run(accessedAt, promptHash);
+    updateStmt.run(newAccessedAt, promptHash);
       
     let parsedParameters: Record<string, any>;
     try {
@@ -394,13 +403,13 @@ export class ClaudiaDatabase implements StorageService {
     }
 
     return {
-      promptHash: row.prompt_hash,
-      imageUrl: row.image_url,
-      localPath: row.local_path,
+      promptHash: row.prompt_hash, // Map from snake_case DB column
+      imageUrl: row.image_url,     // Map from snake_case DB column
+      localPath: row.local_path,   // Map from snake_case DB column
       parameters: parsedParameters,
-      createdAt: row.created_at,
-      accessedAt: accessedAt, // use the new timestamp
-      file_size: row.file_size,
+      createdAt: row.created_at,   // Map from snake_case DB column
+      accessedAt: newAccessedAt,   // Use the new timestamp
+      file_size: row.file_size,    // Assuming this matches or is fine
     };
   }
 

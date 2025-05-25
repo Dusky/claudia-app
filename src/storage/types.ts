@@ -78,14 +78,14 @@ export interface StorageService {
   addMemory(memoryInput: Omit<MemoryEntry, 'id'>): Promise<MemoryEntry>;
   searchMemory(type?: string, limit?: number): Promise<MemoryEntry[]>;
 
-  // Personality methods (optional as not all implementations may have them initially)
-  savePersonality?(personality: Personality): Promise<void>;
-  getPersonality?(id: string): Promise<Personality | null>;
-  getAllPersonalities?(): Promise<Personality[]>;
-  deletePersonality?(id: string): Promise<boolean>;
-  updatePersonality?(id: string, updates: Partial<Personality>): Promise<boolean>;
-  getActivePersonality?(): Promise<Personality | null>;
-  setActivePersonality?(id: string): Promise<boolean>;
+  // Personality methods
+  savePersonality(personality: Personality): Promise<void>;
+  getPersonality(id: string): Promise<Personality | null>;
+  getAllPersonalities(): Promise<Personality[]>;
+  deletePersonality(id: string): Promise<boolean>;
+  updatePersonality(id: string, updates: Partial<Personality>): Promise<boolean>;
+  getActivePersonality(): Promise<Personality | null>;
+  setActivePersonality(id: string): Promise<boolean>;
 
   // Lifecycle
   close?(): Promise<void>;

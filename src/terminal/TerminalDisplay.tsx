@@ -9,12 +9,15 @@ export interface TerminalLine {
   user?: 'user' | 'claudia';
 }
 
+import type { CommandRegistry } from '../commands/types'; // Added CommandRegistry import
+
 interface TerminalDisplayProps {
   theme: TerminalTheme;
   lines: TerminalLine[];
   onInput?: (input: string) => void;
   prompt?: string;
   isLoading?: boolean;
+  commandRegistry: CommandRegistry; // Added commandRegistry prop
 }
 
 export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
@@ -22,7 +25,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   lines,
   onInput,
   prompt = '>',
-  isLoading = false
+  isLoading = false,
+  commandRegistry // Destructure commandRegistry
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);

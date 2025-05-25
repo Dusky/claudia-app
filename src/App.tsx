@@ -9,7 +9,7 @@ import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
 import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
-import { createCommandRegistry, handleAIMessage, type CommandContext } from './commands';
+import { createCommandRegistry, type CommandContext } from './commands'; // Removed handleAIMessage
 import { DEFAULT_PERSONALITY, type Personality } from './types/personality';
 import type { AvatarState } from './avatar/types';
 import './App.css';

@@ -15,6 +15,7 @@ export interface CommandContext {
   currentTheme: string;
   setTheme: (theme: string) => void;
   openPersonalityEditor: (personality?: Personality | null) => void;
+  openAIOptionsModal?: () => void; // Added openAIOptionsModal
 }
 
 export interface CommandResult {
