@@ -21,23 +21,17 @@ interface TerminalDisplayProps {
   commandRegistry: CommandRegistry;
 }
 
-// Calculate a reasonable fixed line height.
 const calculateLineHeight = (theme: TerminalTheme): number => {
-  const fontSize = parseFloat(theme.font.size) || 16; // Default to 16px if not a number
-  const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5; // Default to 1.5
-  const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4; // Default to 4px
-  
-  // Increased buffer to give more vertical space per item, anticipating some wrapping.
-  // This is a heuristic. If lines can wrap extensively, VariableSizeList is a more robust solution.
-  const buffer = Math.ceil(fontSize * 0.4); // Increased buffer (e.g., 40% of font size)
-  
+  const fontSize = parseFloat(theme.font.size) || 16;
+  const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5;
+  const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4;
+  const buffer = Math.ceil(fontSize * 0.4);
   return Math.ceil(fontSize * lineHeightMultiplier + lineSpacing + buffer);
 };
 
-
 interface LineRendererProps {
   index: number;
-  style: React.CSSProperties; // This style from react-window is crucial!
+  style: React.CSSProperties;
   data: {
     lines: TerminalLine[];
     theme: TerminalTheme;
@@ -54,19 +48,16 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
 
   return (
     <div
-      style={style} // Apply the style from react-window (includes height, width, top, left)
+      style={style}
       className={`terminal-line terminal-line-${line.type}`}
       data-type={line.type}
-      css={{ // Using css prop for additional styling
+      css={{
         color: getLineTypeColor(line.type),
-        // marginBottom: theme.spacing.lineSpacing, // REMOVED: itemSize in List already accounts for spacing between lines
-        whiteSpace: 'pre-wrap', // Allows wrapping of long lines
-        wordBreak: 'break-word', // Breaks words to prevent horizontal overflow
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
         display: 'flex',
         alignItems: 'baseline',
-        boxSizing: 'border-box', // Good practice
-        // Ensure content fits within the height provided by `style.height` from react-window
-        // If content (due to wrapping) exceeds this, overlaps will occur.
+        boxSizing: 'border-box',
         ...(theme.effects.glow && {
           textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
         })
@@ -83,7 +74,6 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
 });
 LineRenderer.displayName = 'LineRenderer';
 
-
 export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   theme,
   lines,
@@ -98,29 +88,73 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const listRef = useRef<List>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
 
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyPointer, setHistoryPointer] = useState<number>(-1); // -1 means current input, not history
+  const inputBeforeHistoryNav = useRef<string>(''); // Stores input before ArrowUp is first pressed
+
   const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
 
-  // Auto-scroll to bottom when new lines are added or isLoading changes
   useEffect(() => {
     if (lines.length > 0) {
       listRef.current?.scrollToItem(lines.length - 1, 'smart');
     }
   }, [lines, isLoading]);
 
-  // Focus input on mount and when clicking terminal
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
       inputRef.current.focus();
     }
   }, [isInputFocused]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentInput.trim() && onInput) {
-      onInput(currentInput.trim());
-      setCurrentInput('');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTypedInput = e.target.value;
+    setCurrentInput(newTypedInput);
+    // If user starts typing while navigating history, they are now editing a new command.
+    if (historyPointer !== -1) {
+      inputBeforeHistoryNav.current = newTypedInput; 
+      setHistoryPointer(-1); 
     }
-    // Future: Add ArrowUp/ArrowDown for command history here
-    // Future: Add Tab for autocomplete here
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (currentInput.trim() && onInput) {
+        const commandToSubmit = currentInput.trim();
+        onInput(commandToSubmit);
+        if (commandToSubmit && (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== commandToSubmit)) {
+          setCommandHistory(prev => [...prev, commandToSubmit]);
+        }
+        setCurrentInput('');
+        setHistoryPointer(-1); 
+        inputBeforeHistoryNav.current = ''; 
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+
+      let newPointer: number;
+      if (historyPointer === -1) { 
+        inputBeforeHistoryNav.current = currentInput; 
+        newPointer = commandHistory.length - 1;
+      } else {
+        newPointer = Math.max(0, historyPointer - 1);
+      }
+      setCurrentInput(commandHistory[newPointer]);
+      setHistoryPointer(newPointer);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyPointer === -1) return; // Not in history navigation mode
+
+      if (historyPointer === commandHistory.length - 1) { 
+        setCurrentInput(inputBeforeHistoryNav.current); 
+        setHistoryPointer(-1); 
+      } else {
+        const newPointer = historyPointer + 1;
+        setCurrentInput(commandHistory[newPointer]);
+        setHistoryPointer(newPointer);
+      }
+    }
+    // For other keys, handleInputChange will manage currentInput and resetting historyPointer if needed.
   };
 
   const handleTerminalClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -277,8 +311,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             ref={inputRef}
             type="text"
             value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
-            onKeyDown={handleKeyPress} // Changed from onKeyPress for better ArrowKey support
+            onChange={handleInputChange} 
+            onKeyDown={handleKeyDown} 
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
             style={{
