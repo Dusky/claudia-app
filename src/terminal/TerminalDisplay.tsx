@@ -22,14 +22,26 @@ interface TerminalDisplayProps {
   commandRegistry: CommandRegistry; // Passed from App.tsx
 }
 
+// Define a constant for the padding to be applied at the bottom of each line item.
+// This ensures consistent spacing and is used in both height calculation and rendering.
+const INTER_MESSAGE_PADDING_BOTTOM = 8; // pixels
+
 const calculateLineHeight = (theme: TerminalTheme): number => {
   const fontSize = parseFloat(theme.font.size) || 16;
   const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5;
-  const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4;
-  // Aggressive diagnostic buffer: space for roughly 2.5 visual lines total
-  // (1 base line + 1.5 lines buffer)
-  const buffer = Math.ceil(fontSize * lineHeightMultiplier * 1.5); 
-  return Math.ceil((fontSize * lineHeightMultiplier) + lineSpacing + buffer);
+  
+  // This is the height one visual line of text would occupy.
+  const singleVisualLineHeight = fontSize * lineHeightMultiplier;
+  
+  // Estimate how many lines of text we want to accommodate comfortably within one item.
+  // Let's aim for 3 lines, which should handle moderately wrapped content.
+  const estimatedContentLines = 3;
+  
+  // The total height for an item will be the space for the estimated content lines
+  // plus the explicit padding we want between messages.
+  const itemHeight = (singleVisualLineHeight * estimatedContentLines) + INTER_MESSAGE_PADDING_BOTTOM;
+  
+  return Math.ceil(itemHeight);
 };
 
 interface LineRendererProps {
@@ -56,9 +68,11 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     display: 'flex',
-    alignItems: 'baseline', // 'flex-start' could also be an option if baseline causes issues with very tall wrapped lines
+    alignItems: 'baseline', 
     boxSizing: 'border-box',
-    // overflow: 'hidden', // Let content overflow if it must, FixedSizeList handles clipping between items
+    // Add the defined padding to the bottom of each line item.
+    // This padding is included in the itemSize calculated by calculateLineHeight.
+    paddingBottom: `${INTER_MESSAGE_PADDING_BOTTOM}px`,
     ...(theme.effects.glow && {
       textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
     })
@@ -116,13 +130,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   // Effect to scroll to bottom when new lines are added or loading state changes
   useEffect(() => {
     if (lines.length > 0 && listRef.current) {
-      // Ensure the list has had a chance to re-render with the new item count
-      // Sometimes a micro-task delay helps if scrollToItem is called too early
       requestAnimationFrame(() => {
-        listRef.current?.scrollToItem(lines.length - 1, 'end'); // 'end' alignment is often more reliable
+        listRef.current?.scrollToItem(lines.length - 1, 'end'); 
       });
     }
-  }, [lines, isLoading]); // Dependency on lines and isLoading
+  }, [lines, isLoading]); 
 
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
@@ -135,7 +147,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     if (promptRef.current) {
       setSuggestionsLeftOffset(promptRef.current.offsetWidth);
     }
-  }, [prompt, theme.font.family, theme.font.size]); // Recalculate if prompt or font changes
+  }, [prompt, theme.font.family, theme.font.size]); 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTypedInput = e.target.value;
@@ -154,7 +166,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       if (commandPrefix) {
         const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
         const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
-        // Only show suggestions if there are matches AND the current input isn't an exact match already
         if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== newTypedInput.trim().split(' ')[0])) {
           setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
           setShowSuggestions(true);
@@ -162,7 +173,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           setShowSuggestions(false);
         }
       } else {
-        setShowSuggestions(false); // e.g. user typed "/" then deleted the char
+        setShowSuggestions(false); 
       }
     } else {
       setShowSuggestions(false);
@@ -287,13 +298,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   const getUserPrefix = useCallback((line: TerminalLine) => {
     if (line.type === 'input' && line.user === 'user') return `${prompt} `;
-    // Only add "claudia>" if it's an 'output' type, from 'claudia', AND it's a chat response
     if (line.type === 'output' && line.user === 'claudia' && line.isChatResponse === true) {
       return 'claudia> ';
     }
     if (line.type === 'system') return '[system] ';
-    // Other 'output' lines from 'claudia' (e.g., command results that are not chat responses)
-    // and other line types will not get the "claudia>" prefix.
     return '';
   }, [prompt]);
 
@@ -307,9 +315,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   return (
     <div
       ref={terminalContainerRef}
-      className="terminal-container" // This class is styled by App.css
+      className="terminal-container" 
       data-theme={theme.id}
-      style={{ // Inline styles for TerminalDisplay's root element
+      style={{ 
         padding: theme.spacing.padding, 
       }}
       onClick={handleTerminalClick}
@@ -341,8 +349,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         style={{
           position: 'relative',
           flexGrow: 1,
-          overflow: 'hidden', // Important for AutoSizer and to contain the virtualized list
-          zIndex: 2, // Ensure output is above background effects
+          overflow: 'hidden', 
+          zIndex: 2, 
         }}
       >
         <AutoSizer>
@@ -354,7 +362,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               itemCount={lines.length}
               itemSize={LINE_HEIGHT_ESTIMATE}
               itemData={itemData}
-              className="terminal-virtualized-list" // For specific styling of the list itself
+              className="terminal-virtualized-list" 
             >
               {LineRenderer}
             </List>
@@ -366,9 +374,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         className="terminal-input-area"
         style={{
           position: 'relative', 
-          zIndex: 2, // Ensure input is above background effects
-          paddingTop: theme.spacing.lineSpacing, // Space between output and input
-          flexShrink: 0, // Prevent this area from shrinking
+          zIndex: 2, 
+          paddingTop: theme.spacing.lineSpacing, 
+          flexShrink: 0, 
         }}
       >
         {isLoading && (
@@ -396,7 +404,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             color: theme.colors.foreground,
             display: 'flex',
             alignItems: 'center',
-            position: 'relative' // For suggestions box positioning
+            position: 'relative' 
           }}
         >
           <span 
@@ -452,7 +460,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           {showSuggestions && suggestions.length > 0 && (
             <div 
               className="suggestions-box"
-              style={{ left: suggestionsLeftOffset }} // Apply dynamic left offset
+              style={{ left: suggestionsLeftOffset }} 
             >
               {suggestions.map((suggestion, index) => (
                 <div
@@ -479,7 +487,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           100% { background-position: 0 100%; }
         }
         
-        /* Styles for the scrollbar of the react-window list itself */
         .terminal-virtualized-list::-webkit-scrollbar {
           width: 8px;
         }
@@ -497,12 +504,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           background: ${theme.colors.accent}80;
         }
 
-        /* Ensure AutoSizer's direct child (the List) takes full space */
         .terminal-output-area > div { 
           height: 100% !important;
           width: 100% !important;
         }
-        /* Styles for the inner scrollable div of react-window */
         .terminal-virtualized-list > div { 
            scrollbar-width: thin;
            scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
@@ -553,14 +558,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         ` : ''}
 
         ${theme.effects.crt ? `
-          .terminal-container { /* This class is on TerminalDisplay's root */
+          .terminal-container { 
             border-radius: 15px;
             box-shadow: 
               inset 0 0 50px rgba(255,255,255,0.1),
               0 0 100px rgba(0,0,0,0.8);
           }
           
-          .terminal-container::before { /* CRT overlay for TerminalDisplay */
+          .terminal-container::before { 
             content: '';
             position: absolute;
             top: 0;
@@ -569,7 +574,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             bottom: 0;
             background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.3) 100%);
             pointer-events: none;
-            z-index: 3; /* Above content, below popups/modals */
+            z-index: 3; 
           }
         ` : ''}
       `}</style>
