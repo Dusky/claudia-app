@@ -128,23 +128,35 @@ export class CommandRegistryImpl implements CommandRegistry {
         
         const llmResponse = await llmProvider.generateResponse(llmMessages);
 
+        // Parse avatar commands from the LLM response
+        const { cleanText, commands: avatarCommands } = context.avatarController.parseAvatarCommands(llmResponse.content);
+
         const assistantLine: TerminalLine = {
           id: `assistant-${Date.now()}`,
           type: 'output',
-          content: llmResponse.content,
+          content: cleanText, // Use cleaned text for display
           timestamp: new Date().toISOString(),
           user: 'claudia'
         };
 
-        // Save assistant message to DB
+        // Save assistant message (cleaned text) to DB
         await context.storage.addMessage({
           conversationId: activeConversationId,
           role: 'assistant',
-          content: assistantLine.content,
+          content: assistantLine.content, // Save cleaned text
           timestamp: assistantLine.timestamp,
         });
         
-        // TODO: Add avatar command parsing from llmResponse.content here in a future step
+        // Execute avatar commands asynchronously (but await completion before finishing this turn)
+        if (avatarCommands.length > 0) {
+          try {
+            await context.avatarController.executeCommands(avatarCommands);
+          } catch (avatarError) {
+            console.error("Error executing avatar commands:", avatarError);
+            // Optionally, add a system message to the terminal about avatar command failure
+            // For now, we'll just log it and not interrupt the chat flow.
+          }
+        }
 
         context.setLoading(false);
         return { success: true, lines: [userLine, assistantLine] };
