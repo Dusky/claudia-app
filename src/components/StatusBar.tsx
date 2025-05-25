@@ -66,7 +66,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     <div className={`${styles.statusBar} ${styles[themeClass]}`}>
       <div className={styles.statusBarSection}>
         <div className={styles.statusBarItem}>
-          <span>🎨</span>
+          <span>⌘</span> {/* Theme Icon */}
           <span 
             onClick={onThemeClick} 
             className={onThemeClick ? styles.clickableItem : ''}
@@ -76,7 +76,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </span>
         </div>
         <div className={styles.statusBarItem}>
-          <span>🎭</span>
+          <span>👤</span> {/* Personality Icon */}
           <span 
             onClick={onPersonalityClick} 
             className={onPersonalityClick ? styles.clickableItem : ''}
@@ -89,7 +89,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 
       <div className={styles.statusBarSection}>
         <div className={styles.statusBarItem}>
-          <span>🤖</span>
+          <span>💬</span> {/* LLM Icon */}
           <span 
             className={`${styles.providerStatus} ${llmConfigured ? styles.configured : styles.notConfigured}`}
             title={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'}`}
@@ -98,7 +98,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           </span>
         </div>
         <div className={styles.statusBarItem}>
-          <span>🖼️</span>
+          <span>📷</span> {/* Image Icon */}
            <span 
             className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured}`}
             title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'}`}
