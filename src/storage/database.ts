@@ -5,9 +5,10 @@ import type {
   Conversation,
   ConversationMessage,
   MemoryEntry,
-  AppSetting, // Changed from AppSettings
+  AppSetting,
   CachedAvatarImage,
 } from './types'; // Import from the new types file
+import type { Personality } from '../types/personality'; // Import Personality type
 
 export class ClaudiaDatabase implements StorageService {
   private db: Database.Database;
@@ -83,6 +84,24 @@ export class ClaudiaDatabase implements StorageService {
       )
     `);
 
+    // Personalities table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS personalities (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        is_default INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
+        traits TEXT NOT NULL, -- JSON string of Personality['traits']
+        background TEXT NOT NULL, -- JSON string of Personality['background']
+        behavior TEXT NOT NULL, -- JSON string of Personality['behavior']
+        constraints TEXT NOT NULL, -- JSON string of Personality['constraints']
+        system_prompt TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        usage_count INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+
     // Create indices for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
@@ -91,6 +110,7 @@ export class ClaudiaDatabase implements StorageService {
       CREATE INDEX IF NOT EXISTS idx_memory_timestamp ON memory(timestamp);
       CREATE INDEX IF NOT EXISTS idx_avatar_cache_hash ON avatar_cache(prompt_hash);
       CREATE INDEX IF NOT EXISTS idx_avatar_cache_accessed ON avatar_cache(accessed_at);
+      CREATE INDEX IF NOT EXISTS idx_personalities_name ON personalities(name);
     `);
   }
 
@@ -153,18 +173,22 @@ export class ClaudiaDatabase implements StorageService {
       values.push(updates.title);
     }
     
-    if (updates.updatedAt) {
-      fields.push('updated_at = ?');
-      values.push(updates.updatedAt);
+    // Always update 'updated_at' if there are other changes or if it's explicitly provided
+    if (fields.length > 0 || updates.updatedAt) {
+        fields.push('updated_at = ?');
+        values.push(updates.updatedAt || new Date().toISOString());
+    } else if (updates.updatedAt) { 
+        fields.push('updated_at = ?');
+        values.push(updates.updatedAt);
     }
-    
-    if (updates.metadata) {
+
+    if (updates.metadata !== undefined) { 
       fields.push('metadata = ?');
       values.push(updates.metadata);
     }
     
     if (fields.length === 0) {
-      return false; // No updates to perform
+      return false; 
     }
     values.push(id);
     const stmt = this.db.prepare(`UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`);
@@ -175,7 +199,6 @@ export class ClaudiaDatabase implements StorageService {
   async deleteConversation(id: string): Promise<boolean> {
     const stmt = this.db.prepare('DELETE FROM conversations WHERE id = ?');
     const result = stmt.run(id);
-    // Also delete associated messages (handled by ON DELETE CASCADE in schema)
     return result.changes > 0;
   }
 
@@ -194,6 +217,8 @@ export class ClaudiaDatabase implements StorageService {
       messageInput.metadata
     );
     
+    this.updateConversation(messageInput.conversationId, { updatedAt: new Date().toISOString() });
+
     return {
       ...messageInput,
       id: result.lastInsertRowid as number,
@@ -205,7 +230,6 @@ export class ClaudiaDatabase implements StorageService {
     const params: any[] = [conversationId];
 
     if (limit !== undefined && limit > 0) {
-      // Subquery to get the N most recent messages, then order them chronologically
       query = `
         SELECT * FROM (
           SELECT * FROM messages
@@ -216,7 +240,6 @@ export class ClaudiaDatabase implements StorageService {
       `;
       params.push(limit);
     } else {
-      // Get all messages if no limit
       query = 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC';
     }
     
@@ -295,11 +318,13 @@ export class ClaudiaDatabase implements StorageService {
     } else if (typeof value === 'number') {
       stringValue = value.toString();
       resolvedType = resolvedType || 'number';
+    } else if (value === null || value === undefined) {
+      resolvedType = resolvedType || 'string'; 
+      stringValue = String(value); 
     } else if (typeof value === 'object' || Array.isArray(value)) {
       stringValue = JSON.stringify(value);
       resolvedType = resolvedType || 'json';
     } else {
-      // Default to string if type not provided and value is string
       resolvedType = resolvedType || 'string';
       stringValue = String(value);
     }
@@ -345,7 +370,12 @@ export class ClaudiaDatabase implements StorageService {
           settings[row.key] = row.value === 'true';
           break;
         case 'json':
-          settings[row.key] = JSON.parse(row.value);
+          try {
+            settings[row.key] = JSON.parse(row.value);
+          } catch (e) {
+            console.error(`Error parsing JSON setting for key ${row.key} in getAllSettings:`, e);
+            settings[row.key] = row.value; 
+          }
           break;
         default:
           settings[row.key] = row.value;
@@ -375,7 +405,6 @@ export class ClaudiaDatabase implements StorageService {
 
   async getCachedAvatar(promptHash: string): Promise<CachedAvatarImage | null> {
     const stmt = this.db.prepare('SELECT * FROM avatar_cache WHERE prompt_hash = ?');
-    // Cast to include all fields from DB (snake_case) plus 'id'
     const row = stmt.get(promptHash) as { 
       id: number; 
       prompt_hash: string; 
@@ -389,8 +418,7 @@ export class ClaudiaDatabase implements StorageService {
     
     if (!row) return null;
 
-    const newAccessedAt = new Date().toISOString(); // Use a different variable name
-    // Update accessed_at timestamp
+    const newAccessedAt = new Date().toISOString();
     const updateStmt = this.db.prepare('UPDATE avatar_cache SET accessed_at = ? WHERE prompt_hash = ?');
     updateStmt.run(newAccessedAt, promptHash);
       
@@ -399,55 +427,199 @@ export class ClaudiaDatabase implements StorageService {
       parsedParameters = JSON.parse(row.parameters);
     } catch (e) {
       console.error(`Error parsing parameters for cached avatar ${promptHash}:`, e);
-      parsedParameters = {}; // Default to empty object on error
+      parsedParameters = {};
     }
 
     return {
-      promptHash: row.prompt_hash, // Map from snake_case DB column
-      imageUrl: row.image_url,     // Map from snake_case DB column
-      localPath: row.local_path,   // Map from snake_case DB column
+      promptHash: row.prompt_hash,
+      imageUrl: row.image_url,
+      localPath: row.local_path,
       parameters: parsedParameters,
-      createdAt: row.created_at,   // Map from snake_case DB column
-      accessedAt: newAccessedAt,   // Use the new timestamp
-      file_size: row.file_size,    // Assuming this matches or is fine
+      createdAt: row.created_at,
+      accessedAt: newAccessedAt,
+      file_size: row.file_size,
     };
   }
 
   async cleanupOldAvatarCache(maxAgeDays = 7): Promise<number> {
     const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
-    const stmt = this.db.prepare('DELETE FROM avatar_cache WHERE accessed_at < ? OR accessed_at IS NULL'); // Also clean up if accessed_at is somehow null
+    const stmt = this.db.prepare('DELETE FROM avatar_cache WHERE accessed_at < ? OR accessed_at IS NULL');
     const result = stmt.run(cutoff);
     return result.changes;
   }
 
-  // Personality methods (stub implementations for now)
-  async savePersonality(): Promise<void> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  // Personality methods
+  async savePersonality(personality: Personality): Promise<void> {
+    const now = new Date().toISOString();
+    
+    const stmt = this.db.prepare(`
+      INSERT INTO personalities (
+        id, name, description, is_default, 
+        traits, background, behavior, constraints, system_prompt, 
+        usage_count, created_at, updated_at
+      )
+      VALUES (
+        ?, ?, ?, ?, 
+        ?, ?, ?, ?, ?, 
+        ?, ?, ?
+      )
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        description = excluded.description,
+        is_default = excluded.is_default,
+        traits = excluded.traits,
+        background = excluded.background,
+        behavior = excluded.behavior,
+        constraints = excluded.constraints,
+        system_prompt = excluded.system_prompt,
+        usage_count = excluded.usage_count,
+        updated_at = excluded.updated_at -- For conflict, updated_at is taken from excluded (which will be 'now')
+        -- created_at is NOT updated in the ON CONFLICT clause, so it preserves its original value
+    `);
+    
+    const runSave = () => stmt.run(
+      personality.id,
+      personality.name,
+      personality.description,
+      personality.isDefault ? 1 : 0,
+      JSON.stringify(personality.traits),
+      JSON.stringify(personality.background),
+      JSON.stringify(personality.behavior),
+      JSON.stringify(personality.constraints),
+      personality.system_prompt,
+      personality.usage_count,
+      now, // created_at for new inserts (excluded.created_at for updates, but not used)
+      now  // updated_at for new inserts and for updates (via excluded.updated_at)
+    );
+
+    if (personality.isDefault) {
+      const transaction = this.db.transaction(() => {
+        const unsetDefaultStmt = this.db.prepare('UPDATE personalities SET is_default = 0 WHERE id != ?');
+        unsetDefaultStmt.run(personality.id);
+        runSave();
+      });
+      transaction();
+    } else {
+      runSave();
+    }
   }
 
-  async getPersonality(): Promise<null> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  private parsePersonalityRow(row: any): Personality | null {
+    try {
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        isDefault: !!row.is_default,
+        traits: JSON.parse(row.traits),
+        background: JSON.parse(row.background),
+        behavior: JSON.parse(row.behavior),
+        constraints: JSON.parse(row.constraints),
+        system_prompt: row.system_prompt,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        usage_count: row.usage_count,
+      };
+    } catch (e) {
+      console.error(`Error parsing JSON for personality ${row.id}:`, e);
+      return null;
+    }
   }
 
-  async getAllPersonalities(): Promise<never[]> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  async getPersonality(id: string): Promise<Personality | null> {
+    const stmt = this.db.prepare('SELECT * FROM personalities WHERE id = ?');
+    const row = stmt.get(id) as any; // Raw row from DB
+    if (!row) return null;
+    return this.parsePersonalityRow(row);
   }
 
-  async deletePersonality(): Promise<boolean> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  async getAllPersonalities(): Promise<Personality[]> {
+    const stmt = this.db.prepare('SELECT * FROM personalities ORDER BY name ASC');
+    const rows = stmt.all() as any[]; // Raw rows
+    
+    return rows.map(row => this.parsePersonalityRow(row))
+               .filter(p => p !== null) as Personality[];
   }
 
-  async updatePersonality(): Promise<boolean> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  async deletePersonality(id: string): Promise<boolean> {
+    const activeId = await this.getSetting<string>('active_personality_id');
+    if (activeId === id) {
+      await this.setSetting('active_personality_id', null, 'string');
+    }
+
+    const stmt = this.db.prepare('DELETE FROM personalities WHERE id = ?');
+    const result = stmt.run(id);
+    return result.changes > 0;
   }
 
-  async getActivePersonality(): Promise<null> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  async updatePersonality(id: string, updates: Partial<Personality>): Promise<boolean> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    const now = new Date().toISOString();
+
+    // Prevent updating created_at
+    if ('created_at' in updates) {
+      console.warn("Attempted to update 'created_at' for personality. This field cannot be changed.");
+      delete updates.created_at;
+    }
+
+    for (const key in updates) {
+      if (Object.prototype.hasOwnProperty.call(updates, key) && key !== 'id') {
+        const value = (updates as any)[key];
+        if (key === 'isDefault') {
+          fields.push('is_default = ?');
+          values.push(value ? 1 : 0);
+        } else if (['traits', 'background', 'behavior', 'constraints'].includes(key)) {
+          fields.push(`${key} = ?`);
+          values.push(JSON.stringify(value));
+        } else {
+          fields.push(`${key.replace(/([A-Z])/g, '_$1').toLowerCase()} = ?`); // Convert camelCase to snake_case for DB columns
+          values.push(value);
+        }
+      }
+    }
+    
+    if (fields.length === 0) return false;
+
+    fields.push('updated_at = ?');
+    values.push(now);
+    values.push(id); // For the WHERE clause
+
+    const doUpdate = () => {
+      const stmt = this.db.prepare(`UPDATE personalities SET ${fields.join(', ')} WHERE id = ?`);
+      return stmt.run(...values).changes > 0;
+    };
+    
+    if (updates.isDefault === true) {
+      let success = false;
+      const transaction = this.db.transaction(() => {
+        const unsetDefaultStmt = this.db.prepare('UPDATE personalities SET is_default = 0 WHERE id != ?');
+        unsetDefaultStmt.run(id); // Unset for others
+        success = doUpdate();
+      });
+      transaction();
+      return success;
+    } else {
+      // If isDefault is explicitly set to false, or not part of updates, just run the update.
+      // If isDefault is part of updates and is false, it's handled by the general field update.
+      return doUpdate();
+    }
   }
 
-  async setActivePersonality(): Promise<boolean> {
-    throw new Error('Personality methods not implemented in SQLite database yet');
+  async getActivePersonality(): Promise<Personality | null> {
+    const activePersonalityId = await this.getSetting<string>('active_personality_id');
+    if (!activePersonalityId) return null;
+    return this.getPersonality(activePersonalityId);
+  }
+
+  async setActivePersonality(id: string): Promise<boolean> {
+    const personality = await this.getPersonality(id);
+    if (!personality) {
+        return false;
+    }
+    await this.setSetting('active_personality_id', id, 'string');
+    return true;
   }
 
   async close(): Promise<void> {
