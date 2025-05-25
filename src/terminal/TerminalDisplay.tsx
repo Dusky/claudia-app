@@ -31,7 +31,7 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
 
 interface LineRendererProps {
   index: number;
-  style: React.CSSProperties;
+  style: React.CSSProperties; // This style from react-window is crucial!
   data: {
     lines: TerminalLine[];
     theme: TerminalTheme;
@@ -46,22 +46,25 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
 
   if (!line) return null;
 
+  // Combine react-window provided style with component-specific styles
+  const combinedStyle: React.CSSProperties = {
+    ...style, // Spread react-window styles first
+    color: getLineTypeColor(line.type),
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    display: 'flex',
+    alignItems: 'baseline',
+    boxSizing: 'border-box',
+    ...(theme.effects.glow && {
+      textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
+    })
+  };
+
   return (
     <div
-      style={style}
+      style={combinedStyle} // Use the combined style object
       className={`terminal-line terminal-line-${line.type}`}
       data-type={line.type}
-      css={{
-        color: getLineTypeColor(line.type),
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        display: 'flex',
-        alignItems: 'baseline',
-        boxSizing: 'border-box',
-        ...(theme.effects.glow && {
-          textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
-        })
-      }}
     >
       <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
         {getUserPrefix(line)}

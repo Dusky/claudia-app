@@ -48,8 +48,12 @@ export class CommandRegistryImpl implements CommandRegistry {
     return undefined;
   }
 
-  getAll(): Command[] {
+  getAllCommands(): Command[] { // Renamed from getAll to getAllCommands for clarity
     return Array.from(this.commands.values());
+  }
+
+  getAllCommandNames(): string[] {
+    return Array.from(this.commands.keys());
   }
 
   async execute(input: string, context: CommandContext): Promise<CommandResult> {

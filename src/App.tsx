@@ -42,7 +42,7 @@ function App() {
   const editingPersonalityInModal = useAppStore(state => state.editingPersonalityInModal);
   const allPersonalitiesInModal = useAppStore(state => state.allPersonalitiesInModal);
   const activePersonalityIdInModal = useAppStore(state => state.activePersonalityIdInModal);
-  const activeConversationId = useAppStore(state => state.activeConversationId);
+  const activeConversationId = useAppStore(state => state.activeConversationId); // Use this reactive value
 
   // Zustand store actions
   const setTheme = useAppStore(state => state.setTheme);
@@ -159,16 +159,15 @@ function App() {
     };
     addLines(userLine); // Use store action
 
-    const currentActiveConvId = useAppStore.getState().activeConversationId; // Get latest from store
-
-    if (currentActiveConvId && !input.startsWith('/')) {
+    // Use the activeConversationId from the hook (reactive state)
+    if (activeConversationId && !input.startsWith('/')) {
       await database.addMessage({
-        conversationId: currentActiveConvId, role: 'user',
+        conversationId: activeConversationId, role: 'user',
         content: userLine.content, timestamp: userLine.timestamp,
       });
-    } else if (currentActiveConvId && input.startsWith('/ask')) {
+    } else if (activeConversationId && input.startsWith('/ask')) {
       await database.addMessage({
-        conversationId: currentActiveConvId, role: 'user',
+        conversationId: activeConversationId, role: 'user',
         content: input.substring(input.indexOf(' ') + 1),
         timestamp: userLine.timestamp,
       });
@@ -179,7 +178,7 @@ function App() {
       addLines, setLoading, currentTheme, setTheme, // All from store or direct props
       openPersonalityEditor: (p) => openPersonalityEditorModal(database, p), // Pass DB to store action
       commandRegistry,
-      activeConversationId: currentActiveConvId,
+      activeConversationId: activeConversationId, // Use reactive state here
       setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs), // Pass DB to store action
     };
 
@@ -204,9 +203,9 @@ function App() {
         timestamp: new Date().toISOString(), user: 'claudia'
       };
       addLines(errorLine); // Use store action
-      if (currentActiveConvId) {
+      if (activeConversationId) { // Use reactive state here
         await database.addMessage({
-          conversationId: currentActiveConvId, role: 'assistant',
+          conversationId: activeConversationId, role: 'assistant',
           content: `System Error: ${errorLine.content}`, timestamp: errorLine.timestamp
         });
       }
