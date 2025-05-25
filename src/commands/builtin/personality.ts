@@ -151,14 +151,37 @@ export const currentPersonalityCommand: Command = {
       return { success: false, lines };
     }
 
-    lines.push({ id: `p-curr-title-${timestamp}`, type: 'output', content: `☰ Current Personality: ${personality.name}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-title-${timestamp}`, type: 'system', content: `☰ Current Personality: ${personality.name} (ID: ${personality.id})`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-desc-${timestamp}`, type: 'output', content: `  Description: ${personality.description}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-usage-${timestamp}`, type: 'output', content: `  Usage Count: ${personality.usage_count}`, timestamp, user: 'claudia' });
+    if (personality.isDefault) {
+      lines.push({ id: `p-curr-default-${timestamp}`, type: 'output', content: `  This is the default personality.`, timestamp, user: 'claudia' });
+    }
     lines.push({ id: `p-curr-space1-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-desc-${timestamp}`, type: 'output', content: `Description: ${personality.description}`, timestamp, user: 'claudia' });
+
+    lines.push({ id: `p-curr-traits-header-${timestamp}`, type: 'system', content: '  Traits:', timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-tone-${timestamp}`, type: 'output', content: `    • Tone: ${personality.traits.tone}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-formality-${timestamp}`, type: 'output', content: `    • Formality: ${personality.traits.formality}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-humor-${timestamp}`, type: 'output', content: `    • Humor: ${personality.traits.humor}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-verbosity-${timestamp}`, type: 'output', content: `    • Verbosity: ${personality.traits.verbosity}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-enthusiasm-${timestamp}`, type: 'output', content: `    • Enthusiasm: ${personality.traits.enthusiasm}`, timestamp, user: 'claudia' });
     lines.push({ id: `p-curr-space2-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-traits-${timestamp}`, type: 'output', content: 'Traits:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-tone-${timestamp}`, type: 'output', content: `• Tone: ${personality.traits.tone}`, timestamp, user: 'claudia' });
-    // ... (add other trait details as in your original file)
-    lines.push({ id: `p-curr-id-${timestamp}`, type: 'output', content: `ID: ${personality.id} • Used ${personality.usage_count} times`, timestamp, user: 'claudia' });
+
+    lines.push({ id: `p-curr-background-header-${timestamp}`, type: 'system', content: '  Background:', timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-role-${timestamp}`, type: 'output', content: `    • Role: ${personality.background.role}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-expertise-${timestamp}`, type: 'output', content: `    • Expertise: ${personality.background.expertise.join(', ')}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-desc-${timestamp}`, type: 'output', content: `    • Details: ${personality.background.personality_description}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-space3-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
+    
+    lines.push({ id: `p-curr-behavior-header-${timestamp}`, type: 'system', content: '  Behavior:', timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-style-${timestamp}`, type: 'output', content: `    • Response Style: ${personality.behavior.response_style}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-emoji-${timestamp}`, type: 'output', content: `    • Emoji Usage: ${personality.behavior.emoji_usage}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-questions-${timestamp}`, type: 'output', content: `    • Question Asking: ${personality.behavior.question_asking}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-creativity-${timestamp}`, type: 'output', content: `    • Creativity: ${personality.behavior.creativity_level}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-space4-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
+
+    lines.push({ id: `p-curr-prompt-info-${timestamp}`, type: 'system', content: `  System prompt is active. Use "/personality-view ${personality.id}" to see the full prompt.`, timestamp, user: 'claudia' });
+    
     return { success: true, lines };
   }
 };
