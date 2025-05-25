@@ -17,6 +17,21 @@ import './styles/overlays.css';
 
 const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
 
+// Helper function for delayed line adding
+const addLineWithDelay = (
+  setLinesFunc: React.Dispatch<React.SetStateAction<TerminalLine[]>>,
+  line: TerminalLine,
+  delay: number
+): Promise<void> => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      setLinesFunc(prev => [...prev, line]);
+      resolve();
+    }, delay);
+  });
+};
+
+
 function App() {
   const [currentTheme, setCurrentTheme] = useState(config.defaultTheme);
   const [lines, setLines] = useState<TerminalLine[]>([]);
@@ -58,7 +73,8 @@ function App() {
   // Initialize system on mount
   useEffect(() => {
     const initializeSystem = async () => {
-      let initialLines: TerminalLine[] = [];
+      let initialLinesLoadedFromDB: TerminalLine[] = [];
+      let conversationRestored = false;
       try {        
         const activeP = await database.getActivePersonality();
         if (!activeP) {
@@ -70,13 +86,12 @@ function App() {
         }
 
         let currentConvId = await database.getSetting<string>(LAST_ACTIVE_CONVERSATION_ID_KEY);
-        let conversationRestored = false;
         if (currentConvId) {
           const conv = await database.getConversation(currentConvId);
           if (conv) {
             setActiveConversationId(conv.id);
-            const history = await database.getMessages(conv.id, config.conversationHistoryLength + 20); // Load a bit more for UI scrollback
-            initialLines = history.map(m => ({
+            const history = await database.getMessages(conv.id, config.conversationHistoryLength + 20); 
+            initialLinesLoadedFromDB = history.map(m => ({
                 id: `hist-${m.id}-${m.timestamp}`, 
                 type: m.role === 'user' ? 'input' : 'output',
                 content: m.content,
@@ -84,6 +99,7 @@ function App() {
                 user: m.role === 'user' ? 'user' : 'claudia'
             } as TerminalLine));
             conversationRestored = true;
+            setLines(initialLinesLoadedFromDB); // Load DB lines immediately
           } else {
             currentConvId = null; 
           }
@@ -104,17 +120,19 @@ function App() {
           console.warn('Image provider initialization failed:', error);
         }
         
-        if (!conversationRestored || initialLines.length === 0) {
-          const greetingLines: TerminalLine[] = [
-            { id: 'init-1', type: 'system', content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0', timestamp: new Date().toISOString() },
-            { id: 'init-2', type: 'system', content: 'Booting up AI core systems... Please wait.', timestamp: new Date().toISOString() },
-            { id: 'init-3', type: 'system', content: '✅ System Online. All modules loaded.', timestamp: new Date().toISOString() },
-            { id: 'init-4', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' },
-            { id: 'init-5', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' }
-          ];
-          initialLines = [...initialLines, ...greetingLines];
+        // Slick boot sequence if no conversation was restored or it was empty
+        if (!conversationRestored || initialLinesLoadedFromDB.length === 0) {
+          setLines([]); // Clear any potential previous state if starting fresh boot sequence
+          await addLineWithDelay(setLines, { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() }, 500);
+          await addLineWithDelay(setLines, { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() }, 500);
+          await addLineWithDelay(setLines, { id: 'boot-3', type: 'system', content: 'MEMORY CHECK................PASS', timestamp: new Date().toISOString() }, 700);
+          await addLineWithDelay(setLines, { id: 'boot-4', type: 'system', content: 'AI CORE LINK ESTABLISHED....ACTIVE', timestamp: new Date().toISOString() }, 800);
+          await addLineWithDelay(setLines, { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() }, 600);
+          await addLineWithDelay(setLines, { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() }, 700);
+          await addLineWithDelay(setLines, { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }, 500);
+          await addLineWithDelay(setLines, { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' }, 1000);
+          await addLineWithDelay(setLines, { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' }, 500);
         }
-        setLines(initialLines);
         
         if (imageManager.getActiveProvider() && avatarController) {
           await avatarController.executeCommands([{
@@ -177,7 +195,6 @@ function App() {
     };
     
     addLinesToDisplay([successLine]);
-    // Note: This message is not saved to DB as it's a system feedback, not part of conversation.
     
     const allPs = await database.getAllPersonalities();
     const activeP = await database.getActivePersonality();
@@ -223,18 +240,18 @@ function App() {
     };
     addLinesToDisplay([userLine]);
 
-    if (activeConversationId && !input.startsWith('/')) { // Save non-command user messages
+    if (activeConversationId && !input.startsWith('/')) { 
       await database.addMessage({
         conversationId: activeConversationId,
         role: 'user',
         content: userLine.content,
         timestamp: userLine.timestamp,
       });
-    } else if (activeConversationId && input.startsWith('/ask')) { // Save /ask command's question part as user message
+    } else if (activeConversationId && input.startsWith('/ask')) { 
         await database.addMessage({
             conversationId: activeConversationId,
             role: 'user',
-            content: input.substring(input.indexOf(' ') + 1), // content of /ask
+            content: input.substring(input.indexOf(' ') + 1), 
             timestamp: userLine.timestamp,
         });
     }
@@ -259,11 +276,11 @@ function App() {
       const result = await commandRegistry.execute(input.trim(), context);
         
       if (result.lines && result.lines.length > 0) {
-        addLinesToDisplay(result.lines); // AI responses are saved by CommandRegistry/ai.ts
+        addLinesToDisplay(result.lines); 
       }
       
       if (result.metadata?.action === 'open_personality_editor') {
-        // Handled by command directly calling openPersonalityEditor
+        // Handled by command
       }
       
       if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
@@ -271,10 +288,14 @@ function App() {
           {
             id: `clear-${Date.now()}`,
             type: 'system',
-            content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0',
+            content: 'INITIALIZING CLAUDIA OS...', // Keep consistent with new boot
             timestamp: new Date().toISOString()
           }
         ]);
+        // Add a few more boot lines after clear for effect
+        await addLineWithDelay(setLines, { id: 'boot-re1', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }, 300);
+        await addLineWithDelay(setLines, { id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia' }, 300);
+
       }
     } catch (error) {
       console.error('Input handling error:', error);
@@ -286,7 +307,7 @@ function App() {
         user: 'claudia'
       };
       addLinesToDisplay([errorLine]);
-      if (activeConversationId) { // Save error as an assistant message
+      if (activeConversationId) { 
           await database.addMessage({
               conversationId: activeConversationId,
               role: 'assistant',
