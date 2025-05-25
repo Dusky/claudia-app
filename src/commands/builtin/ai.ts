@@ -112,11 +112,11 @@ export async function handleAIMessage(
     context.setLoading(true);
     
     // Get active personality or fallback to default
-    const activePersonality = context.storage.getActivePersonality();
+    const activePersonality = await context.storage.getActivePersonality();
     
     // Create system prompt using personality or fallback
     let systemPrompt = '';
-    if (activePersonality) {
+    if (activePersonality && activePersonality.system_prompt) {
       systemPrompt = activePersonality.system_prompt;
     } else {
       // Fallback system prompt if no personality is set

@@ -3,6 +3,6 @@ export { MockDatabase as ClaudiaDatabase } from './mockDatabase';
 export type { 
   ConversationMessage, 
   Conversation,
-  Setting,
-  AvatarImageCache
-} from './mockDatabase';
+  AppSetting as Setting,
+  CachedAvatarImage as AvatarImageCache
+} from './types';

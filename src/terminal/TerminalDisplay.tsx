@@ -26,7 +26,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   onInput,
   prompt = '>',
   isLoading = false,
-  commandRegistry // Destructure commandRegistry
+  commandRegistry: _commandRegistry // Destructure commandRegistry but mark as unused
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);

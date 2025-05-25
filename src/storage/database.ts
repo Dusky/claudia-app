@@ -421,6 +421,35 @@ export class ClaudiaDatabase implements StorageService {
     return result.changes;
   }
 
+  // Personality methods (stub implementations for now)
+  async savePersonality(): Promise<void> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async getPersonality(): Promise<null> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async getAllPersonalities(): Promise<never[]> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async deletePersonality(): Promise<boolean> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async updatePersonality(): Promise<boolean> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async getActivePersonality(): Promise<null> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
+  async setActivePersonality(): Promise<boolean> {
+    throw new Error('Personality methods not implemented in SQLite database yet');
+  }
+
   async close(): Promise<void> {
     this.db.close();
   }

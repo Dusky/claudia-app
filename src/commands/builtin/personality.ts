@@ -40,14 +40,13 @@ export const personalityCommand: Command = {
         
       case 'create':
       case 'new':
-        // This command now directly triggers the modal via context
-        context.openPersonalityEditor(null);
+        // For now, show instructions until modal is fully working
         return {
           success: true,
           lines: [{
-            id: `personality-editor-open-${Date.now()}`,
+            id: `personality-create-${Date.now()}`,
             type: 'output',
-            content: 'Opening personality editor to create new personality...',
+            content: 'Personality creation feature is in development. Use "/personality list" to see available personalities.',
             timestamp: new Date().toISOString(),
             user: 'claudia'
           }]
@@ -67,27 +66,13 @@ export const personalityCommand: Command = {
             }]
           };
         }
-        // This command now directly triggers the modal via context
-        const personalityToEdit = await storage.getPersonality(args[1]);
-        if (!personalityToEdit) {
-          return {
-            success: false,
-            lines: [{
-              id: `personality-edit-error-${Date.now()}`,
-              type: 'error',
-              content: `Personality with ID "${args[1]}" not found.`,
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
-            }]
-          };
-        }
-        context.openPersonalityEditor(personalityToEdit);
+        // For now, show instructions until modal is fully working
         return {
           success: true,
           lines: [{
-            id: `personality-editor-open-${Date.now()}`,
+            id: `personality-edit-${Date.now()}`,
             type: 'output',
-            content: `Opening personality editor for "${personalityToEdit.name}"...`,
+            content: 'Personality editing feature is in development. Use "/personality current" to see the active personality.',
             timestamp: new Date().toISOString(),
             user: 'claudia'
           }]
@@ -176,6 +161,19 @@ export const personalityCommand: Command = {
 };
 
 async function listPersonalities(storage: StorageService): Promise<CommandResult> {
+  if (!storage.getAllPersonalities || !storage.getActivePersonality) {
+    return {
+      success: false,
+      lines: [{
+        id: `personality-error-${Date.now()}`,
+        type: 'error',
+        content: 'Personality storage not available',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }]
+    };
+  }
+  
   const personalities = await storage.getAllPersonalities();
   const activePersonality = await storage.getActivePersonality();
   const lines: TerminalLine[] = [];
@@ -266,6 +264,19 @@ async function listPersonalities(storage: StorageService): Promise<CommandResult
 }
 
 async function showCurrentPersonality(storage: StorageService): Promise<CommandResult> {
+  if (!storage.getActivePersonality) {
+    return {
+      success: false,
+      lines: [{
+        id: `personality-error-${Date.now()}`,
+        type: 'error',
+        content: 'Personality storage not available',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }]
+    };
+  }
+  
   const personality = await storage.getActivePersonality();
   const lines: TerminalLine[] = [];
   
@@ -389,6 +400,19 @@ async function showCurrentPersonality(storage: StorageService): Promise<CommandR
 }
 
 async function switchPersonality(id: string, storage: StorageService, _context: CommandContext): Promise<CommandResult> { // Mark context as unused
+  if (!storage.getPersonality || !storage.setActivePersonality) {
+    return {
+      success: false,
+      lines: [{
+        id: `personality-error-${Date.now()}`,
+        type: 'error',
+        content: 'Personality storage not available',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }]
+    };
+  }
+  
   const personality = await storage.getPersonality(id);
   const lines: TerminalLine[] = [];
   
@@ -442,6 +466,19 @@ async function switchPersonality(id: string, storage: StorageService, _context: 
 }
 
 async function deletePersonality(id: string, storage: StorageService): Promise<CommandResult> {
+  if (!storage.getPersonality || !storage.deletePersonality) {
+    return {
+      success: false,
+      lines: [{
+        id: `personality-error-${Date.now()}`,
+        type: 'error',
+        content: 'Personality storage not available',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }]
+    };
+  }
+  
   const personality = await storage.getPersonality(id);
   const lines: TerminalLine[] = [];
   
@@ -491,6 +528,19 @@ async function deletePersonality(id: string, storage: StorageService): Promise<C
 }
 
 async function initializeDefaultPersonality(storage: StorageService): Promise<CommandResult> {
+  if (!storage.getPersonality || !storage.savePersonality || !storage.setActivePersonality) {
+    return {
+      success: false,
+      lines: [{
+        id: `personality-error-${Date.now()}`,
+        type: 'error',
+        content: 'Personality storage not available',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }]
+    };
+  }
+  
   const existing = await storage.getPersonality('default');
   const lines: TerminalLine[] = [];
   
