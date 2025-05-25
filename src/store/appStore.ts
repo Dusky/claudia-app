@@ -164,27 +164,42 @@ export const useAppStore = create<AppState>((set, get) => ({
     let activeConvIdToUse: string | null = null;
 
     const lastActiveId = await db.getSetting<string>(LAST_ACTIVE_CONVERSATION_ID_KEY);
+
     if (lastActiveId) {
-      const conv = await db.getConversation(lastActiveId);
-      if (conv) {
-        activeConvIdToUse = conv.id;
-        const messages = await db.getMessages(conv.id, 1);
-        if (messages.length === 0) playBootAnimation = true;
-      } else {
-        playBootAnimation = true; 
-      }
+        const conv = await db.getConversation(lastActiveId);
+        if (conv) {
+            activeConvIdToUse = conv.id;
+            const messages = await db.getMessages(conv.id, 1);
+            if (messages.length === 0) {
+                playBootAnimation = true; // Existing conversation is empty, treat as fresh start
+            }
+            // If messages.length > 0, playBootAnimation remains false, normal load
+        } else {
+            // lastActiveId exists, but conversation doesn't (e.g., deleted) -> new session
+            playBootAnimation = true;
+            activeConvIdToUse = null; // Ensure we don't try to use the invalid ID
+        }
     } else {
-      playBootAnimation = true; 
+        // No lastActiveId, so it's a completely fresh session
+        playBootAnimation = true;
     }
 
-    if (!activeConvIdToUse) { 
-        const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
-        activeConvIdToUse = newConv.id;
-        playBootAnimation = true; // Always play boot animation for a brand new conversation
+    if (playBootAnimation) {
+        // If we're playing boot animation, we want a "clean slate".
+        // If activeConvIdToUse was from an existing (but empty) conversation, we can reuse its ID.
+        // Otherwise (no valid last active ID, or it pointed to a deleted convo), create a new one.
+        if (!activeConvIdToUse) { 
+            const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
+            activeConvIdToUse = newConv.id;
+        }
+        // Explicitly clear lines in the store *before* App.tsx starts adding boot animation lines.
+        // App.tsx also calls setLines([]), but this ensures the store state is definitely clean for the boot sequence.
+        set({ lines: [] }); 
     }
     
-    // This action will set activeConversationId in the store and persist it
-    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, false); // Don't load messages here, App.tsx will decide based on playBootAnimation
+    // Set the determined active conversation ID in the store and persist it.
+    // Crucially, do NOT load messages here; App.tsx will handle that based on playBootAnimation.
+    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, false); 
 
     return { activeConvId: activeConvIdToUse, playBootAnimation };
   },
@@ -193,8 +208,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ lines: [
       { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
     ]});
-    // Use a helper for delayed line adding if needed, or simplify for store action
-    // For simplicity, direct addLines calls are used here. Consider a more robust delay mechanism if needed.
     setTimeout(() => get().addLines({ id: 'boot-re1', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }), 300);
     setTimeout(() => get().addLines({ id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia' }), 600);
   },

@@ -25,7 +25,10 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
   const fontSize = parseFloat(theme.font.size) || 16;
   const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5;
   const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4;
-  const buffer = Math.ceil(fontSize * 0.4);
+  // Diagnostic: Significantly increase buffer to account for potential 2-3 visual lines of wrapped text.
+  // This might make single lines too spaced out, but helps identify if wrapping is the overlap cause.
+  // A more robust solution for variable height is VariableSizeList.
+  const buffer = Math.ceil(fontSize * lineHeightMultiplier * 1.5); // e.g., space for 1.5 extra visual lines
   return Math.ceil(fontSize * lineHeightMultiplier + lineSpacing + buffer);
 };
 
@@ -296,17 +299,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       className="terminal-container" // This class is styled by App.css
       data-theme={theme.id}
       style={{ // Inline styles for TerminalDisplay's root element
-        // backgroundColor, color, fontFamily, etc., are applied by .terminal-container in App.css
-        // or by data-theme specific styles in App.css
-        // minHeight: '100vh', // REMOVED: Height should be controlled by parent and App.css
-        padding: theme.spacing.padding, // Padding can be kept if it's for internal content spacing
-        // The flex properties are for internal layout of TerminalDisplay (output area + input area)
-        // display: 'flex', // This is now in App.css for .terminal-container
-        // flexDirection: 'column', // This is now in App.css for .terminal-container
-        // overflow: 'hidden', // This is now in App.css for .terminal-container
-        // cursor: 'text', // This is now in App.css for .terminal-container
-        // letterSpacing: theme.spacing.characterSpacing, // This is now in App.css for .terminal-container
-        // position: 'relative', // This is now in App.css for .terminal-container
+        padding: theme.spacing.padding, 
       }}
       onClick={handleTerminalClick}
     >
