@@ -1,53 +1,57 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
 import type { LLMMessage } from '../../providers/llm/types';
+import { config } from '../../config/env'; // Import app config
 
 export const askCommand: Command = {
   name: 'ask',
-  description: 'Ask the AI a question',
+  description: 'Ask the AI a question (uses current conversation context)',
   usage: '/ask <question>',
   aliases: ['ai', 'question'],
   requiresAI: true,
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
-    const lines: TerminalLine[] = [];
+    const lines: TerminalLine[] = []; // For UI updates
+    const timestamp = new Date().toISOString();
     
     if (args.length === 0) {
       lines.push({
-        id: `ask-${Date.now()}`,
+        id: `ask-err-${timestamp}`,
         type: 'error',
         content: '❌ Please provide a question. Usage: /ask <question>',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
-      
+      // This error line is for UI only, not saved to DB as it's a command syntax error.
       return { success: false, lines };
     }
     
     const question = args.join(' ');
+    // The user's full "/ask question" line is already added to UI and DB by App.tsx.
+    // The 'question' part was also saved as a user message by App.tsx.
+    // Now, process the AI interaction.
+
     const provider = context.llmManager.getActiveProvider();
-    
     if (!provider) {
       lines.push({
-        id: `ask-${Date.now()}`,
-        type: 'error',
-        content: '❌ No AI provider is configured.',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        id: `ask-err-noprovider-${timestamp}`, type: 'error',
+        content: '❌ No AI provider configured for /ask.', timestamp, user: 'claudia'
       });
-      
+      if (context.activeConversationId) {
+        await context.storage.addMessage({
+            conversationId: context.activeConversationId, role: 'assistant',
+            content: 'Error: No AI provider configured for /ask.', timestamp
+        });
+      }
       return { success: false, lines };
     }
-    
+
     try {
       context.setLoading(true);
       
-      // Get active personality for system prompt
       const activePersonality = await context.storage.getActivePersonality();
       let systemPrompt = activePersonality?.system_prompt || 
-        `You are Claudia, a helpful AI terminal companion. You are friendly, knowledgeable, and always ready to assist with questions and tasks.`;
+        `You are Claudia, a helpful AI terminal companion.`;
 
-      // Add avatar instructions to system prompt
       const avatarInstructions = `
 
 Avatar Commands (use these to enhance your responses):
@@ -61,45 +65,64 @@ Avatar Commands (use these to enhance your responses):
 Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
       
       const fullSystemPrompt = systemPrompt + avatarInstructions;
+      const llmMessages: LLMMessage[] = [{ role: 'system', content: fullSystemPrompt }];
 
-
-      const messages: LLMMessage[] = [
-        { role: 'system', content: fullSystemPrompt },
-        { role: 'user', content: question }
-      ];
-      
-      const response = await provider.generateResponse(messages);
-      
-      // Parse avatar commands from the response
-      const { cleanText, commands } = context.avatarController.parseAvatarCommands(response.content);
-      
-      // Execute avatar commands
-      if (commands.length > 0) {
-        await context.avatarController.executeCommands(commands);
+      if (context.activeConversationId && config.conversationHistoryLength > 0) {
+        // Fetch history. App.tsx already saved the current user's question as a message.
+        // So, getMessages will include it if historyLength is large enough.
+        const history = await context.storage.getMessages(
+          context.activeConversationId,
+          config.conversationHistoryLength 
+        );
+        history.forEach(msg => llmMessages.push({ role: msg.role, content: msg.content }));
+      } else {
+        // If no history or history length is 0, just add the current question.
+        // This is already covered if activeConversationId is present and history is fetched.
+        // If no activeConversationId, this command shouldn't ideally run, but as a fallback:
+        llmMessages.push({ role: 'user', content: question });
       }
       
-      // Add AI response to terminal
-      const responseLines = cleanText.split('\n').map((line, index) => ({
-        id: `ask-response-${Date.now()}-${index}`,
-        type: 'output' as const,
-        content: line,
-        timestamp: new Date().toISOString(),
-        user: 'claudia' as const
+      const response = await provider.generateResponse(llmMessages, {
+        temperature: 0.8,
+        maxTokens: activePersonality?.constraints?.max_response_length === 'short' ? 150 : 
+                   activePersonality?.constraints?.max_response_length === 'long' ? 1000 : 500,
+      });
+      
+      const { cleanText, commands: avatarCmds } = context.avatarController.parseAvatarCommands(response.content);
+      
+      if (avatarCmds.length > 0) {
+        await context.avatarController.executeCommands(avatarCmds);
+      }
+      
+      const responseTimestamp = new Date().toISOString();
+      const responseLinesForUI = cleanText.split('\n').map((lineContent, index) => ({
+        id: `ask-resp-${responseTimestamp}-${index}`, type: 'output' as const,
+        content: lineContent, timestamp: responseTimestamp, user: 'claudia' as const
       }));
       
-      lines.push(...responseLines);
+      lines.push(...responseLinesForUI); // For UI update via CommandRegistry
+
+      if (context.activeConversationId) {
+        await context.storage.addMessage({
+          conversationId: context.activeConversationId, role: 'assistant',
+          content: cleanText, timestamp: responseTimestamp,
+        });
+      }
       
       return { success: true, lines };
       
     } catch (error) {
+      const errorContent = `❌ AI Error (ask): ${error instanceof Error ? error.message : 'Unknown error'}`;
       lines.push({
-        id: `ask-${Date.now()}`,
-        type: 'error',
-        content: `❌ AI Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        id: `ask-err-runtime-${timestamp}`, type: 'error', content: errorContent,
+        timestamp, user: 'claudia'
       });
-      
+      if (context.activeConversationId) {
+        await context.storage.addMessage({
+            conversationId: context.activeConversationId, role: 'assistant',
+            content: `Error processing /ask command: ${errorContent}`, timestamp
+        });
+      }
       return { success: false, lines };
     } finally {
       context.setLoading(false);
@@ -107,104 +130,5 @@ Respond naturally to the user's message while optionally incorporating avatar co
   }
 };
 
-// This will handle direct messages to AI (non-commands)
-export async function handleAIMessage(
-  message: string, 
-  context: CommandContext
-): Promise<CommandResult> {
-  const lines: TerminalLine[] = [];
-  const provider = context.llmManager.getActiveProvider();
-  
-  if (!provider) {
-    lines.push({
-      id: `ai-${Date.now()}`,
-      type: 'error',
-      content: '❌ No AI provider configured. Please set up an API key.',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
-    });
-    
-    return { success: false, lines };
-  }
-  
-  try {
-    context.setLoading(true);
-    
-    // Get active personality or fallback to default
-    const activePersonality = await context.storage.getActivePersonality();
-    
-    // Create system prompt using personality or fallback
-    let systemPrompt = '';
-    if (activePersonality && activePersonality.system_prompt) {
-      systemPrompt = activePersonality.system_prompt;
-    } else {
-      // Fallback system prompt if no personality is set
-      systemPrompt = `You are Claudia, a helpful AI terminal companion. You are friendly, knowledgeable, and always ready to assist with questions and tasks.`;
-    }
-    
-    // Add avatar commands instructions to any personality
-    const avatarInstructions = `
-
-Avatar Commands (use these to enhance your responses):
-- Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
-- Use [AVATAR:position=center] to change position (center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking)
-- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
-- Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
-- Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
-- Combine multiple attributes: [AVATAR:expression=excited,action=wave,position=center]
-
-Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
-    
-    const fullSystemPrompt = systemPrompt + avatarInstructions;
-    
-    const messages: LLMMessage[] = [
-      {
-        role: 'system',
-        content: fullSystemPrompt
-      },
-      {
-        role: 'user',
-        content: message
-      }
-    ];
-    
-    const response = await provider.generateResponse(messages, {
-      temperature: 0.8,
-      maxTokens: 500
-    });
-    
-    // Parse avatar commands from the response
-    const { cleanText, commands } = context.avatarController.parseAvatarCommands(response.content);
-    
-    // Execute avatar commands
-    if (commands.length > 0) {
-      await context.avatarController.executeCommands(commands);
-    }
-    
-    // Add AI response to terminal
-    const responseLines = cleanText.split('\n').map((line, index) => ({
-      id: `ai-response-${Date.now()}-${index}`,
-      type: 'output' as const,
-      content: line,
-      timestamp: new Date().toISOString(),
-      user: 'claudia' as const
-    }));
-    
-    lines.push(...responseLines);
-    
-    return { success: true, lines };
-    
-  } catch (error) {
-    lines.push({
-      id: `ai-${Date.now()}`,
-      type: 'error',
-      content: `❌ AI Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
-    });
-    
-    return { success: false, lines };
-  } finally {
-    context.setLoading(false);
-  }
-}
+// The handleAIMessage function is removed as its logic is now primarily within CommandRegistryImpl.execute
+// for non-command inputs.

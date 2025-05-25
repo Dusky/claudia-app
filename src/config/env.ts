@@ -16,6 +16,7 @@ export interface AppConfig {
   // Application Settings
   defaultTheme: string;
   databasePath: string;
+  conversationHistoryLength: number; // Added for conversation context
   
   // Performance Settings
   avatarCacheSize: number;
@@ -54,6 +55,7 @@ class ConfigManager {
       // Application Settings
       defaultTheme: import.meta.env.VITE_DEFAULT_THEME || 'mainframe70s',
       databasePath: import.meta.env.VITE_DATABASE_PATH || './claudia.db',
+      conversationHistoryLength: parseInt(import.meta.env.VITE_CONVERSATION_HISTORY_LENGTH || '10'),
       
       // Performance Settings
       avatarCacheSize: parseInt(import.meta.env.VITE_AVATAR_CACHE_SIZE || '100'),
@@ -83,6 +85,9 @@ class ConfigManager {
     // Validate numeric settings
     if (this.config.avatarCacheSize <= 0) {
       errors.push('Avatar cache size must be positive');
+    }
+    if (this.config.conversationHistoryLength < 0) {
+      errors.push('Conversation history length cannot be negative');
     }
 
     if (this.config.llmTimeout <= 0) {
@@ -176,6 +181,7 @@ class ConfigManager {
     console.log('Default Image Provider:', this.config.defaultImageProvider);
     console.log('Default Theme:', this.config.defaultTheme);
     console.log('Database Path:', this.config.databasePath);
+    console.log('Conversation History Length:', this.config.conversationHistoryLength);
     console.log('Avatar Cache Size:', this.config.avatarCacheSize);
     console.log('LLM Timeout:', this.config.llmTimeout + 'ms');
     console.log('Image Timeout:', this.config.imageTimeout + 'ms');

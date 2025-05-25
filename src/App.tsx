@@ -15,6 +15,8 @@ import type { AvatarState } from './avatar/types';
 import './App.css';
 import './styles/overlays.css'; 
 
+const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
+
 function App() {
   const [currentTheme, setCurrentTheme] = useState(config.defaultTheme);
   const [lines, setLines] = useState<TerminalLine[]>([]);
@@ -37,6 +39,9 @@ function App() {
   const [allPersonalitiesInModal, setAllPersonalitiesInModal] = useState<Personality[]>([]);
   const [activePersonalityIdInModal, setActivePersonalityIdInModal] = useState<string | null>(null);
 
+  // Active Conversation State
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
 
   // Initialize providers and systems
   const llmManager = useMemo(() => new LLMProviderManager(), []);
@@ -53,6 +58,7 @@ function App() {
   // Initialize system on mount
   useEffect(() => {
     const initializeSystem = async () => {
+      let initialLines: TerminalLine[] = [];
       try {        
         const activeP = await database.getActivePersonality();
         if (!activeP) {
@@ -61,6 +67,32 @@ function App() {
               await database.savePersonality(DEFAULT_PERSONALITY);
             }
             await database.setActivePersonality('default');
+        }
+
+        let currentConvId = await database.getSetting<string>(LAST_ACTIVE_CONVERSATION_ID_KEY);
+        let conversationRestored = false;
+        if (currentConvId) {
+          const conv = await database.getConversation(currentConvId);
+          if (conv) {
+            setActiveConversationId(conv.id);
+            const history = await database.getMessages(conv.id, config.conversationHistoryLength + 20); // Load a bit more for UI scrollback
+            initialLines = history.map(m => ({
+                id: `hist-${m.id}-${m.timestamp}`, 
+                type: m.role === 'user' ? 'input' : 'output',
+                content: m.content,
+                timestamp: m.timestamp,
+                user: m.role === 'user' ? 'user' : 'claudia'
+            } as TerminalLine));
+            conversationRestored = true;
+          } else {
+            currentConvId = null; 
+          }
+        }
+        
+        if (!currentConvId) {
+          const newConv = await database.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
+          setActiveConversationId(newConv.id);
+          await database.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, newConv.id);
         }
         
         try {
@@ -72,90 +104,40 @@ function App() {
           console.warn('Image provider initialization failed:', error);
         }
         
-        const initLines: TerminalLine[] = [
-          {
-            id: 'init-1',
-            type: 'system',
-            content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0',
-            timestamp: new Date().toISOString()
-          },
-          {
-            id: 'init-2',
-            type: 'system',
-            content: 'Booting up AI core systems... Please wait.',
-            timestamp: new Date().toISOString()
-          },
-          {
-            id: 'init-3',
-            type: 'system',
-            content: '✅ System Online. All modules loaded.',
-            timestamp: new Date().toISOString()
-          },
-          {
-            id: 'init-4',
-            type: 'output',
-            content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
-          },
-          {
-            id: 'init-5',
-            type: 'output',
-            content: 'Type /help to see available commands, or just start chatting!',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
-          }
-        ];
-        
-        setLines(initLines);
+        if (!conversationRestored || initialLines.length === 0) {
+          const greetingLines: TerminalLine[] = [
+            { id: 'init-1', type: 'system', content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0', timestamp: new Date().toISOString() },
+            { id: 'init-2', type: 'system', content: 'Booting up AI core systems... Please wait.', timestamp: new Date().toISOString() },
+            { id: 'init-3', type: 'system', content: '✅ System Online. All modules loaded.', timestamp: new Date().toISOString() },
+            { id: 'init-4', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' },
+            { id: 'init-5', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' }
+          ];
+          initialLines = [...initialLines, ...greetingLines];
+        }
+        setLines(initialLines);
         
         if (imageManager.getActiveProvider() && avatarController) {
           await avatarController.executeCommands([{
-            show: true,
-            expression: 'happy',
-            position: 'beside-text',
-            action: 'wave',
-            pose: 'standing'
+            show: true, expression: 'happy', position: 'beside-text', action: 'wave', pose: 'standing'
           }]);
         }
         
       } catch (error) {
         console.error('System initialization error:', error);
-        
         const errorLine: TerminalLine = {
-          id: 'init-error',
-          type: 'error',
+          id: 'init-error', type: 'error',
           content: `⚠️ System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
           timestamp: new Date().toISOString()
         };
-        
-        const continueLines: TerminalLine[] = [
-          errorLine,
-          {
-            id: 'init-fallback-1',
-            type: 'output',
-            content: 'Hi! I\'m Claudia. Some features might be limited. Check API key configurations if issues persist.',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
-          },
-          {
-            id: 'init-fallback-2',
-            type: 'output',
-            content: 'Type /help to see available commands!',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
-          }
-        ];
-        
-        setLines(prev => [...prev, ...continueLines]);
+        setLines(prev => [...prev, errorLine]);
       }
     };
 
     initializeSystem();
   }, [llmManager, imageManager, database, avatarController]);
 
-  const addLines = (newLines: TerminalLine[]) => {
-    setLines(prev => [...prev, newLines].flat());
+  const addLinesToDisplay = (newLines: TerminalLine[]) => {
+    setLines(prev => [...prev, ...newLines].flat());
   };
 
   const openPersonalityEditor = async (personalityToEdit?: Personality | null | undefined) => {
@@ -194,33 +176,34 @@ function App() {
       user: 'claudia'
     };
     
-    addLines([successLine]);
+    addLinesToDisplay([successLine]);
+    // Note: This message is not saved to DB as it's a system feedback, not part of conversation.
     
     const allPs = await database.getAllPersonalities();
     const activeP = await database.getActivePersonality();
     setAllPersonalitiesInModal(allPs);
     setActivePersonalityIdInModal(activeP ? activeP.id : null);
-    setEditingPersonalityInModal(personality); // Keep modal open with current data
+    setEditingPersonalityInModal(personality); 
   };
 
   const deletePersonalityInModal = async (personalityId: string): Promise<void> => {
     const personalityToDelete = await database.getPersonality(personalityId);
     if (!personalityToDelete) {
-      addLines([{ id: `del-err-${Date.now()}`, type: 'error', content: `Personality ${personalityId} not found.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Personality ${personalityId} not found.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
       return;
     }
     if (personalityToDelete.isDefault) {
-      addLines([{ id: `del-err-${Date.now()}`, type: 'error', content: `Cannot delete the default personality.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Cannot delete the default personality.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
       return;
     }
     const activeP = await database.getActivePersonality();
     if (activeP && activeP.id === personalityId) {
       await database.setActivePersonality(DEFAULT_PERSONALITY.id); 
-      addLines([{ id: `del-switch-${Date.now()}`, type: 'system', content: `Switched to default personality as active one was deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-switch-${Date.now()}`, type: 'system', content: `Switched to default personality as active one was deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
     }
 
     await database.deletePersonality(personalityId);
-    addLines([{ id: `del-succ-${Date.now()}`, type: 'output', content: `🗑️ Personality "${personalityToDelete.name}" deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+    addLinesToDisplay([{ id: `del-succ-${Date.now()}`, type: 'output', content: `🗑️ Personality "${personalityToDelete.name}" deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
     
     const allPs = await database.getAllPersonalities();
     const newActiveP = await database.getActivePersonality();
@@ -231,17 +214,44 @@ function App() {
 
 
   const handleInput = async (input: string) => {
+    const userLine: TerminalLine = {
+      id: `user-${Date.now()}`,
+      type: 'input',
+      content: input,
+      timestamp: new Date().toISOString(),
+      user: 'user'
+    };
+    addLinesToDisplay([userLine]);
+
+    if (activeConversationId && !input.startsWith('/')) { // Save non-command user messages
+      await database.addMessage({
+        conversationId: activeConversationId,
+        role: 'user',
+        content: userLine.content,
+        timestamp: userLine.timestamp,
+      });
+    } else if (activeConversationId && input.startsWith('/ask')) { // Save /ask command's question part as user message
+        await database.addMessage({
+            conversationId: activeConversationId,
+            role: 'user',
+            content: input.substring(input.indexOf(' ') + 1), // content of /ask
+            timestamp: userLine.timestamp,
+        });
+    }
+
+
     const context: CommandContext = {
       llmManager,
       imageManager,
       avatarController,
       storage: database,
-      addLines,
+      addLines: addLinesToDisplay, 
       setLoading: setIsLoading,
       currentTheme,
       setTheme: setCurrentTheme,
       openPersonalityEditor,
-      commandRegistry: commandRegistry 
+      commandRegistry: commandRegistry,
+      activeConversationId
     };
 
     try {
@@ -249,15 +259,15 @@ function App() {
       const result = await commandRegistry.execute(input.trim(), context);
         
       if (result.lines && result.lines.length > 0) {
-        addLines(result.lines);
+        addLinesToDisplay(result.lines); // AI responses are saved by CommandRegistry/ai.ts
       }
       
       if (result.metadata?.action === 'open_personality_editor') {
-        // This is now handled by the command calling openPersonalityEditor directly
+        // Handled by command directly calling openPersonalityEditor
       }
       
       if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
-        setLines([
+        setLines([ 
           {
             id: `clear-${Date.now()}`,
             type: 'system',
@@ -275,7 +285,15 @@ function App() {
         timestamp: new Date().toISOString(),
         user: 'claudia'
       };
-      addLines([errorLine]);
+      addLinesToDisplay([errorLine]);
+      if (activeConversationId) { // Save error as an assistant message
+          await database.addMessage({
+              conversationId: activeConversationId,
+              role: 'assistant',
+              content: `System Error: ${errorLine.content}`,
+              timestamp: errorLine.timestamp
+          });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -309,7 +327,7 @@ function App() {
         storage={database}
       />
 
-      {personalityModalOpen && ( // Conditionally render to ensure fresh state if needed
+      {personalityModalOpen && ( 
         <PersonalityModal
           isOpen={personalityModalOpen}
           onClose={closePersonalityModal}

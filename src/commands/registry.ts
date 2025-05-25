@@ -1,12 +1,15 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
-// AI option constants
-const AI_OPTION_TEMPERATURE_KEY = 'ai.temperature';
-const AI_OPTION_CONTEXT_LENGTH_KEY = 'ai.contextLength';
-const AI_OPTION_MAX_TOKENS_KEY = 'ai.maxTokens';
-const DEFAULT_AI_TEMPERATURE = 0.7;
-const DEFAULT_AI_CONTEXT_LENGTH = 10;
-const DEFAULT_AI_MAX_TOKENS = 2048;
+import type { LLMMessage } from '../providers/llm/types';
+import { config } from '../config/env'; // Import global config
+
+// AI option constants (kept for now, but global config.conversationHistoryLength is preferred)
+// const AI_OPTION_TEMPERATURE_KEY = 'ai.temperature';
+// const AI_OPTION_CONTEXT_LENGTH_KEY = 'ai.contextLength';
+// const AI_OPTION_MAX_TOKENS_KEY = 'ai.maxTokens';
+// const DEFAULT_AI_TEMPERATURE = 0.7;
+// const DEFAULT_AI_CONTEXT_LENGTH = 10; // This will be overridden by global config
+// const DEFAULT_AI_MAX_TOKENS = 2048;
 
 export class CommandRegistryImpl implements CommandRegistry {
   private commands = new Map<string, Command>();
@@ -15,7 +18,6 @@ export class CommandRegistryImpl implements CommandRegistry {
   register(command: Command): void {
     this.commands.set(command.name, command);
     
-    // Register aliases
     if (command.aliases) {
       command.aliases.forEach(alias => {
         this.aliases.set(alias, command.name);
@@ -27,8 +29,6 @@ export class CommandRegistryImpl implements CommandRegistry {
     const command = this.commands.get(commandName);
     if (command) {
       this.commands.delete(commandName);
-      
-      // Remove aliases
       if (command.aliases) {
         command.aliases.forEach(alias => {
           this.aliases.delete(alias);
@@ -38,16 +38,13 @@ export class CommandRegistryImpl implements CommandRegistry {
   }
 
   get(commandName: string): Command | undefined {
-    // Check direct command name
     const command = this.commands.get(commandName);
     if (command) return command;
     
-    // Check aliases
     const aliasTarget = this.aliases.get(commandName);
     if (aliasTarget) {
       return this.commands.get(aliasTarget);
     }
-    
     return undefined;
   }
 
@@ -56,10 +53,9 @@ export class CommandRegistryImpl implements CommandRegistry {
   }
 
   async execute(input: string, context: CommandContext): Promise<CommandResult> {
-    // Parse command and arguments
     const trimmed = input.trim();
+    const timestamp = new Date().toISOString(); // For potential error messages
     
-    // Check if it's a command (starts with /)
     if (!trimmed.startsWith('/')) {
       // Not a command, treat as input for AI
       const userInput = trimmed;
@@ -67,202 +63,162 @@ export class CommandRegistryImpl implements CommandRegistry {
 
       if (!llmProvider || !llmProvider.isConfigured()) {
         const errorLine: TerminalLine = {
-          id: `error-no-llm-${Date.now()}`,
-          type: 'error',
+          id: `error-no-llm-${timestamp}`, type: 'error',
           content: 'No AI provider is configured or active. Please check your settings.',
-          timestamp: new Date().toISOString(),
-          user: 'claudia'
+          timestamp, user: 'claudia'
         };
-        return {
-          success: false,
-          lines: [errorLine],
-          error: 'No AI provider configured or active.'
-        };
+        // Save error to DB if active conversation
+        if (context.activeConversationId) {
+            await context.storage.addMessage({
+                conversationId: context.activeConversationId, role: 'assistant',
+                content: 'Error: No AI provider configured or active.', timestamp
+            });
+        }
+        return { success: false, lines: [errorLine], error: 'No AI provider configured or active.' };
       }
 
       context.setLoading(true);
-
-      const userLine: TerminalLine = {
-        id: `user-${Date.now()}`,
-        type: 'input',
-        content: userInput,
-        timestamp: new Date().toISOString(),
-        user: 'user'
-      };
+      // User input line is already added to UI and DB by App.tsx's handleInput
 
       try {
-        const ACTIVE_CONVERSATION_ID_KEY = 'activeConversationId';
-        // Fetch AI options from storage
-        const optedContextLength = await context.storage.getSetting<number>(AI_OPTION_CONTEXT_LENGTH_KEY, DEFAULT_AI_CONTEXT_LENGTH);
-        const optedTemperature = await context.storage.getSetting<number>(AI_OPTION_TEMPERATURE_KEY, DEFAULT_AI_TEMPERATURE);
-        const optedMaxTokens = await context.storage.getSetting<number>(AI_OPTION_MAX_TOKENS_KEY, DEFAULT_AI_MAX_TOKENS);
+        // const optedTemperature = await context.storage.getSetting<number>(AI_OPTION_TEMPERATURE_KEY, DEFAULT_AI_TEMPERATURE);
+        // const optedMaxTokens = await context.storage.getSetting<number>(AI_OPTION_MAX_TOKENS_KEY, DEFAULT_AI_MAX_TOKENS);
+        // Using global config for history length
+        const historyLength = config.conversationHistoryLength;
 
-        let activeConversationId = await context.storage.getSetting<string>(ACTIVE_CONVERSATION_ID_KEY);
-
-        if (!activeConversationId) {
-          const newConversation = await context.storage.createConversation({ title: 'New Conversation' });
-          activeConversationId = newConversation.id;
-          await context.storage.setSetting(ACTIVE_CONVERSATION_ID_KEY, activeConversationId);
-        }
-
-        // Save user message to DB
-        await context.storage.addMessage({
-          conversationId: activeConversationId,
-          role: 'user',
-          content: userLine.content,
-          timestamp: userLine.timestamp,
-        });
-
-        // Fetch conversation history using the configured context length
-        const dbMessages = await context.storage.getMessages(activeConversationId, optedContextLength ?? DEFAULT_AI_CONTEXT_LENGTH);
+        const llmMessages: LLMMessage[] = [];
         
-        const llmMessages: import('../providers/llm/types').LLMMessage[] = dbMessages.map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-        
-        // The user's current message (userInput) is already included in dbMessages
-        // because it was added to the database before calling getMessages.
-        // So, no need for an additional check or push here for llmMessages.
-
-        // Add system prompt from personality
         const activePersonality = await context.storage.getActivePersonality();
-        if (activePersonality && activePersonality.system_prompt) {
-          llmMessages.unshift({ role: 'system', content: activePersonality.system_prompt });
+        let systemPrompt = activePersonality?.system_prompt || 
+          `You are Claudia, a helpful AI terminal companion.`;
+        const avatarInstructions = `
+
+Avatar Commands (use these to enhance your responses):
+- Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
+- Use [AVATAR:position=center] to change position (center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking)
+- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
+- Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
+- Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
+- Combine multiple attributes: [AVATAR:expression=excited,action=wave,position=center]
+
+Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
+        llmMessages.push({ role: 'system', content: systemPrompt + avatarInstructions });
+
+        if (context.activeConversationId && historyLength > 0) {
+          // App.tsx already saved the current user message.
+          // getMessages will fetch the last `historyLength` messages, which includes the current one.
+          const dbMessages = await context.storage.getMessages(context.activeConversationId, historyLength);
+          dbMessages.forEach(msg => {
+            llmMessages.push({ role: msg.role, content: msg.content });
+          });
+        } else {
+          // Fallback if no active conversation or history length is 0
+          llmMessages.push({ role: 'user', content: userInput });
         }
         
         const llmResponse = await llmProvider.generateResponse(llmMessages, {
-          temperature: optedTemperature ?? DEFAULT_AI_TEMPERATURE,
-          maxTokens: optedMaxTokens ?? DEFAULT_AI_MAX_TOKENS,
-          // stream: false, // if you add streaming options later
+          temperature: 0.8, // Example, could be from personality
+          maxTokens: activePersonality?.constraints?.max_response_length === 'short' ? 150 : 
+                     activePersonality?.constraints?.max_response_length === 'long' ? 1000 : 500,
         });
 
-        // Parse avatar commands from the LLM response
         const { cleanText, commands: avatarCommands } = context.avatarController.parseAvatarCommands(llmResponse.content);
-
-        const assistantLine: TerminalLine = {
-          id: `assistant-${Date.now()}`,
-          type: 'output',
-          content: cleanText, // Use cleaned text for display
-          timestamp: new Date().toISOString(),
-          user: 'claudia'
-        };
-
-        // Save assistant message (cleaned text) to DB
-        await context.storage.addMessage({
-          conversationId: activeConversationId,
-          role: 'assistant',
-          content: assistantLine.content, // Save cleaned text
-          timestamp: assistantLine.timestamp,
-        });
+        const assistantTimestamp = new Date().toISOString();
         
-        // Execute avatar commands asynchronously (but await completion before finishing this turn)
+        const assistantLinesForUI: TerminalLine[] = cleanText.split('\n').map((line, index) => ({
+          id: `assistant-${assistantTimestamp}-${index}`, type: 'output',
+          content: line, timestamp: assistantTimestamp, user: 'claudia'
+        }));
+
+        if (context.activeConversationId) {
+          await context.storage.addMessage({
+            conversationId: context.activeConversationId, role: 'assistant',
+            content: cleanText, timestamp: assistantTimestamp,
+          });
+        }
+        
         if (avatarCommands.length > 0) {
           try {
             await context.avatarController.executeCommands(avatarCommands);
           } catch (avatarError) {
             console.error("Error executing avatar commands:", avatarError);
-            // Optionally, add a system message to the terminal about avatar command failure
-            // For now, we'll just log it and not interrupt the chat flow.
           }
         }
 
         context.setLoading(false);
-        return { success: true, lines: [userLine, assistantLine] };
+        // The userLine was already added by App.tsx. We only return assistant lines here.
+        return { success: true, lines: assistantLinesForUI };
 
       } catch (error) {
         context.setLoading(false);
         const errorContent = error instanceof Error ? error.message : 'Unknown error during AI response generation.';
         const errorLine: TerminalLine = {
-          id: `error-ai-${Date.now()}`,
-          type: 'error',
-          content: `AI Error: ${errorContent}`,
-          timestamp: new Date().toISOString(),
-          user: 'claudia'
+          id: `error-ai-${timestamp}`, type: 'error',
+          content: `AI Error: ${errorContent}`, timestamp, user: 'claudia'
         };
-        // Return userLine as well so their input isn't lost on error
-        return { success: false, lines: [userLine, errorLine], error: errorContent };
+        if (context.activeConversationId) {
+            await context.storage.addMessage({
+                conversationId: context.activeConversationId, role: 'assistant',
+                content: `System Error: AI response generation failed. ${errorContent}`, timestamp
+            });
+        }
+        return { success: false, lines: [errorLine], error: errorContent };
       }
     }
 
-    // It's a command, proceed with command parsing
-    // Remove the / and split into parts
+    // It's a command
     const parts = trimmed.slice(1).split(' ');
     const commandName = parts[0].toLowerCase();
     const args = parts.slice(1);
-
-    // Find the command
     const command = this.get(commandName);
+
     if (!command) {
       const errorLine: TerminalLine = {
-        id: `error-${Date.now()}`,
-        type: 'error',
+        id: `error-cmd-unknown-${timestamp}`, type: 'error',
         content: `Unknown command: /${commandName}. Type /help for available commands.`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       };
-      
-      return {
-        success: false,
-        lines: [errorLine],
-        error: `Unknown command: ${commandName}`
-      };
+      return { success: false, lines: [errorLine], error: `Unknown command: ${commandName}` };
     }
 
-    // Check if required providers are available
-    if (command.requiresAI && !context.llmManager.getActiveProvider()) {
+    if (command.requiresAI && (!context.llmManager.getActiveProvider() || !context.llmManager.getActiveProvider()?.isConfigured())) {
       const errorLine: TerminalLine = {
-        id: `error-${Date.now()}`,
-        type: 'error',
-        content: `Command /${commandName} requires AI provider, but none is configured.`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        id: `error-cmd-noai-${timestamp}`, type: 'error',
+        content: `Command /${commandName} requires a configured AI provider.`,
+        timestamp, user: 'claudia'
       };
-      
-      return {
-        success: false,
-        lines: [errorLine],
-        error: 'No AI provider configured'
-      };
+      return { success: false, lines: [errorLine], error: 'No AI provider configured for command' };
     }
 
-    if (command.requiresImageGen && !context.imageManager.getActiveProvider()) {
+    if (command.requiresImageGen && (!context.imageManager.getActiveProvider() || !context.imageManager.getActiveProvider()?.isConfigured())) {
       const errorLine: TerminalLine = {
-        id: `error-${Date.now()}`,
-        type: 'error',
-        content: `Command /${commandName} requires image generation provider, but none is configured.`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        id: `error-cmd-noimg-${timestamp}`, type: 'error',
+        content: `Command /${commandName} requires a configured Image provider.`,
+        timestamp, user: 'claudia'
       };
-      
-      return {
-        success: false,
-        lines: [errorLine],
-        error: 'No image generation provider configured'
-      };
+      return { success: false, lines: [errorLine], error: 'No Image provider configured for command' };
     }
 
     try {
-      // Execute the command
       return await command.execute(args, context);
     } catch (error) {
+      const errorContent = error instanceof Error ? error.message : 'Unknown error';
       const errorLine: TerminalLine = {
-        id: `error-${Date.now()}`,
-        type: 'error',
-        content: `Error executing /${commandName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        id: `error-cmd-exec-${timestamp}`, type: 'error',
+        content: `Error executing /${commandName}: ${errorContent}`,
+        timestamp, user: 'claudia'
       };
-      
-      return {
-        success: false,
-        lines: [errorLine],
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      // Save command execution error to conversation if relevant
+      if (context.activeConversationId && command.name !== 'ask') { // 'ask' handles its own errors more specifically
+          await context.storage.addMessage({
+              conversationId: context.activeConversationId, role: 'assistant', // Error from Claudia's system
+              content: `System Error executing command /${commandName}: ${errorContent}`, timestamp
+          });
+      }
+      return { success: false, lines: [errorLine], error: errorContent };
     }
   }
 
-  // Helper method to parse command arguments with quotes support
   static parseArgs(argString: string): string[] {
     const args: string[] = [];
     let current = '';
