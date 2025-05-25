@@ -1,7 +1,7 @@
 import type { Command, CommandResult, CommandContext } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
-import { DEFAULT_PERSONALITY } from '../../types/personality';
-import type { MockDatabase } from '../../storage/mockDatabase';
+import { DEFAULT_PERSONALITY, type Personality } from '../../types/personality'; // Added Personality type import
+import type { StorageService } from '../../storage/types'; // Changed MockDatabase to StorageService
 
 export const personalityCommand: Command = {
   name: 'personality',
@@ -16,10 +16,10 @@ export const personalityCommand: Command = {
     switch (subcommand) {
       case 'list':
       case undefined:
-        return await listPersonalities(storage);
+        return listPersonalities(storage);
         
       case 'current':
-        return await showCurrentPersonality(storage);
+        return showCurrentPersonality(storage);
         
       case 'switch':
       case 'use':
@@ -36,11 +36,22 @@ export const personalityCommand: Command = {
             }]
           };
         }
-        return await switchPersonality(args[1], storage);
+        return switchPersonality(args[1], storage, context); // Pass context for openPersonalityEditor
         
       case 'create':
       case 'new':
-        return await openPersonalityEditor(null, context);
+        // This command now directly triggers the modal via context
+        context.openPersonalityEditor(null);
+        return {
+          success: true,
+          lines: [{
+            id: `personality-editor-open-${Date.now()}`,
+            type: 'output',
+            content: 'Opening personality editor to create new personality...',
+            timestamp: new Date().toISOString(),
+            user: 'claudia'
+          }]
+        };
         
       case 'edit':
       case 'modify':
@@ -56,7 +67,31 @@ export const personalityCommand: Command = {
             }]
           };
         }
-        return await openPersonalityEditor(args[1], context);
+        // This command now directly triggers the modal via context
+        const personalityToEdit = await storage.getPersonality(args[1]);
+        if (!personalityToEdit) {
+          return {
+            success: false,
+            lines: [{
+              id: `personality-edit-error-${Date.now()}`,
+              type: 'error',
+              content: `Personality with ID "${args[1]}" not found.`,
+              timestamp: new Date().toISOString(),
+              user: 'claudia'
+            }]
+          };
+        }
+        context.openPersonalityEditor(personalityToEdit);
+        return {
+          success: true,
+          lines: [{
+            id: `personality-editor-open-${Date.now()}`,
+            type: 'output',
+            content: `Opening personality editor for "${personalityToEdit.name}"...`,
+            timestamp: new Date().toISOString(),
+            user: 'claudia'
+          }]
+        };
         
       case 'delete':
       case 'remove':
@@ -72,10 +107,10 @@ export const personalityCommand: Command = {
             }]
           };
         }
-        return await deletePersonality(args[1], storage);
+        return deletePersonality(args[1], storage);
         
       case 'init':
-        return await initializeDefaultPersonality(storage);
+        return initializeDefaultPersonality(storage);
         
       default:
         return {
@@ -140,12 +175,12 @@ export const personalityCommand: Command = {
   }
 };
 
-async function listPersonalities(storage: MockDatabase): Promise<CommandResult> {
-  const personalities = storage.getAllPersonalities();
-  const activePersonality = storage.getActivePersonality();
+async function listPersonalities(storage: StorageService): Promise<CommandResult> {
+  const personalities = await storage.getAllPersonalities();
+  const activePersonality = await storage.getActivePersonality();
   const lines: TerminalLine[] = [];
   
-  if (personalities.length === 0) {
+  if (!personalities || personalities.length === 0) {
     lines.push({
       id: `personality-list-${Date.now()}`,
       type: 'output',
@@ -176,7 +211,7 @@ async function listPersonalities(storage: MockDatabase): Promise<CommandResult> 
     const isActive = activePersonality?.id === p.id;
     const indicator = isActive ? '→ ●' : '  ○';
     const defaultLabel = p.isDefault ? ' (default)' : '';
-    const usageCount = p.usage_count > 0 ? ` • Used ${p.usage_count} times` : '';
+    const usageCount = p.usage_count && p.usage_count > 0 ? ` • Used ${p.usage_count} times` : '';
     
     lines.push({
       id: `personality-list-${Date.now()}-${index}-name`,
@@ -230,8 +265,8 @@ async function listPersonalities(storage: MockDatabase): Promise<CommandResult> 
   return { success: true, lines };
 }
 
-async function showCurrentPersonality(storage: MockDatabase): Promise<CommandResult> {
-  const personality = storage.getActivePersonality();
+async function showCurrentPersonality(storage: StorageService): Promise<CommandResult> {
+  const personality = await storage.getActivePersonality();
   const lines: TerminalLine[] = [];
   
   if (!personality) {
@@ -341,16 +376,25 @@ async function showCurrentPersonality(storage: MockDatabase): Promise<CommandRes
     user: 'claudia'
   });
   
+  const usageCountText = personality.usage_count && personality.usage_count > 0 ? ` • Used ${personality.usage_count} times` : '';
+  lines.push({
+    id: `personality-current-${Date.now()}-id`,
+    type: 'output',
+    content: `ID: ${personality.id}${usageCountText}`,
+    timestamp: new Date().toISOString(),
+    user: 'claudia'
+  });
+  
   return { success: true, lines };
 }
 
-async function switchPersonality(id: string, storage: MockDatabase): Promise<CommandResult> {
-  const personality = storage.getPersonality(id);
+async function switchPersonality(id: string, storage: StorageService, context: CommandContext): Promise<CommandResult> {
+  const personality = await storage.getPersonality(id);
   const lines: TerminalLine[] = [];
   
   if (!personality) {
     lines.push({
-      id: `personality-switch-${Date.now()}`,
+      id: `personality-switch-error-${Date.now()}`,
       type: 'error',
       content: `Personality "${id}" not found. Use "/personality list" to see available personalities.`,
       timestamp: new Date().toISOString(),
@@ -359,11 +403,19 @@ async function switchPersonality(id: string, storage: MockDatabase): Promise<Com
     return { success: false, lines };
   }
   
-  const success = storage.setActivePersonality(id);
+  const success = await storage.setActivePersonality(id);
   
   if (success) {
+    // Update the system prompt in the LLM manager if personality has one
+    // This part is a placeholder for when system prompt generation is fully integrated
+    // For now, we just confirm the switch.
+    // if (context.llmManager.updateSystemPrompt) {
+    //   const systemPrompt = generateSystemPrompt(personality); // Assuming generateSystemPrompt exists
+    //   context.llmManager.updateSystemPrompt(systemPrompt);
+    // }
+
     lines.push({
-      id: `personality-switch-${Date.now()}-success`,
+      id: `personality-switch-success-${Date.now()}`,
       type: 'output',
       content: `◈ Switched to personality: ${personality.name}`,
       timestamp: new Date().toISOString(),
@@ -389,13 +441,13 @@ async function switchPersonality(id: string, storage: MockDatabase): Promise<Com
   }
 }
 
-async function deletePersonality(id: string, storage: MockDatabase): Promise<CommandResult> {
-  const personality = storage.getPersonality(id);
+async function deletePersonality(id: string, storage: StorageService): Promise<CommandResult> {
+  const personality = await storage.getPersonality(id);
   const lines: TerminalLine[] = [];
   
   if (!personality) {
     lines.push({
-      id: `personality-delete-${Date.now()}`,
+      id: `personality-delete-error-${Date.now()}`,
       type: 'error',
       content: `Personality "${id}" not found.`,
       timestamp: new Date().toISOString(),
@@ -415,11 +467,11 @@ async function deletePersonality(id: string, storage: MockDatabase): Promise<Com
     return { success: false, lines };
   }
   
-  const success = storage.deletePersonality(id);
+  const success = await storage.deletePersonality(id);
   
   if (success) {
     lines.push({
-      id: `personality-delete-${Date.now()}-success`,
+      id: `personality-delete-success-${Date.now()}`,
       type: 'output',
       content: `✗ Deleted personality: ${personality.name}`,
       timestamp: new Date().toISOString(),
@@ -438,13 +490,13 @@ async function deletePersonality(id: string, storage: MockDatabase): Promise<Com
   }
 }
 
-async function initializeDefaultPersonality(storage: MockDatabase): Promise<CommandResult> {
-  const existing = storage.getPersonality('default');
+async function initializeDefaultPersonality(storage: StorageService): Promise<CommandResult> {
+  const existing = await storage.getPersonality('default');
   const lines: TerminalLine[] = [];
   
   if (existing) {
     lines.push({
-      id: `personality-init-${Date.now()}`,
+      id: `personality-init-exists-${Date.now()}`,
       type: 'output',
       content: 'Default personality already exists.',
       timestamp: new Date().toISOString(),
@@ -453,11 +505,11 @@ async function initializeDefaultPersonality(storage: MockDatabase): Promise<Comm
     return { success: true, lines };
   }
   
-  storage.savePersonality(DEFAULT_PERSONALITY);
-  storage.setActivePersonality('default');
+  await storage.savePersonality(DEFAULT_PERSONALITY);
+  await storage.setActivePersonality('default');
   
   lines.push({
-    id: `personality-init-${Date.now()}-success`,
+    id: `personality-init-success-${Date.now()}`,
     type: 'output',
     content: '◈ Initialized default personality: Claudia - Default',
     timestamp: new Date().toISOString(),
@@ -466,20 +518,5 @@ async function initializeDefaultPersonality(storage: MockDatabase): Promise<Comm
   return { success: true, lines };
 }
 
-async function openPersonalityEditor(id: string | null, _context: CommandContext): Promise<CommandResult> {
-  // This will trigger opening the personality editor modal
-  return {
-    success: true,
-    lines: [{
-      id: `personality-editor-${Date.now()}`,
-      type: 'output',
-      content: '◈ Opening personality editor...',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
-    }],
-    metadata: {
-      action: 'open_personality_editor',
-      personalityId: id
-    }
-  };
-}
+// The openPersonalityEditor helper is removed as its logic is now directly in the execute method's
+// 'create' and 'edit' cases, using context.openPersonalityEditor.
