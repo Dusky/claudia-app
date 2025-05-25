@@ -3,16 +3,17 @@ import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarDisplay } from './avatar/AvatarDisplay';
 import { PersonalityModal } from './components/PersonalityModal';
 import { StatusBar } from './components/StatusBar';
-import { getTheme } from './terminal/themes';
+import { getTheme, type TerminalTheme } from './terminal/themes'; // Ensure TerminalTheme is imported if not already
 import { config } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
 import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
-import { createCommandRegistry, type CommandContext } from './commands'; // Removed handleAIMessage
+import { createCommandRegistry, type CommandContext } from './commands';
 import { DEFAULT_PERSONALITY, type Personality } from './types/personality';
 import type { AvatarState } from './avatar/types';
 import './App.css';
+import './styles/overlays.css'; // Import the overlay styles
 
 function App() {
   const [currentTheme, setCurrentTheme] = useState(config.defaultTheme);
@@ -44,7 +45,7 @@ function App() {
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
 
-  const theme = getTheme(currentTheme);
+  const theme: TerminalTheme = getTheme(currentTheme);
 
   // Initialize system on mount
   useEffect(() => {
@@ -53,10 +54,10 @@ function App() {
         // Database is automatically initialized in constructor
         
         // Initialize default personality if it doesn't exist
-        const existingDefault = await database.getPersonality('default'); // Await
+        const existingDefault = await database.getPersonality('default');
         if (!existingDefault) {
-          await database.savePersonality(DEFAULT_PERSONALITY); // Await
-          await database.setActivePersonality('default'); // Await
+          await database.savePersonality(DEFAULT_PERSONALITY);
+          await database.setActivePersonality('default');
         }
         
         // Try to initialize image provider if configured
@@ -175,7 +176,7 @@ function App() {
   };
 
   const savePersonality = async (personality: Personality) => {
-    await database.savePersonality(personality); // Added await
+    await database.savePersonality(personality);
     
     // Add success message
     const successLine: TerminalLine = {
@@ -200,7 +201,8 @@ function App() {
       setLoading: setIsLoading,
       currentTheme,
       setTheme: setCurrentTheme,
-      openPersonalityEditor
+      openPersonalityEditor,
+      commandRegistry: commandRegistry // Ensure commandRegistry is passed in the context
     };
 
     try {
@@ -217,18 +219,11 @@ function App() {
       // Handle special metadata actions, e.g., opening personality editor
       if (result.metadata?.action === 'open_personality_editor') {
         const personalityId = result.metadata.personalityId as string;
-        const personalityToEdit = personalityId ? await database.getPersonality(personalityId) : null; // Await
+        const personalityToEdit = personalityId ? await database.getPersonality(personalityId) : null;
         openPersonalityEditor(personalityToEdit);
       }
       
-      // Handle special cases like /clear if it's managed by shouldContinue flag
-      // Note: The /clear command itself should return the appropriate lines or lack thereof.
-      // This specific clear logic might be better handled within the /clear command's implementation.
       if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
-        // If /clear command signals a full reset of lines via shouldContinue: false
-        // and doesn't return lines itself, this ensures the welcome message is shown.
-        // However, it's cleaner if /clear itself returns the single system line.
-        // For now, keeping this logic as it was, but flagging for potential refactor.
         setLines([
           {
             id: `clear-${Date.now()}`,
@@ -257,13 +252,18 @@ function App() {
 
   return (
     <div className="App" style={{ position: 'relative', minHeight: '100vh', paddingBottom: '50px' }}>
+      {/* Shader Overlay Div */}
+      {theme.overlayClassName && (
+        <div className={`shader-overlay ${theme.overlayClassName}`}></div>
+      )}
+
       <TerminalDisplay
         theme={theme}
         lines={lines}
         onInput={handleInput}
         prompt=">"
         isLoading={isLoading}
-        commandRegistry={commandRegistry} // Pass commandRegistry here
+        commandRegistry={commandRegistry}
       />
       
       {/* Avatar Display */}
