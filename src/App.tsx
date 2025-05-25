@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react'; // Added useState
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarDisplay } from './avatar/AvatarDisplay';
 import { PersonalityModal } from './components/PersonalityModal';
@@ -11,15 +11,12 @@ import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
 import { createCommandRegistry, type CommandContext } from './commands';
 import { DEFAULT_PERSONALITY, type Personality } from './types/personality';
-// Removed AvatarState import as it's managed by store now
-import { useAppStore } from './store/appStore'; // Import Zustand store
+import { useAppStore } from './store/appStore';
 import './App.css';
 import './styles/overlays.css';
 
-// const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId'; // Managed by store
-
 const addLineWithDelay = (
-  storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void, // Changed to accept store's addLines
+  storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
   line: TerminalLine,
   delay: number
 ): Promise<void> => {
@@ -33,6 +30,8 @@ const addLineWithDelay = (
 
 
 function App() {
+  const [isInitialized, setIsInitialized] = useState(false); // Initialization flag
+
   // Zustand store selectors
   const currentTheme = useAppStore(state => state.currentTheme);
   const lines = useAppStore(state => state.lines);
@@ -42,22 +41,24 @@ function App() {
   const editingPersonalityInModal = useAppStore(state => state.editingPersonalityInModal);
   const allPersonalitiesInModal = useAppStore(state => state.allPersonalitiesInModal);
   const activePersonalityIdInModal = useAppStore(state => state.activePersonalityIdInModal);
-  const activeConversationId = useAppStore(state => state.activeConversationId); // Use this reactive value
+  const activeConversationId = useAppStore(state => state.activeConversationId);
 
-  // Zustand store actions
-  const setTheme = useAppStore(state => state.setTheme);
-  const addLines = useAppStore(state => state.addLines);
-  const setLines = useAppStore(state => state.setLines);
-  const setLoading = useAppStore(state => state.setLoading);
-  const setAvatarState = useAppStore(state => state.setAvatarState);
-  const openPersonalityEditorModal = useAppStore(state => state.openPersonalityEditorModal);
-  const closePersonalityModal = useAppStore(state => state.closePersonalityModal);
-  const savePersonalityInModal = useAppStore(state => state.savePersonalityInModal);
-  const deletePersonalityInModal = useAppStore(state => state.deletePersonalityInModal);
-  const setActiveConversationAndLoadMessages = useAppStore(state => state.setActiveConversationAndLoadMessages);
-  const loadConversationMessages = useAppStore(state => state.loadConversationMessages);
-  const initializeActiveConversation = useAppStore(state => state.initializeActiveConversation);
-  const clearTerminalForNewSession = useAppStore(state => state.clearTerminalForNewSession);
+  // Zustand store actions (references should be stable)
+  const storeActions = useAppStore(state => ({
+    setTheme: state.setTheme,
+    addLines: state.addLines,
+    setLines: state.setLines,
+    setLoading: state.setLoading,
+    setAvatarState: state.setAvatarState,
+    openPersonalityEditorModal: state.openPersonalityEditorModal,
+    closePersonalityModal: state.closePersonalityModal,
+    savePersonalityInModal: state.savePersonalityInModal,
+    deletePersonalityInModal: state.deletePersonalityInModal,
+    setActiveConversationAndLoadMessages: state.setActiveConversationAndLoadMessages,
+    loadConversationMessages: state.loadConversationMessages,
+    initializeActiveConversation: state.initializeActiveConversation,
+    clearTerminalForNewSession: state.clearTerminalForNewSession,
+  }));
   
   const effectRan = useRef(false);
 
@@ -66,15 +67,16 @@ function App() {
   const database = useMemo(() => new ClaudiaDatabase(), []);
   
   const avatarController = useMemo(() =>
-    new AvatarController(imageManager, database, setAvatarState), // setAvatarState from store is stable
-    [imageManager, database, setAvatarState] 
+    new AvatarController(imageManager, database, storeActions.setAvatarState),
+    [imageManager, database, storeActions.setAvatarState] 
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
 
   useEffect(() => {
-    if (import.meta.env.DEV && effectRan.current === true) {
+    // Prevent re-initialization
+    if (isInitialized || (import.meta.env.DEV && effectRan.current)) {
       return;
     }
 
@@ -89,8 +91,7 @@ function App() {
           await database.setActivePersonality('default');
         }
 
-        // initializeActiveConversation now handles setting ID in store and persisting
-        const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
+        const { activeConvId: activeConvIdToUse, playBootAnimation } = await storeActions.initializeActiveConversation(database);
         
         try {
           const imageProvider = imageManager.getProvider(config.defaultImageProvider);
@@ -102,7 +103,7 @@ function App() {
         }
 
         if (playBootAnimation) {
-          setLines([]); // Clear lines via store action
+          // storeActions.setLines([]); // This is now handled reliably inside initializeActiveConversation
           const bootLines: TerminalLine[] = [
             { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() },
             { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() },
@@ -111,15 +112,15 @@ function App() {
             { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() },
             { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() },
             { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() },
-            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' },
-            { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' },
+            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+            { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
           ];
           for (const line of bootLines) {
             const delay = (line.id === 'boot-8' || line.id === 'boot-9') ? 1000 : (line.id === 'boot-1' || line.id === 'boot-2' ? 500 : (Math.random() * 200 + 600));
-            await addLineWithDelay(addLines, line, delay); // Pass store's addLines
+            await addLineWithDelay(storeActions.addLines, line, delay);
           }
         } else if (activeConvIdToUse) {
-          await loadConversationMessages(database, activeConvIdToUse); // Use store action
+          await storeActions.loadConversationMessages(database, activeConvIdToUse);
         }
 
         if (imageManager.getActiveProvider() && avatarController) {
@@ -135,7 +136,9 @@ function App() {
           content: `Warning: System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
           timestamp: new Date().toISOString()
         };
-        addLines(errorLine); // Use store's addLines
+        storeActions.addLines(errorLine);
+      } finally {
+        setIsInitialized(true); // Mark initialization as complete
       }
     };
 
@@ -146,8 +149,9 @@ function App() {
         effectRan.current = true;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [llmManager, imageManager, database, avatarController, initializeActiveConversation, loadConversationMessages, addLines, setLines]);
+  // Dependencies: only include things that, if they change, *should* re-trigger initialization.
+  // Store actions are stable. Managers and DB are memoized.
+  }, [isInitialized, llmManager, imageManager, database, avatarController, storeActions]);
 
 
   const handleThemeStatusClick = () => handleInput("/themes");
@@ -157,9 +161,8 @@ function App() {
       id: `user-${Date.now()}`, type: 'input', content: input,
       timestamp: new Date().toISOString(), user: 'user'
     };
-    addLines(userLine); // Use store action
+    storeActions.addLines(userLine);
 
-    // Use the activeConversationId from the hook (reactive state)
     if (activeConversationId && !input.startsWith('/')) {
       await database.addMessage({
         conversationId: activeConversationId, role: 'user',
@@ -175,24 +178,27 @@ function App() {
 
     const context: CommandContext = {
       llmManager, imageManager, avatarController, storage: database,
-      addLines, setLoading, currentTheme, setTheme, // All from store or direct props
-      openPersonalityEditor: (p) => openPersonalityEditorModal(database, p), // Pass DB to store action
+      addLines: storeActions.addLines, 
+      setLoading: storeActions.setLoading, 
+      currentTheme, 
+      setTheme: storeActions.setTheme,
+      openPersonalityEditor: (p) => storeActions.openPersonalityEditorModal(database, p),
       commandRegistry,
-      activeConversationId: activeConversationId, // Use reactive state here
-      setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs), // Pass DB to store action
+      activeConversationId: activeConversationId,
+      setActiveConversationId: (id, loadMsgs) => storeActions.setActiveConversationAndLoadMessages(database, id, loadMsgs),
     };
 
     try {
-      setLoading(true); // Use store action
+      storeActions.setLoading(true);
       const result = await commandRegistry.execute(input.trim(), context);
-      if (result.lines && result.lines.length > 0) addLines(result.lines); // Use store action
+      if (result.lines && result.lines.length > 0) storeActions.addLines(result.lines);
 
       if (result.shouldContinue === false && (input.trim().toLowerCase().startsWith('/clear') ||
         (input.trim().toLowerCase().startsWith('/conversation') &&
           (input.includes('new') || input.includes('load') || input.includes('clearhist'))
         ))) {
         if (input.trim().toLowerCase().startsWith('/clear') || input.trim().toLowerCase() === '/conversation-clearhist') {
-          await clearTerminalForNewSession(); // Use store action
+          await storeActions.clearTerminalForNewSession();
         }
       }
     } catch (error) {
@@ -202,15 +208,15 @@ function App() {
         content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date().toISOString(), user: 'claudia'
       };
-      addLines(errorLine); // Use store action
-      if (activeConversationId) { // Use reactive state here
+      storeActions.addLines(errorLine);
+      if (activeConversationId) {
         await database.addMessage({
           conversationId: activeConversationId, role: 'assistant',
           content: `System Error: ${errorLine.content}`, timestamp: errorLine.timestamp
         });
       }
     } finally {
-      setLoading(false); // Use store action
+      storeActions.setLoading(false);
     }
   };
 
@@ -228,16 +234,16 @@ function App() {
         theme={themeObject} currentTheme={currentTheme}
         llmManager={llmManager} imageManager={imageManager} storage={database}
         onThemeClick={handleThemeStatusClick}
-        onPersonalityClick={() => openPersonalityEditorModal(database)} // Pass DB to store action
+        onPersonalityClick={() => storeActions.openPersonalityEditorModal(database)}
       />
       {personalityModalOpen && (
         <PersonalityModal
-          isOpen={personalityModalOpen} onClose={closePersonalityModal} // Store action
-          onSave={(p) => savePersonalityInModal(database, p)} // Pass DB to store action
-          onDelete={(id) => deletePersonalityInModal(database, id)} // Pass DB to store action
-          editingPersonality={editingPersonalityInModal} // Store state
-          allPersonalities={allPersonalitiesInModal} // Store state
-          activePersonalityId={activePersonalityIdInModal} // Store state
+          isOpen={personalityModalOpen} onClose={storeActions.closePersonalityModal}
+          onSave={(p) => storeActions.savePersonalityInModal(database, p)}
+          onDelete={(id) => storeActions.deletePersonalityInModal(database, id)}
+          editingPersonality={editingPersonalityInModal}
+          allPersonalities={allPersonalitiesInModal}
+          activePersonalityId={activePersonalityIdInModal}
           theme={themeObject}
         />
       )}

@@ -26,11 +26,10 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
   const fontSize = parseFloat(theme.font.size) || 16;
   const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5;
   const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4;
-  // Diagnostic: Significantly increase buffer to account for potential 2-3 visual lines of wrapped text.
-  // This might make single lines too spaced out, but helps identify if wrapping is the overlap cause.
-  // A more robust solution for variable height is VariableSizeList.
-  const buffer = Math.ceil(fontSize * lineHeightMultiplier * 1.5); // e.g., space for 1.5 extra visual lines
-  return Math.ceil(fontSize * lineHeightMultiplier + lineSpacing + buffer);
+  // Aggressive diagnostic buffer: space for roughly 2.5 visual lines total
+  // (1 base line + 1.5 lines buffer)
+  const buffer = Math.ceil(fontSize * lineHeightMultiplier * 1.5); 
+  return Math.ceil((fontSize * lineHeightMultiplier) + lineSpacing + buffer);
 };
 
 interface LineRendererProps {
@@ -57,8 +56,9 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'baseline', // 'flex-start' could also be an option if baseline causes issues with very tall wrapped lines
     boxSizing: 'border-box',
+    // overflow: 'hidden', // Let content overflow if it must, FixedSizeList handles clipping between items
     ...(theme.effects.glow && {
       textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
     })
@@ -113,11 +113,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
 
+  // Effect to scroll to bottom when new lines are added or loading state changes
   useEffect(() => {
-    if (lines.length > 0) {
-      listRef.current?.scrollToItem(lines.length - 1, 'smart');
+    if (lines.length > 0 && listRef.current) {
+      // Ensure the list has had a chance to re-render with the new item count
+      // Sometimes a micro-task delay helps if scrollToItem is called too early
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToItem(lines.length - 1, 'end'); // 'end' alignment is often more reliable
+      });
     }
-  }, [lines, isLoading]);
+  }, [lines, isLoading]); // Dependency on lines and isLoading
 
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
