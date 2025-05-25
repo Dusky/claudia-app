@@ -1,5 +1,6 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
+import { generateSystemPrompt } from '../types/personality'; // Import for personality system prompt
 
 export class CommandRegistryImpl implements CommandRegistry {
   private commands = new Map<string, Command>();
@@ -120,11 +121,14 @@ export class CommandRegistryImpl implements CommandRegistry {
              // we might need to adjust. For now, assuming getMessages will include the one just added.
         }
         
-        // TODO: Add system prompt from personality here
-        // const systemPrompt = "You are Claudia...";
-        // if (systemPrompt) {
-        //   llmMessages.unshift({ role: 'system', content: systemPrompt });
-        // }
+        // Add system prompt from personality
+        const activePersonality = await context.storage.getActivePersonality();
+        if (activePersonality) {
+          const systemPromptString = generateSystemPrompt(activePersonality);
+          if (systemPromptString) {
+            llmMessages.unshift({ role: 'system', content: systemPromptString });
+          }
+        }
         
         const llmResponse = await llmProvider.generateResponse(llmMessages);
 
