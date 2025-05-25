@@ -1,0 +1,284 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  font-family: var(--font-family, "Courier New", monospace); /* Fallback font */
+}
+
+.modalContent {
+  background-color: var(--bg-color, #1e1e1e);
+  color: var(--fg-color, #cccccc);
+  padding: 20px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color, #555);
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color, #555);
+  padding-bottom: 10px;
+}
+
+.modalTitle {
+  font-size: 1.5em;
+  color: var(--accent-color, #00ff00);
+}
+
+.closeButton {
+  background: none;
+  border: 1px solid var(--button-border-color, #888);
+  color: var(--fg-color, #cccccc);
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+.closeButton:hover {
+  background-color: var(--button-hover-bg, #444);
+  color: var(--button-hover-fg, #ffffff);
+}
+
+.formSection {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px dashed var(--border-color, #555);
+  border-radius: 4px;
+}
+
+.formSectionTitle {
+  font-size: 1.2em;
+  color: var(--accent-color, #00ff00);
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--secondary-color, #777);
+  padding-bottom: 5px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+}
+
+.formField label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: var(--secondary-color, #aaa);
+}
+
+.formField input[type="text"],
+.formField input[type="number"],
+.formField textarea,
+.formField select {
+  background-color: var(--input-bg, #333);
+  color: var(--input-fg, #ddd);
+  border: 1px solid var(--input-border, #666);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1em;
+}
+.formField input[type="text"]:focus,
+.formField input[type="number"]:focus,
+.formField textarea:focus,
+.formField select:focus {
+  outline: none;
+  border-color: var(--accent-color, #00ff00);
+  box-shadow: 0 0 5px var(--accent-color, #00ff00);
+}
+
+.formField textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+.checkboxField input[type="checkbox"] {
+  margin-right: 10px;
+  accent-color: var(--accent-color, #00ff00);
+}
+
+.systemPromptPreview {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--input-border, #555);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-size: 0.9em;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color, #555);
+}
+
+.modalActions button {
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  border: 1px solid var(--button-border-color, #888);
+}
+
+.saveButton {
+  background-color: var(--success-color, #008000);
+  color: var(--button-fg-on-accent, #fff);
+}
+.saveButton:hover {
+  background-color: var(--success-hover-color, #00aa00);
+}
+
+.cancelButton {
+  background-color: var(--secondary-color, #555);
+  color: var(--button-fg-on-secondary, #fff);
+}
+.cancelButton:hover {
+  background-color: var(--secondary-hover-color, #777);
+}
+
+.deleteButton {
+  background-color: var(--error-color, #a00);
+  color: var(--button-fg-on-accent, #fff);
+  margin-right: auto; /* Pushes it to the left */
+}
+.deleteButton:hover {
+  background-color: var(--error-hover-color, #c00);
+}
+
+.personalitySelector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  align-items: center;
+}
+.personalitySelector select {
+  flex-grow: 1;
+}
+.personalitySelector button {
+   padding: 8px 12px;
+   border-radius: 4px;
+   cursor: pointer;
+   font-size: 0.9em;
+   border: 1px solid var(--button-border-color, #888);
+   background-color: var(--accent-color, #008000);
+   color: var(--button-fg-on-accent, #fff);
+}
+.personalitySelector button:hover {
+    background-color: var(--accent-hover-color, #00aa00);
+}
+
+/* Theme Specific Variables */
+.modalContent.theme-mainframe70s {
+  --font-family: "IBM Plex Mono", "Courier New", monospace;
+  --bg-color: #000000;
+  --fg-color: #00ff00;
+  --border-color: #008800;
+  --accent-color: #00ff00;
+  --secondary-color: #00aa00;
+  --input-bg: #001a00;
+  --input-fg: #00ff00;
+  --input-border: #005500;
+  --button-border-color: #00aa00;
+  --button-hover-bg: #003300;
+  --button-hover-fg: #00ff00;
+  --success-color: #008800;
+  --success-hover-color: #00aa00;
+  --error-color: #aa0000;
+  --error-hover-color: #cc0000;
+  --button-fg-on-accent: #000000;
+  --button-fg-on-secondary: #000000;
+}
+
+.modalContent.theme-pc80s {
+  --font-family: "Perfect DOS VGA 437", "Monaco", monospace;
+  --bg-color: #000080;
+  --fg-color: #ffffff;
+  --border-color: #0000c0;
+  --accent-color: #ffff00;
+  --secondary-color: #c0c0c0;
+  --input-bg: #000040;
+  --input-fg: #ffffff;
+  --input-border: #0000a0;
+  --button-border-color: #c0c0c0;
+  --button-hover-bg: #000060;
+  --button-hover-fg: #ffff00;
+  --success-color: #00aa00;
+  --success-hover-color: #00cc00;
+  --error-color: #aa0000;
+  --error-hover-color: #cc0000;
+  --button-fg-on-accent: #000000;
+  --button-fg-on-secondary: #000000;
+}
+
+.modalContent.theme-bbs90s {
+  --font-family: "MS-DOS", "Terminal", monospace;
+  --bg-color: #000000;
+  --fg-color: #ffffff;
+  --border-color: #404040;
+  --accent-color: #ff00ff;
+  --secondary-color: #00ffff;
+  --input-bg: #1a1a1a;
+  --input-fg: #ffffff;
+  --input-border: #505050;
+  --button-border-color: #00ffff;
+  --button-hover-bg: #303030;
+  --button-hover-fg: #ff00ff;
+  --success-color: #00aa00;
+  --success-hover-color: #00cc00;
+  --error-color: #ff0000;
+  --error-hover-color: #ff4040;
+  --button-fg-on-accent: #000000;
+  --button-fg-on-secondary: #000000;
+}
+
+.modalContent.theme-modern {
+  --font-family: "JetBrains Mono", "Fira Code", monospace;
+  --bg-color: #1a1a1a;
+  --fg-color: #ffffff;
+  --border-color: #2a2a2a;
+  --accent-color: #00d4aa;
+  --secondary-color: #569cd6;
+  --input-bg: #252526;
+  --input-fg: #cccccc;
+  --input-border: #3e3e42;
+  --button-border-color: #569cd6;
+  --button-hover-bg: #3e3e42;
+  --button-hover-fg: #00d4aa;
+  --success-color: #4ec9b0;
+  --success-hover-color: #62d9c0;
+  --error-color: #f44747;
+  --error-hover-color: #f66060;
+  --button-fg-on-accent: #1a1a1a;
+  --button-fg-on-secondary: #ffffff;
+}

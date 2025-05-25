@@ -7,11 +7,12 @@ import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
 import { askCommand, handleAIMessage } from './builtin/ai';
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
-import { testCommand } from './builtin/test'; // Uncommented import
+import { testCommand } from './builtin/test'; 
 
 // Import all personality commands (main and subcommands)
 import {
-  personalityCommand, // Main /personality command
+  personalityCommand, 
+  personalityGuiCommand, // New GUI command
   listPersonalitiesCommand,
   createPersonalityCommand,
   editPersonalityCommand,
@@ -39,10 +40,11 @@ export function createCommandRegistry(): CommandRegistryImpl {
     avatarCommand,
     imagineCommand,
     providersCommand,
-    testCommand, // Uncommented registration
+    testCommand, 
     
     // Personality commands
-    personalityCommand, // Main /personality
+    personalityCommand, 
+    personalityGuiCommand, // Register new GUI command
     listPersonalitiesCommand,
     createPersonalityCommand,
     editPersonalityCommand,
@@ -54,7 +56,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
   ];
 
   commandsToRegister.forEach(command => {
-    if (command) { // Add a check to ensure command is not undefined
+    if (command) { 
       registry.register(command);
     } else {
       console.warn('Attempted to register an undefined command. Check imports in src/commands/index.ts');

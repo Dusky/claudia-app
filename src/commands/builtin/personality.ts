@@ -7,12 +7,20 @@ import type { StorageService } from '../../storage/types';
 export const personalityCommand: Command = {
   name: 'personality',
   description: 'Manage AI personalities. Lists personality subcommands.',
-  usage: '/personality [help]',
+  usage: '/personality [help|gui]',
   aliases: ['p', 'persona'],
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
+
+    if (args.length > 0 && args[0]?.toLowerCase() === 'gui') {
+      const guiCommand = context.commandRegistry.get('personality-gui');
+      if (guiCommand) {
+        return guiCommand.execute([], context);
+      }
+      return { success: false, lines: [{ id: `p-gui-err-${timestamp}`, type: 'error', content: 'GUI command not found.', timestamp }]};
+    }
 
     if (args.length === 0 || args[0]?.toLowerCase() === 'help') {
       lines.push({
@@ -27,10 +35,16 @@ export const personalityCommand: Command = {
         content: '',
         timestamp, user: 'claudia'
       });
+      lines.push({
+        id: `p-help-cmd-gui-${timestamp}`,
+        type: 'output',
+        content: `  /personality gui             - Open the graphical personality editor.`,
+        timestamp, user: 'claudia'
+      });
 
       const allCommands = context.commandRegistry.getAll();
       const personalitySubCommands = allCommands
-        .filter(cmd => cmd.name.startsWith('personality-') && cmd.name !== this.name)
+        .filter(cmd => cmd.name.startsWith('personality-') && cmd.name !== this.name && cmd.name !== 'personality-gui')
         .sort((a, b) => a.name.localeCompare(b.name));
 
       if (personalitySubCommands.length > 0) {
@@ -46,7 +60,7 @@ export const personalityCommand: Command = {
         lines.push({
           id: `p-help-none-${timestamp}`,
           type: 'output',
-          content: '  No personality subcommands found (ensure they are registered).',
+          content: '  No other personality subcommands found (ensure they are registered).',
           timestamp, user: 'claudia'
         });
       }
@@ -70,12 +84,38 @@ export const personalityCommand: Command = {
       lines: [{
         id: `p-invalid-${timestamp}`,
         type: 'error',
-        content: `❌ Invalid argument for /personality. Use a subcommand like /personality-list or /personality-create. Type '/personality help' to see available subcommands.`,
+        content: `❌ Invalid argument for /personality. Use '/personality gui' or '/personality help'.`,
         timestamp, user: 'claudia'
       }],
     };
   }
 };
+
+// --- Subcommand: /personality-gui ---
+export const personalityGuiCommand: Command = {
+  name: 'personality-gui',
+  description: 'Opens the graphical editor for managing personalities.',
+  usage: '/personality-gui',
+  aliases: ['p-gui', 'p-editor'],
+
+  async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
+    // Pass undefined to openPersonalityEditor to let App.tsx decide which personality to load initially
+    // (e.g., active one, or a blank slate for new)
+    context.openPersonalityEditor(undefined); 
+    return {
+      success: true,
+      lines: [{
+        id: `p-gui-open-${Date.now()}`,
+        type: 'system',
+        content: 'Opening graphical personality editor...',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      }],
+      metadata: { action: 'open_personality_editor', personalityId: undefined } 
+    };
+  }
+};
+
 
 // --- Subcommand: /personality-list ---
 export const listPersonalitiesCommand: Command = {
@@ -94,7 +134,7 @@ export const listPersonalitiesCommand: Command = {
       lines.push({
         id: `p-list-empty-${timestamp}`,
         type: 'output',
-        content: 'No personalities found. Use "/personality-create" to make one, or "/personality-init" to restore the default.',
+        content: 'No personalities found. Use "/personality-gui" or "/personality-create" to make one, or "/personality-init" to restore the default.',
         timestamp,
         user: 'claudia'
       });
@@ -139,7 +179,7 @@ export const listPersonalitiesCommand: Command = {
       lines.push({ id: `p-list-footer-space-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
     }
     lines.push({ id: `p-list-footer1-${timestamp}`, type: 'system', content: '▶ Use "/personality-set <id>" to change personality.', timestamp, user: 'claudia' });
-    lines.push({ id: `p-list-footer2-${timestamp}`, type: 'system', content: '▶ Use "/personality-create" to create a new one.', timestamp, user: 'claudia' });
+    lines.push({ id: `p-list-footer2-${timestamp}`, type: 'system', content: '▶ Use "/personality-gui" or "/personality-create" to create/edit.', timestamp, user: 'claudia' });
     return { success: true, lines };
   }
 };
@@ -222,8 +262,6 @@ export const setPersonalityCommand: Command = {
 
     const success = await context.storage.setActivePersonality(personalityId);
     if (success) {
-      // Optionally update LLM system prompt here if your LLMManager supports it
-      // await context.llmManager.setSystemPrompt(personality.system_prompt);
       return { success: true, lines: [{ id: `p-set-succ-${timestamp}`, type: 'output', content: `🎭 Switched to personality: ${personality.name}`, timestamp, user: 'claudia' }] };
     } else {
       return { success: false, lines: [{ id: `p-set-fail-${timestamp}`, type: 'error', content: '❌ Failed to switch personality.', timestamp, user: 'claudia' }] };
@@ -234,12 +272,12 @@ export const setPersonalityCommand: Command = {
 // --- Subcommand: /personality-create ---
 export const createPersonalityCommand: Command = {
   name: 'personality-create',
-  description: 'Opens the editor to create a new personality.',
+  description: 'Opens the editor to create a new personality (via GUI).',
   usage: '/personality-create',
   aliases: ['p-new', 'p-add'],
 
   async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
-    context.openPersonalityEditor(null); // Open editor for a new personality
+    context.openPersonalityEditor(null); 
     return {
       success: true,
       lines: [{
@@ -249,7 +287,7 @@ export const createPersonalityCommand: Command = {
         timestamp: new Date().toISOString(),
         user: 'claudia'
       }],
-      metadata: { action: 'open_personality_editor', personalityId: null } // For App.tsx to handle
+      metadata: { action: 'open_personality_editor', personalityId: null } 
     };
   }
 };
@@ -257,7 +295,7 @@ export const createPersonalityCommand: Command = {
 // --- Subcommand: /personality-edit <id> ---
 export const editPersonalityCommand: Command = {
   name: 'personality-edit',
-  description: 'Opens the editor to modify an existing personality.',
+  description: 'Opens the editor to modify an existing personality (via GUI).',
   usage: '/personality-edit <id>',
   aliases: ['p-mod', 'p-update'],
 
@@ -272,7 +310,7 @@ export const editPersonalityCommand: Command = {
     if (!personality) {
       return { success: false, lines: [{ id: `p-edit-notfound-${timestamp}`, type: 'error', content: `❌ Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] };
     }
-    context.openPersonalityEditor(personality);
+    context.openPersonalityEditor(personality); 
     return {
       success: true,
       lines: [{
@@ -282,7 +320,7 @@ export const editPersonalityCommand: Command = {
         timestamp,
         user: 'claudia'
       }],
-      metadata: { action: 'open_personality_editor', personalityId: personality.id } // For App.tsx
+      metadata: { action: 'open_personality_editor', personalityId: personality.id } 
     };
   }
 };
@@ -290,11 +328,12 @@ export const editPersonalityCommand: Command = {
 // --- Subcommand: /personality-delete <id> ---
 export const deletePersonalityCommand: Command = {
   name: 'personality-delete',
-  description: 'Deletes a personality.',
+  description: 'Deletes a personality. (Use GUI for safer deletion)',
   usage: '/personality-delete <id>',
   aliases: ['p-rm', 'p-del'],
 
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
+    const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
     if (args.length === 0) {
       return { success: false, lines: [{ id: `p-del-err-${timestamp}`, type: 'error', content: '❌ Usage: /personality-delete <personality_id>', timestamp, user: 'claudia' }] };
@@ -310,14 +349,22 @@ export const deletePersonalityCommand: Command = {
     }
     const activePersonality = await context.storage.getActivePersonality();
     if (activePersonality?.id === personalityId) {
-        return { success: false, lines: [{ id: `p-del-active-${timestamp}`, type: 'error', content: '❌ Cannot delete the active personality. Switch to another first using "/personality-set <id>".', timestamp, user: 'claudia' }] };
+        const defaultP = await context.storage.getPersonality(DEFAULT_PERSONALITY.id);
+        if (defaultP && defaultP.id !== personalityId) { // Ensure default is not the one being deleted
+            await context.storage.setActivePersonality(DEFAULT_PERSONALITY.id);
+             lines.push({ id: `p-del-autoswitch-${timestamp}`, type: 'system', content: `Switched to default personality before deleting active one.`, timestamp, user: 'claudia' });
+        } else {
+            return { success: false, lines: [{ id: `p-del-active-nodefault-${timestamp}`, type: 'error', content: '❌ Cannot delete active personality. Set another active first or ensure a different default exists.', timestamp, user: 'claudia' }] };
+        }
     }
 
     const success = await context.storage.deletePersonality(personalityId);
     if (success) {
-      return { success: true, lines: [{ id: `p-del-succ-${timestamp}`, type: 'output', content: `🗑️ Deleted personality: ${personality.name}`, timestamp, user: 'claudia' }] };
+      lines.push({ id: `p-del-succ-${timestamp}`, type: 'output', content: `🗑️ Deleted personality: ${personality.name}`, timestamp, user: 'claudia' });
+      return { success: true, lines };
     } else {
-      return { success: false, lines: [{ id: `p-del-fail-${timestamp}`, type: 'error', content: '❌ Failed to delete personality.', timestamp, user: 'claudia' }] };
+      lines.push({ id: `p-del-fail-${timestamp}`, type: 'error', content: '❌ Failed to delete personality.', timestamp, user: 'claudia' });
+      return { success: false, lines };
     }
   }
 };
@@ -333,7 +380,6 @@ export const initDefaultPersonalityCommand: Command = {
     const timestamp = new Date().toISOString();
     const existing = await context.storage.getPersonality('default');
     
-    // Save (which also updates if exists) and set active
     await context.storage.savePersonality(DEFAULT_PERSONALITY); 
     await context.storage.setActivePersonality('default');
 
@@ -345,7 +391,7 @@ export const initDefaultPersonalityCommand: Command = {
   }
 };
 
-// Placeholder for /personality-view <id> if you want a CLI view without modal
+// --- Subcommand: /personality-view <id> ---
 export const viewPersonalityCommand: Command = {
   name: 'personality-view',
   description: 'Displays detailed information about a specific personality in the terminal.',
@@ -372,11 +418,10 @@ export const viewPersonalityCommand: Command = {
       { id: `pv-usage-${timestamp}`, type: 'output', content: `  Usage Count: ${p.usage_count}`, timestamp, user: 'claudia' },
       { id: `pv-space-${timestamp}`, type: 'output', content: ``, timestamp, user: 'claudia' },
       { id: `pv-prompt-header-${timestamp}`, type: 'system', content: `  System Prompt:`, timestamp, user: 'claudia' },
-      // Split system prompt into multiple lines if it's very long for better readability
       ...p.system_prompt.split('\n').map((line, index) => ({
         id: `pv-prompt-line-${index}-${timestamp}`,
         type: 'output',
-        content: `    ${line}`, // Indent prompt lines
+        content: `    ${line}`, 
         timestamp,
         user: 'claudia'
       })),

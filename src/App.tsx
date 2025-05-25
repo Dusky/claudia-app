@@ -3,7 +3,7 @@ import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarDisplay } from './avatar/AvatarDisplay';
 import { PersonalityModal } from './components/PersonalityModal';
 import { StatusBar } from './components/StatusBar';
-import { getTheme, type TerminalTheme } from './terminal/themes'; // Ensure TerminalTheme is imported if not already
+import { getTheme, type TerminalTheme } from './terminal/themes'; 
 import { config } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
@@ -13,7 +13,7 @@ import { createCommandRegistry, type CommandContext } from './commands';
 import { DEFAULT_PERSONALITY, type Personality } from './types/personality';
 import type { AvatarState } from './avatar/types';
 import './App.css';
-import './styles/overlays.css'; // Import the overlay styles
+import './styles/overlays.css'; 
 
 function App() {
   const [currentTheme, setCurrentTheme] = useState(config.defaultTheme);
@@ -33,7 +33,10 @@ function App() {
 
   // Personality modal state
   const [personalityModalOpen, setPersonalityModalOpen] = useState(false);
-  const [editingPersonality, setEditingPersonality] = useState<Personality | null>(null);
+  const [editingPersonalityInModal, setEditingPersonalityInModal] = useState<Personality | null>(null);
+  const [allPersonalitiesInModal, setAllPersonalitiesInModal] = useState<Personality[]>([]);
+  const [activePersonalityIdInModal, setActivePersonalityIdInModal] = useState<string | null>(null);
+
 
   // Initialize providers and systems
   const llmManager = useMemo(() => new LLMProviderManager(), []);
@@ -45,22 +48,21 @@ function App() {
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
 
-  const theme: TerminalTheme = getTheme(currentTheme);
+  const themeObject: TerminalTheme = getTheme(currentTheme); 
 
   // Initialize system on mount
   useEffect(() => {
     const initializeSystem = async () => {
-      try {
-        // Database is automatically initialized in constructor
-        
-        // Initialize default personality if it doesn't exist
-        const existingDefault = await database.getPersonality('default');
-        if (!existingDefault) {
-          await database.savePersonality(DEFAULT_PERSONALITY);
-          await database.setActivePersonality('default');
+      try {        
+        const activeP = await database.getActivePersonality();
+        if (!activeP) {
+            const existingDefault = await database.getPersonality('default');
+            if (!existingDefault) {
+              await database.savePersonality(DEFAULT_PERSONALITY);
+            }
+            await database.setActivePersonality('default');
         }
         
-        // Try to initialize image provider if configured
         try {
           const imageProvider = imageManager.getProvider(config.defaultImageProvider);
           if (imageProvider && imageProvider.isConfigured()) {
@@ -70,7 +72,6 @@ function App() {
           console.warn('Image provider initialization failed:', error);
         }
         
-        // Add initialization messages
         const initLines: TerminalLine[] = [
           {
             id: 'init-1',
@@ -108,7 +109,6 @@ function App() {
         
         setLines(initLines);
         
-        // Show avatar with a friendly greeting
         if (imageManager.getActiveProvider() && avatarController) {
           await avatarController.executeCommands([{
             show: true,
@@ -158,34 +158,79 @@ function App() {
     setLines(prev => [...prev, newLines].flat());
   };
 
-  // Personality modal handlers
-  const openPersonalityEditor = (personality?: Personality | null) => {
-    setEditingPersonality(personality || null);
+  const openPersonalityEditor = async (personalityToEdit?: Personality | null | undefined) => {
+    const allPs = await database.getAllPersonalities();
+    const activeP = await database.getActivePersonality();
+    
+    setAllPersonalitiesInModal(allPs);
+    setActivePersonalityIdInModal(activeP ? activeP.id : null);
+
+    if (personalityToEdit === undefined) { 
+      setEditingPersonalityInModal(activeP || null); 
+    } else { 
+      setEditingPersonalityInModal(personalityToEdit);
+    }
     setPersonalityModalOpen(true);
   };
 
   const closePersonalityModal = () => {
     setPersonalityModalOpen(false);
-    setEditingPersonality(null);
+    setEditingPersonalityInModal(null); 
   };
 
   const savePersonality = async (personality: Personality) => {
+    const isUpdating = !!(await database.getPersonality(personality.id));
     await database.savePersonality(personality);
+
+    if (personality.isDefault) { 
+        await database.setActivePersonality(personality.id);
+    }
     
-    // Add success message
     const successLine: TerminalLine = {
       id: `personality-saved-${Date.now()}`,
       type: 'output',
-      content: `🎭 Personality "${personality.name}" saved successfully!`,
+      content: `🎭 Personality "${personality.name}" ${isUpdating ? 'updated' : 'created'} successfully!`,
       timestamp: new Date().toISOString(),
       user: 'claudia'
     };
     
-    setLines(prev => [...prev, successLine]);
+    addLines([successLine]);
+    
+    const allPs = await database.getAllPersonalities();
+    const activeP = await database.getActivePersonality();
+    setAllPersonalitiesInModal(allPs);
+    setActivePersonalityIdInModal(activeP ? activeP.id : null);
+    setEditingPersonalityInModal(personality); // Keep modal open with current data
   };
 
+  const deletePersonalityInModal = async (personalityId: string): Promise<void> => {
+    const personalityToDelete = await database.getPersonality(personalityId);
+    if (!personalityToDelete) {
+      addLines([{ id: `del-err-${Date.now()}`, type: 'error', content: `Personality ${personalityId} not found.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      return;
+    }
+    if (personalityToDelete.isDefault) {
+      addLines([{ id: `del-err-${Date.now()}`, type: 'error', content: `Cannot delete the default personality.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      return;
+    }
+    const activeP = await database.getActivePersonality();
+    if (activeP && activeP.id === personalityId) {
+      await database.setActivePersonality(DEFAULT_PERSONALITY.id); 
+      addLines([{ id: `del-switch-${Date.now()}`, type: 'system', content: `Switched to default personality as active one was deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+    }
+
+    await database.deletePersonality(personalityId);
+    addLines([{ id: `del-succ-${Date.now()}`, type: 'output', content: `🗑️ Personality "${personalityToDelete.name}" deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+    
+    const allPs = await database.getAllPersonalities();
+    const newActiveP = await database.getActivePersonality();
+    setAllPersonalitiesInModal(allPs);
+    setActivePersonalityIdInModal(newActiveP ? newActiveP.id : null);
+    setEditingPersonalityInModal(newActiveP || null); 
+  };
+
+
   const handleInput = async (input: string) => {
-    // Create command context
     const context: CommandContext = {
       llmManager,
       imageManager,
@@ -196,25 +241,19 @@ function App() {
       currentTheme,
       setTheme: setCurrentTheme,
       openPersonalityEditor,
-      commandRegistry: commandRegistry // Ensure commandRegistry is passed in the context
+      commandRegistry: commandRegistry 
     };
 
     try {
       setIsLoading(true);
-
-      // All input (commands and AI chat) goes through commandRegistry.execute
       const result = await commandRegistry.execute(input.trim(), context);
         
       if (result.lines && result.lines.length > 0) {
-        // Add all lines returned by the command/AI processing
-        setLines(prev => [...prev, ...result.lines!]);
+        addLines(result.lines);
       }
       
-      // Handle special metadata actions, e.g., opening personality editor
       if (result.metadata?.action === 'open_personality_editor') {
-        const personalityId = result.metadata.personalityId as string;
-        const personalityToEdit = personalityId ? await database.getPersonality(personalityId) : null;
-        openPersonalityEditor(personalityToEdit);
+        // This is now handled by the command calling openPersonalityEditor directly
       }
       
       if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
@@ -229,7 +268,6 @@ function App() {
       }
     } catch (error) {
       console.error('Input handling error:', error);
-      
       const errorLine: TerminalLine = {
         id: `error-${Date.now()}`,
         type: 'error',
@@ -237,8 +275,7 @@ function App() {
         timestamp: new Date().toISOString(),
         user: 'claudia'
       };
-      
-      setLines(prev => [...prev, errorLine]);
+      addLines([errorLine]);
     } finally {
       setIsLoading(false);
     }
@@ -246,13 +283,12 @@ function App() {
 
   return (
     <div className="App" style={{ position: 'relative', minHeight: '100vh', paddingBottom: '50px' }}>
-      {/* Shader Overlay Div */}
-      {theme.overlayClassName && (
-        <div className={`shader-overlay ${theme.overlayClassName}`}></div>
+      {themeObject.overlayClassName && (
+        <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
       )}
 
       <TerminalDisplay
-        theme={theme}
+        theme={themeObject}
         lines={lines}
         onInput={handleInput}
         prompt=">"
@@ -260,28 +296,31 @@ function App() {
         commandRegistry={commandRegistry}
       />
       
-      {/* Avatar Display */}
       <AvatarDisplay 
         state={avatarState} 
         className="claudia-avatar"
       />
 
-      {/* Status Bar */}
       <StatusBar
-        theme={theme}
+        theme={themeObject}
         currentTheme={currentTheme}
         llmManager={llmManager}
         imageManager={imageManager}
         storage={database}
       />
 
-      {/* Personality Modal */}
-      <PersonalityModal
-        isOpen={personalityModalOpen}
-        onClose={closePersonalityModal}
-        onSave={savePersonality}
-        editingPersonality={editingPersonality}
-      />
+      {personalityModalOpen && ( // Conditionally render to ensure fresh state if needed
+        <PersonalityModal
+          isOpen={personalityModalOpen}
+          onClose={closePersonalityModal}
+          onSave={savePersonality}
+          onDelete={deletePersonalityInModal}
+          editingPersonality={editingPersonalityInModal}
+          allPersonalities={allPersonalitiesInModal}
+          activePersonalityId={activePersonalityIdInModal}
+          theme={themeObject} 
+        />
+      )}
     </div>
   );
 }
