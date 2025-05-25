@@ -6,7 +6,7 @@ interface AvatarDisplayProps {
   className?: string;
 }
 
-export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }) => {
+const AvatarDisplayComponent: React.FC<AvatarDisplayProps> = ({ state, className }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState(false);
 
@@ -138,7 +138,7 @@ export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }
 
   const getAnimationClass = () => {
     let animationClass = '';
-    
+
     if (state.isAnimating) {
       animationClass += ' avatar-entering';
     }
@@ -167,7 +167,7 @@ export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }
       >
         {/* Loading placeholder */}
         {!isLoaded && !error && (
-          <div 
+          <div
             className="avatar-loading"
             style={{
               width: '100px',
@@ -189,7 +189,7 @@ export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }
 
         {/* Error placeholder */}
         {error && (
-          <div 
+          <div
             className="avatar-error"
             style={{
               width: '100px',
@@ -265,12 +265,12 @@ export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }
         }
 
         @keyframes avatarEnter {
-          0% { 
-            opacity: 0; 
+          0% {
+            opacity: 0;
             transform: scale(0.5);
           }
-          100% { 
-            opacity: ${state.opacity}; 
+          100% {
+            opacity: ${state.opacity};
             transform: scale(${state.scale});
           }
         }
@@ -342,3 +342,5 @@ export const AvatarDisplay: React.FC<AvatarDisplayProps> = ({ state, className }
     </>
   );
 };
+
+export const AvatarDisplay = React.memo(AvatarDisplayComponent);

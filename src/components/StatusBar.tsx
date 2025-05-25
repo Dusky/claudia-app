@@ -16,7 +16,7 @@ interface StatusBarProps {
   onPersonalityClick?: () => void;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({
+const StatusBarComponent: React.FC<StatusBarProps> = ({
   theme,
   currentTheme, // This is the ID, e.g., "mainframe70s"
   llmManager,
@@ -67,8 +67,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       <div className={styles.statusBarSection}>
         <div className={styles.statusBarItem}>
           <span>⌘</span> {/* Theme Icon */}
-          <span 
-            onClick={onThemeClick} 
+          <span
+            onClick={onThemeClick}
             className={onThemeClick ? styles.clickableItem : ''}
             title="Click to list themes"
           >
@@ -77,8 +77,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         </div>
         <div className={styles.statusBarItem}>
           <span>👤</span> {/* Personality Icon */}
-          <span 
-            onClick={onPersonalityClick} 
+          <span
+            onClick={onPersonalityClick}
             className={onPersonalityClick ? styles.clickableItem : ''}
             title="Click to edit personality"
           >
@@ -90,7 +90,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       <div className={styles.statusBarSection}>
         <div className={styles.statusBarItem}>
           <span>💬</span> {/* LLM Icon */}
-          <span 
+          <span
             className={`${styles.providerStatus} ${llmConfigured ? styles.configured : styles.notConfigured}`}
             title={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'}`}
           >
@@ -99,7 +99,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         </div>
         <div className={styles.statusBarItem}>
           <span>📷</span> {/* Image Icon */}
-           <span 
+           <span
             className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured}`}
             title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'}`}
           >
@@ -115,3 +115,5 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     </div>
   );
 };
+
+export const StatusBar = React.memo(StatusBarComponent);
