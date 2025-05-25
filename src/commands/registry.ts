@@ -84,10 +84,49 @@ export class CommandRegistryImpl implements CommandRegistry {
       };
 
       try {
-        // TODO: In a future step, add conversation history and system prompt from personality
-        const messages: import('../providers/llm/types').LLMMessage[] = [{ role: 'user', content: userInput }];
+        const ACTIVE_CONVERSATION_ID_KEY = 'activeConversationId';
+        const CONVERSATION_HISTORY_LIMIT = 10; // Number of past messages to include
+
+        let activeConversationId = await context.storage.getSetting<string>(ACTIVE_CONVERSATION_ID_KEY);
+
+        if (!activeConversationId) {
+          const newConversation = await context.storage.createConversation({ title: 'New Conversation' });
+          activeConversationId = newConversation.id;
+          await context.storage.setSetting(ACTIVE_CONVERSATION_ID_KEY, activeConversationId);
+        }
+
+        // Save user message to DB
+        await context.storage.addMessage({
+          conversationId: activeConversationId,
+          role: 'user',
+          content: userLine.content,
+          timestamp: userLine.timestamp,
+        });
+
+        // Fetch conversation history
+        const dbMessages = await context.storage.getMessages(activeConversationId, CONVERSATION_HISTORY_LIMIT);
         
-        const llmResponse = await llmProvider.generateResponse(messages);
+        const llmMessages: import('../providers/llm/types').LLMMessage[] = dbMessages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+        // Add current user input if not already the last one from DB (it shouldn't be)
+        if (llmMessages.length === 0 || llmMessages[llmMessages.length -1].content !== userInput) {
+             // This check is a bit redundant if getMessages doesn't include the one just added,
+             // but ensures the current input is the last one if history was empty or just fetched.
+             // The primary way current message is added is by being the latest in dbMessages.
+             // However, if addMessage is too slow, or if we want to ensure it's always the *absolute* last,
+             // we might need to adjust. For now, assuming getMessages will include the one just added.
+        }
+        
+        // TODO: Add system prompt from personality here
+        // const systemPrompt = "You are Claudia...";
+        // if (systemPrompt) {
+        //   llmMessages.unshift({ role: 'system', content: systemPrompt });
+        // }
+        
+        const llmResponse = await llmProvider.generateResponse(llmMessages);
 
         const assistantLine: TerminalLine = {
           id: `assistant-${Date.now()}`,
@@ -96,11 +135,18 @@ export class CommandRegistryImpl implements CommandRegistry {
           timestamp: new Date().toISOString(),
           user: 'claudia'
         };
+
+        // Save assistant message to DB
+        await context.storage.addMessage({
+          conversationId: activeConversationId,
+          role: 'assistant',
+          content: assistantLine.content,
+          timestamp: assistantLine.timestamp,
+        });
         
         // TODO: Add avatar command parsing from llmResponse.content here in a future step
 
         context.setLoading(false);
-        // The App/Terminal component will take these lines and add them.
         return { success: true, lines: [userLine, assistantLine] };
 
       } catch (error) {
