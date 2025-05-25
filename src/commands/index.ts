@@ -4,15 +4,23 @@ export * from './registry';
 // Builtin commands
 import { helpCommand } from './builtin/help';
 import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
-import { askCommand } from './builtin/ai'; // handleAIMessage removed from here
+import { askCommand } from './builtin/ai'; 
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
 import { testCommand } from './builtin/test'; 
+import {
+  conversationCommand,
+  listConversationsCommand,
+  newConversationCommand,
+  loadConversationCommand,
+  deleteConversationCommand,
+  renameConversationCommand,
+  clearConversationHistoryCommand,
+} from './builtin/conversation';
 
-// Import all personality commands (main and subcommands)
 import {
   personalityCommand, 
-  personalityGuiCommand, // New GUI command
+  personalityGuiCommand, 
   listPersonalitiesCommand,
   createPersonalityCommand,
   editPersonalityCommand,
@@ -27,7 +35,6 @@ import { CommandRegistryImpl } from './registry';
 import type { Command } from './types';
 
 
-// Create and configure the default command registry
 export function createCommandRegistry(): CommandRegistryImpl {
   const registry = new CommandRegistryImpl();
   
@@ -42,9 +49,8 @@ export function createCommandRegistry(): CommandRegistryImpl {
     providersCommand,
     testCommand, 
     
-    // Personality commands
     personalityCommand, 
-    personalityGuiCommand, // Register new GUI command
+    personalityGuiCommand, 
     listPersonalitiesCommand,
     createPersonalityCommand,
     editPersonalityCommand,
@@ -53,6 +59,14 @@ export function createCommandRegistry(): CommandRegistryImpl {
     currentPersonalityCommand,
     initDefaultPersonalityCommand,
     viewPersonalityCommand,
+
+    conversationCommand,
+    listConversationsCommand,
+    newConversationCommand,
+    loadConversationCommand,
+    deleteConversationCommand,
+    renameConversationCommand,
+    clearConversationHistoryCommand,
   ];
 
   commandsToRegister.forEach(command => {
@@ -65,5 +79,3 @@ export function createCommandRegistry(): CommandRegistryImpl {
   
   return registry;
 }
-
-// handleAIMessage is no longer exported as its logic is in CommandRegistryImpl

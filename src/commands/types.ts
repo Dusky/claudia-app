@@ -18,7 +18,7 @@ export interface CommandContext {
   openPersonalityEditor: (personality?: Personality | null | undefined) => void; 
   commandRegistry: CommandRegistry; 
   activeConversationId: string | null; 
-  // setActiveConversationId: (id: string | null) => void; // Potentially for /conv switch command
+  setActiveConversationId: (id: string | null, loadMessages?: boolean) => Promise<void>; 
 }
 
 export interface CommandResult {

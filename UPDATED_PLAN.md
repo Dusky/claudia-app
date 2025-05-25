@@ -108,7 +108,7 @@ clear                  # Clear terminal history
 #### **2.4 Conversation Memory**
 - **Implement conversation persistence** ✅ (Messages saved to active conversation, active conversation ID persisted and loaded)
 - **Basic conversation history retrieval** ✅ (History retrieved for LLM context and initial display)
-- **Session management and conversation switching** (Next: requires `/conversation` commands)
+- **Session management and conversation switching** ✅ (Implemented `/conversation` commands: list, new, load, delete, rename, clearhist)
 
 #### **2.5 UI/UX Polish**
 - **Enhanced startup sequence** ✅ (More dynamic "boot-up" feel)
@@ -204,7 +204,7 @@ clear                  # Clear terminal history
 3. **Conversation Persistence** (Days 5-7)
    - ✅ Save conversations to SQLite database (Messages linked to active conversation, AI responses saved)
    - ✅ Load conversation history on startup (Active conversation ID and its recent messages loaded)
-   - [ ] Implement conversation switching (Next: requires `/conversation` commands)
+   - ✅ Implement conversation switching (Implemented `/conversation` commands)
 
 ### **Week 2: Personality & Polish**
 
@@ -256,7 +256,7 @@ clear                  # Clear terminal history
 ✅ Modular Component Architecture
 ✅ Environment Configuration System
 ✅ Conversation Context for LLM (History loaded and sent)
-✅ Active Conversation Management (Loading, saving messages)
+✅ Active Conversation Management (Loading, saving messages, switching)
 ```
 
 ### **Integration Points Ready**
@@ -280,7 +280,7 @@ clear                  # Clear terminal history
 ### **Phase 2 Goals**
 - ✅ **Functional AI Conversations** - Full LLM integration working with history
 - ✅ **Real-time Avatar Control** - LLM commands controlling avatar
-- ✅ **Persistent Conversations** - Save/load conversation history for active session
+- ✅ **Persistent Conversations** - Save/load conversation history for active session, switch conversations
 - ✅ **Claudia Personality** - Consistent cyberpunk anime girl persona (framework in place, content needed)
 - [ ] **Cross-Provider Support** - Works with multiple LLM providers (testing ongoing)
 
@@ -329,6 +329,6 @@ We've successfully built a comprehensive, extensible foundation that includes:
 
 **The framework is working, tested, and ready for AI integration.** All the building blocks are in place to create the immersive Claudia experience you envisioned.
 
-**Latest Addition (January 2025):** Complete environment variable system for secure API key management and automatic provider configuration. Implemented Personality GUI. Conversation history is now sent to LLMs, and messages are saved to an active conversation which is loaded on startup. UI/UX polish including improved help, startup sequence, and interactive status bar.
+**Latest Addition (January 2025):** Implemented full conversation management commands (`/conversation new`, `/load`, `/delete`, `/rename`, `/clearhist`). UI/UX polish including improved help, startup sequence, and interactive status bar.
 
-**Next up:** Implement full conversation management commands (`/conversation new`, `/load`, etc.) and continue refining AI personality and avatar interactions.
+**Next up:** Continue refining AI personality and avatar interactions, and begin planning for Phase 3 (Immersive World & Advanced Personality).
