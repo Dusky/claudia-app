@@ -4,7 +4,7 @@ export * from './registry';
 // Builtin commands
 import { helpCommand } from './builtin/help';
 import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
-import { askCommand, handleAIMessage } from './builtin/ai';
+import { askCommand } from './builtin/ai'; // handleAIMessage removed from here
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
 import { testCommand } from './builtin/test'; 
@@ -66,5 +66,4 @@ export function createCommandRegistry(): CommandRegistryImpl {
   return registry;
 }
 
-// Export the AI message handler
-export { handleAIMessage };
+// handleAIMessage is no longer exported as its logic is in CommandRegistryImpl
