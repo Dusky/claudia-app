@@ -1,14 +1,12 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
-import { generateSystemPrompt } from '../types/personality'; // Import for personality system prompt
-import { 
-  AI_OPTION_TEMPERATURE_KEY, 
-  AI_OPTION_CONTEXT_LENGTH_KEY, 
-  AI_OPTION_MAX_TOKENS_KEY, 
-  DEFAULT_AI_TEMPERATURE, 
-  DEFAULT_AI_CONTEXT_LENGTH, 
-  DEFAULT_AI_MAX_TOKENS 
-} from '../components/AIOptionsModal'; // Corrected path
+// AI option constants
+const AI_OPTION_TEMPERATURE_KEY = 'ai.temperature';
+const AI_OPTION_CONTEXT_LENGTH_KEY = 'ai.contextLength';
+const AI_OPTION_MAX_TOKENS_KEY = 'ai.maxTokens';
+const DEFAULT_AI_TEMPERATURE = 0.7;
+const DEFAULT_AI_CONTEXT_LENGTH = 10;
+const DEFAULT_AI_MAX_TOKENS = 2048;
 
 export class CommandRegistryImpl implements CommandRegistry {
   private commands = new Map<string, Command>();
@@ -129,11 +127,8 @@ export class CommandRegistryImpl implements CommandRegistry {
 
         // Add system prompt from personality
         const activePersonality = await context.storage.getActivePersonality();
-        if (activePersonality) {
-          const systemPromptString = generateSystemPrompt(activePersonality);
-          if (systemPromptString) {
-            llmMessages.unshift({ role: 'system', content: systemPromptString });
-          }
+        if (activePersonality && activePersonality.system_prompt) {
+          llmMessages.unshift({ role: 'system', content: activePersonality.system_prompt });
         }
         
         const llmResponse = await llmProvider.generateResponse(llmMessages, {
