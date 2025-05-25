@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { TerminalTheme } from '../terminal/themes';
 import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
-import type { MockDatabase } from '../storage/mockDatabase';
+import type { StorageService } from '../storage/types'; // Changed MockDatabase to StorageService
+import type { Personality } from '../types/personality'; // Import Personality type
 import './StatusBar.css';
 
 interface StatusBarProps {
@@ -10,7 +11,7 @@ interface StatusBarProps {
   currentTheme: string;
   llmManager: LLMProviderManager;
   imageManager: ImageProviderManager;
-  storage: MockDatabase;
+  storage: StorageService; // Changed MockDatabase to StorageService
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -21,6 +22,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   storage
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activePersonality, setActivePersonality] = useState<Personality | null>(null);
 
   // Update time every minute
   useEffect(() => {
@@ -31,8 +33,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const fetchActivePersonality = async () => {
+      const personality = await storage.getActivePersonality();
+      setActivePersonality(personality);
+    };
+    fetchActivePersonality();
+    // Optionally, re-fetch if storage or relevant settings change,
+    // but for now, fetching once on mount or when storage prop changes.
+  }, [storage]);
+
   // Get current system status
-  const activePersonality = storage.getActivePersonality();
   const activeLLMProvider = llmManager.getActiveProvider();
   const activeImageProvider = imageManager.getActiveProvider();
 

@@ -194,9 +194,10 @@ export class AvatarController {
     const promptHash = this.generatePromptHash(params);
     
     // Check cache first
-    const cached = this.database.getCachedAvatar(promptHash);
+    const cached = await this.database.getCachedAvatar(promptHash); // Await the promise
     if (cached) {
       this.state.imageUrl = cached.imageUrl;
+      // Also update accessedAt if needed, though getCachedAvatar should handle it
       return;
     }
 
