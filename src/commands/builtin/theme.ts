@@ -120,11 +120,18 @@ export const themesCommand: Command = {
 
 export const clearCommand: Command = {
   name: 'clear',
-  description: 'Clear the terminal screen',
+  description: 'Clears the terminal, resets the chat context, and starts a new conversation session.',
   usage: '/clear',
   aliases: ['cls', 'c'],
   
-  async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
+  async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
+    // The resetConversationAndTerminal action (to be added to the store and context)
+    // will handle creating a new conversation, setting it active, and updating the terminal lines.
+    await context.resetConversationAndTerminal(context.storage);
+
+    // shouldContinue: false indicates to the caller (App.tsx) that the environment
+    // has significantly changed, and normal follow-up processing might be skipped.
+    // The command itself doesn't need to return lines, as the store action will update them.
     return { 
       success: true, 
       lines: [], 
