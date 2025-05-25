@@ -111,16 +111,11 @@ export class CommandRegistryImpl implements CommandRegistry {
           role: msg.role,
           content: msg.content,
         }));
-
-        // Add current user input if not already the last one from DB (it shouldn't be)
-        if (llmMessages.length === 0 || llmMessages[llmMessages.length -1].content !== userInput) {
-             // This check is a bit redundant if getMessages doesn't include the one just added,
-             // but ensures the current input is the last one if history was empty or just fetched.
-             // The primary way current message is added is by being the latest in dbMessages.
-             // However, if addMessage is too slow, or if we want to ensure it's always the *absolute* last,
-             // we might need to adjust. For now, assuming getMessages will include the one just added.
-        }
         
+        // The user's current message (userInput) is already included in dbMessages
+        // because it was added to the database before calling getMessages.
+        // So, no need for an additional check or push here for llmMessages.
+
         // Add system prompt from personality
         const activePersonality = await context.storage.getActivePersonality();
         if (activePersonality) {

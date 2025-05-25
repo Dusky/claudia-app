@@ -53,10 +53,10 @@ function App() {
         // Database is automatically initialized in constructor
         
         // Initialize default personality if it doesn't exist
-        const existingDefault = database.getPersonality('default');
+        const existingDefault = await database.getPersonality('default'); // Await
         if (!existingDefault) {
-          database.savePersonality(DEFAULT_PERSONALITY);
-          database.setActivePersonality('default');
+          await database.savePersonality(DEFAULT_PERSONALITY); // Await
+          await database.setActivePersonality('default'); // Await
         }
         
         // Try to initialize image provider if configured
@@ -190,17 +190,6 @@ function App() {
   };
 
   const handleInput = async (input: string) => {
-    // Add user input to lines
-    const userLine: TerminalLine = {
-      id: `input-${Date.now()}`,
-      type: 'input',
-      content: input,
-      timestamp: new Date().toISOString(),
-      user: 'user'
-    };
-
-    setLines(prev => [...prev, userLine]);
-
     // Create command context
     const context: CommandContext = {
       llmManager,
@@ -217,41 +206,37 @@ function App() {
     try {
       setIsLoading(true);
 
-      // Check if it's a command or AI message
-      if (input.trim().startsWith('/')) {
-        // Handle command
-        const result = await commandRegistry.execute(input.trim(), context);
+      // All input (commands and AI chat) goes through commandRegistry.execute
+      const result = await commandRegistry.execute(input.trim(), context);
         
-        if (result.lines && result.lines.length > 0) {
-          setLines(prev => [...prev, ...result.lines!]);
-        }
-        
-        // Handle special metadata actions
-        if (result.metadata?.action === 'open_personality_editor') {
-          const personalityId = result.metadata.personalityId as string;
-          const personality = personalityId ? database.getPersonality(personalityId) : null;
-          openPersonalityEditor(personality);
-        }
-        
-        // Handle special cases
-        if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
-          // Clear command - reset lines to just the welcome message
-          setLines([
-            {
-              id: `clear-${Date.now()}`,
-              type: 'system',
-              content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0',
-              timestamp: new Date().toISOString()
-            }
-          ]);
-        }
-      } else {
-        // Handle AI message
-        const result = await handleAIMessage(input.trim(), context);
-        
-        if (result.lines && result.lines.length > 0) {
-          setLines(prev => [...prev, ...result.lines!]);
-        }
+      if (result.lines && result.lines.length > 0) {
+        // Add all lines returned by the command/AI processing
+        setLines(prev => [...prev, ...result.lines!]);
+      }
+      
+      // Handle special metadata actions, e.g., opening personality editor
+      if (result.metadata?.action === 'open_personality_editor') {
+        const personalityId = result.metadata.personalityId as string;
+        const personalityToEdit = personalityId ? await database.getPersonality(personalityId) : null; // Await
+        openPersonalityEditor(personalityToEdit);
+      }
+      
+      // Handle special cases like /clear if it's managed by shouldContinue flag
+      // Note: The /clear command itself should return the appropriate lines or lack thereof.
+      // This specific clear logic might be better handled within the /clear command's implementation.
+      if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear')) {
+        // If /clear command signals a full reset of lines via shouldContinue: false
+        // and doesn't return lines itself, this ensures the welcome message is shown.
+        // However, it's cleaner if /clear itself returns the single system line.
+        // For now, keeping this logic as it was, but flagging for potential refactor.
+        setLines([
+          {
+            id: `clear-${Date.now()}`,
+            type: 'system',
+            content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0',
+            timestamp: new Date().toISOString()
+          }
+        ]);
       }
     } catch (error) {
       console.error('Input handling error:', error);
