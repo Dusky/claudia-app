@@ -18,7 +18,7 @@ interface TerminalDisplayProps {
   onInput?: (input: string) => void;
   prompt?: string;
   isLoading?: boolean;
-  commandRegistry: CommandRegistry;
+  commandRegistry: CommandRegistry; // Passed from App.tsx
 }
 
 const calculateLineHeight = (theme: TerminalTheme): number => {
@@ -80,7 +80,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   onInput,
   prompt = '>',
   isLoading = false,
-  commandRegistry: _commandRegistry 
+  commandRegistry 
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
@@ -88,9 +88,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const listRef = useRef<List>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
 
+  // Command History State
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
-  const [historyPointer, setHistoryPointer] = useState<number>(-1); // -1 means current input, not history
-  const inputBeforeHistoryNav = useRef<string>(''); // Stores input before ArrowUp is first pressed
+  const [historyPointer, setHistoryPointer] = useState<number>(-1);
+  const inputBeforeHistoryNav = useRef<string>('');
+
+  // Tab Completion State
+  const [suggestionCycleIndex, setSuggestionCycleIndex] = useState<number>(-1);
+  const [lastTabCompletionPrefix, setLastTabCompletionPrefix] = useState<string | null>(null);
 
   const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
 
@@ -109,11 +114,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTypedInput = e.target.value;
     setCurrentInput(newTypedInput);
-    // If user starts typing while navigating history, they are now editing a new command.
-    if (historyPointer !== -1) {
+    
+    if (historyPointer !== -1) { // If was navigating history, typing resets it
       inputBeforeHistoryNav.current = newTypedInput; 
       setHistoryPointer(-1); 
     }
+    // If user types, reset tab completion cycle
+    setSuggestionCycleIndex(-1);
+    setLastTabCompletionPrefix(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -127,6 +135,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         setCurrentInput('');
         setHistoryPointer(-1); 
         inputBeforeHistoryNav.current = ''; 
+        setSuggestionCycleIndex(-1); // Reset tab completion on submit
+        setLastTabCompletionPrefix(null);
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -141,9 +151,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       }
       setCurrentInput(commandHistory[newPointer]);
       setHistoryPointer(newPointer);
+      setSuggestionCycleIndex(-1); // Reset tab completion
+      setLastTabCompletionPrefix(null);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (historyPointer === -1) return; // Not in history navigation mode
+      if (historyPointer === -1) return;
 
       if (historyPointer === commandHistory.length - 1) { 
         setCurrentInput(inputBeforeHistoryNav.current); 
@@ -153,8 +165,41 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         setCurrentInput(commandHistory[newPointer]);
         setHistoryPointer(newPointer);
       }
+      setSuggestionCycleIndex(-1); // Reset tab completion
+      setLastTabCompletionPrefix(null);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (!currentInput.startsWith('/')) return; // Only complete commands for now
+
+      const parts = currentInput.split(' ');
+      const commandPart = parts[0]; // e.g., "/av" or "/avatar"
+      const typedPrefix = commandPart.substring(1); // "av" or "avatar"
+
+      if (typedPrefix === "") { // Don't try to complete if only "/" is typed
+        setSuggestionCycleIndex(-1);
+        setLastTabCompletionPrefix(null);
+        return;
+      }
+
+      let currentCycleIndex = suggestionCycleIndex;
+      if (typedPrefix !== lastTabCompletionPrefix) {
+        currentCycleIndex = -1; // Reset cycle if prefix changed
+      }
+      
+      const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
+      const matchingCommands = allCommandNames.filter(name => name.startsWith(typedPrefix));
+
+      if (matchingCommands.length > 0) {
+        currentCycleIndex = (currentCycleIndex + 1) % matchingCommands.length;
+        const completedCommand = matchingCommands[currentCycleIndex];
+        setCurrentInput(`/${completedCommand} `);
+        setSuggestionCycleIndex(currentCycleIndex);
+        setLastTabCompletionPrefix(typedPrefix);
+      } else {
+        setSuggestionCycleIndex(-1);
+        // setLastTabCompletionPrefix(typedPrefix); // Keep if no matches, so next tab doesn't reset cycle immediately
+      }
     }
-    // For other keys, handleInputChange will manage currentInput and resetting historyPointer if needed.
   };
 
   const handleTerminalClick = (e: React.MouseEvent<HTMLDivElement>) => {
