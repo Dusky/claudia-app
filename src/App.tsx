@@ -278,6 +278,7 @@ function App() {
         onInput={handleInput}
         prompt=">"
         isLoading={isLoading}
+        commandRegistry={commandRegistry} // Pass commandRegistry here
       />
       
       {/* Avatar Display */}
