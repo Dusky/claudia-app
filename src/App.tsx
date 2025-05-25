@@ -174,8 +174,8 @@ function App() {
     setEditingPersonality(null);
   };
 
-  const savePersonality = (personality: Personality) => {
-    database.savePersonality(personality);
+  const savePersonality = async (personality: Personality) => {
+    await database.savePersonality(personality); // Added await
     
     // Add success message
     const successLine: TerminalLine = {
