@@ -97,6 +97,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const [suggestionCycleIndex, setSuggestionCycleIndex] = useState<number>(-1);
   const [lastTabCompletionPrefix, setLastTabCompletionPrefix] = useState<string | null>(null);
 
+  // Command Suggestions State
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+
+
   const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
 
   useEffect(() => {
@@ -115,17 +120,45 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     const newTypedInput = e.target.value;
     setCurrentInput(newTypedInput);
     
-    if (historyPointer !== -1) { // If was navigating history, typing resets it
+    if (historyPointer !== -1) { 
       inputBeforeHistoryNav.current = newTypedInput; 
       setHistoryPointer(-1); 
     }
-    // If user types, reset tab completion cycle
-    setSuggestionCycleIndex(-1);
+    
+    setSuggestionCycleIndex(-1); // Reset tab cycle
     setLastTabCompletionPrefix(null);
+
+    if (newTypedInput.startsWith('/') && newTypedInput.length > 1) {
+      const commandPrefix = newTypedInput.substring(1).split(' ')[0];
+      if (commandPrefix) {
+        const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
+        const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
+        if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== newTypedInput.trim())) {
+          setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
+          setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
+        }
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setCurrentInput(`${suggestion} `);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      setShowSuggestions(false);
       if (currentInput.trim() && onInput) {
         const commandToSubmit = currentInput.trim();
         onInput(commandToSubmit);
@@ -135,11 +168,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         setCurrentInput('');
         setHistoryPointer(-1); 
         inputBeforeHistoryNav.current = ''; 
-        setSuggestionCycleIndex(-1); // Reset tab completion on submit
+        setSuggestionCycleIndex(-1); 
         setLastTabCompletionPrefix(null);
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      setShowSuggestions(false);
       if (commandHistory.length === 0) return;
 
       let newPointer: number;
@@ -151,10 +185,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       }
       setCurrentInput(commandHistory[newPointer]);
       setHistoryPointer(newPointer);
-      setSuggestionCycleIndex(-1); // Reset tab completion
+      setSuggestionCycleIndex(-1); 
       setLastTabCompletionPrefix(null);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
+      setShowSuggestions(false);
       if (historyPointer === -1) return;
 
       if (historyPointer === commandHistory.length - 1) { 
@@ -165,17 +200,18 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         setCurrentInput(commandHistory[newPointer]);
         setHistoryPointer(newPointer);
       }
-      setSuggestionCycleIndex(-1); // Reset tab completion
+      setSuggestionCycleIndex(-1); 
       setLastTabCompletionPrefix(null);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      if (!currentInput.startsWith('/')) return; // Only complete commands for now
+      setShowSuggestions(false); // Hide suggestions when tabbing for command name
+      if (!currentInput.startsWith('/')) return; 
 
       const parts = currentInput.split(' ');
-      const commandPart = parts[0]; // e.g., "/av" or "/avatar"
-      const typedPrefix = commandPart.substring(1); // "av" or "avatar"
+      const commandPart = parts[0]; 
+      const typedPrefix = commandPart.substring(1); 
 
-      if (typedPrefix === "") { // Don't try to complete if only "/" is typed
+      if (typedPrefix === "") { 
         setSuggestionCycleIndex(-1);
         setLastTabCompletionPrefix(null);
         return;
@@ -183,7 +219,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
       let currentCycleIndex = suggestionCycleIndex;
       if (typedPrefix !== lastTabCompletionPrefix) {
-        currentCycleIndex = -1; // Reset cycle if prefix changed
+        currentCycleIndex = -1; 
       }
       
       const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
@@ -197,8 +233,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         setLastTabCompletionPrefix(typedPrefix);
       } else {
         setSuggestionCycleIndex(-1);
-        // setLastTabCompletionPrefix(typedPrefix); // Keep if no matches, so next tab doesn't reset cycle immediately
       }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
     }
   };
 
@@ -313,7 +350,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       <div 
         className="terminal-input-area"
         style={{
-          position: 'relative',
+          position: 'relative', // For suggestions box positioning
           zIndex: 2,
           paddingTop: theme.spacing.lineSpacing,
           flexShrink: 0,
@@ -343,7 +380,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           style={{
             color: theme.colors.foreground,
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            position: 'relative' // For suggestions box positioning
           }}
         >
           <span 
@@ -358,8 +396,26 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             value={currentInput}
             onChange={handleInputChange} 
             onKeyDown={handleKeyDown} 
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
+            onFocus={() => {
+              setIsInputFocused(true);
+              // Optionally re-trigger suggestion check on focus if input is valid for suggestions
+              if (currentInput.startsWith('/') && currentInput.length > 1) {
+                const commandPrefix = currentInput.substring(1).split(' ')[0];
+                 if (commandPrefix) {
+                    const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
+                    const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
+                    if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== currentInput.trim())) {
+                      setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
+                      setShowSuggestions(true);
+                    }
+                 }
+              }
+            }}
+            onBlur={() => {
+              setIsInputFocused(false);
+              // Delay hiding suggestions to allow click
+              setTimeout(() => setShowSuggestions(false), 150);
+            }}
             style={{
               background: 'transparent',
               border: 'none',
@@ -379,6 +435,20 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             autoComplete="off"
             spellCheck={false}
           />
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="suggestions-box">
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={index}
+                  className="suggestion-item"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click
+                >
+                  {suggestion}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -409,14 +479,46 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           background: ${theme.colors.accent}80;
         }
 
-        .terminal-output-area > div {
+        .terminal-output-area > div { /* AutoSizer child */
           height: 100% !important;
           width: 100% !important;
         }
-        .terminal-virtualized-list > div {
+        .terminal-virtualized-list > div { /* react-window inner scrollable */
            scrollbar-width: thin;
            scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
         }
+
+        .suggestions-box {
+          position: absolute;
+          bottom: 100%; /* Position above the input line initially */
+          left: ${prompt.length + 1}ch; /* Align with where text starts after prompt */
+          width: calc(100% - ${prompt.length + 1}ch);
+          max-height: 150px;
+          overflow-y: auto;
+          background-color: ${theme.colors.background || '#1e1e1e'}EE; /* Slightly transparent */
+          border: 1px solid ${theme.colors.accent || '#00FFFF'}80;
+          border-bottom: none; /* Avoid double border with input line */
+          border-radius: 4px 4px 0 0;
+          z-index: 100; /* Ensure it's above other elements */
+          color: ${theme.colors.foreground || '#FFFFFF'};
+          font-family: ${theme.font.family};
+          font-size: calc(${theme.font.size} * 0.9); /* Slightly smaller than input */
+        }
+
+        .suggestion-item {
+          padding: 6px 10px;
+          cursor: pointer;
+          border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
+        }
+        .suggestion-item:last-child {
+          border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+          background-color: ${theme.colors.accent || '#00FFFF'}40; /* Highlight on hover */
+          color: ${theme.colors.background}; /* Ensure text is readable on hover */
+        }
+
 
         ${theme.effects.flicker ? `
           .terminal-output-area, .terminal-input-area {
