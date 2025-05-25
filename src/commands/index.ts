@@ -17,6 +17,7 @@ import {
   renameConversationCommand,
   clearConversationHistoryCommand,
 } from './builtin/conversation';
+import { manageConversationsCommand } from './builtin/manageConversationsCommand'; // Import the new command
 
 import {
   personalityCommand, 
@@ -67,6 +68,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
     deleteConversationCommand,
     renameConversationCommand,
     clearConversationHistoryCommand,
+    manageConversationsCommand, // Add the new command to the registry
   ];
 
   commandsToRegister.forEach(command => {
