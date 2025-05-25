@@ -201,12 +201,23 @@ export class ClaudiaDatabase implements StorageService {
   }
 
   async getMessages(conversationId: string, limit?: number): Promise<ConversationMessage[]> {
-    let query = 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC';
+    let query: string;
     const params: any[] = [conversationId];
 
     if (limit !== undefined && limit > 0) {
-      query += ' LIMIT ?';
+      // Subquery to get the N most recent messages, then order them chronologically
+      query = `
+        SELECT * FROM (
+          SELECT * FROM messages
+          WHERE conversation_id = ?
+          ORDER BY timestamp DESC
+          LIMIT ?
+        ) ORDER BY timestamp ASC
+      `;
       params.push(limit);
+    } else {
+      // Get all messages if no limit
+      query = 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC';
     }
     
     const stmt = this.db.prepare(query);
