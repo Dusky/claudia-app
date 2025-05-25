@@ -306,7 +306,6 @@ export class MockDatabase implements StorageService {
 
   // Personality methods
   async savePersonality(personality: Personality): Promise<void> {
-  async savePersonality(personality: Personality): Promise<void> {
     this.personalities.set(personality.id, personality);
     this.saveToLocalStorage();
   }
