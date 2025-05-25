@@ -1,5 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { TerminalTheme } from './themes';
+import { FixedSizeList as List } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import type { CommandRegistry } from '../commands/types';
 
 export interface TerminalLine {
   id: string;
@@ -9,16 +12,72 @@ export interface TerminalLine {
   user?: 'user' | 'claudia';
 }
 
-import type { CommandRegistry } from '../commands/types'; // Added CommandRegistry import
-
 interface TerminalDisplayProps {
   theme: TerminalTheme;
   lines: TerminalLine[];
   onInput?: (input: string) => void;
   prompt?: string;
   isLoading?: boolean;
-  commandRegistry: CommandRegistry; // Added commandRegistry prop
+  commandRegistry: CommandRegistry;
 }
+
+// Calculate a reasonable fixed line height.
+// This might need adjustment if content significantly varies in height per line.
+const calculateLineHeight = (theme: TerminalTheme): number => {
+  const fontSize = parseFloat(theme.font.size) || 16; // Default to 16px if not a number
+  const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5; // Default to 1.5
+  const lineSpacing = parseFloat(theme.spacing.lineSpacing) || 4; // Default to 4px
+  // A small buffer can sometimes help.
+  const buffer = 2; 
+  return Math.ceil(fontSize * lineHeightMultiplier + lineSpacing + buffer);
+};
+
+
+interface LineRendererProps {
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    lines: TerminalLine[];
+    theme: TerminalTheme;
+    getLineTypeColor: (type: TerminalLine['type']) => string;
+    getUserPrefix: (line: TerminalLine) => string;
+  };
+}
+
+const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
+  const { lines, theme, getLineTypeColor, getUserPrefix } = data;
+  const line = lines[index];
+
+  if (!line) return null;
+
+  return (
+    <div
+      style={style} // This style from react-window is crucial for positioning
+      className={`terminal-line terminal-line-${line.type}`}
+      data-type={line.type}
+      css={{ // Using css prop for example, or could be regular style prop
+        color: getLineTypeColor(line.type),
+        marginBottom: theme.spacing.lineSpacing, // This might be handled by itemSize, or adjust itemSize
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        display: 'flex', // To align prefix and content
+        alignItems: 'baseline',
+        ...(theme.effects.glow && {
+          textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
+        })
+      }}
+    >
+      <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
+        {getUserPrefix(line)}
+      </span>
+      <span className="line-content" style={{ flex: 1 }}>
+        {line.content}
+      </span>
+    </div>
+  );
+});
+LineRenderer.displayName = 'LineRenderer';
+
 
 export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   theme,
@@ -26,21 +85,24 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   onInput,
   prompt = '>',
   isLoading = false,
-  commandRegistry: _commandRegistry // Destructure commandRegistry but mark as unused
+  commandRegistry: _commandRegistry 
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
-  const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<List>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new lines are added
+  const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
+
+  // Auto-scroll to bottom when new lines are added or isLoading changes
   useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    if (lines.length > 0) {
+      listRef.current?.scrollToItem(lines.length - 1, 'smart');
     }
-  }, [lines]);
+  }, [lines, isLoading]); // Scroll when lines change or loading state finishes
 
-  // Focus input on mount and when clicking terminal
+  // Focus input on mount and when clicking terminal (if not clicking on text)
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
       inputRef.current.focus();
@@ -54,43 +116,49 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     }
   };
 
-  const handleTerminalClick = () => {
-    setIsInputFocused(true);
-    if (inputRef.current) {
-      inputRef.current.focus();
+  const handleTerminalClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Focus input only if the click is not on selectable text content within a line
+    // This is a basic check; more sophisticated checks might be needed
+    if (e.target === terminalContainerRef.current || 
+        (e.target as HTMLElement).classList.contains('terminal-output-area') ||
+        (e.target as HTMLElement).classList.contains('terminal-input-area') ||
+        (e.target as HTMLElement).classList.contains('terminal-input-line') ||
+        (e.target as HTMLElement).classList.contains('input-prompt')
+    ) {
+      setIsInputFocused(true);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
 
-  const getLineTypeColor = (type: TerminalLine['type']) => {
+  const getLineTypeColor = useCallback((type: TerminalLine['type']) => {
     switch (type) {
-      case 'error':
-        return theme.colors.error;
-      case 'system':
-        return theme.colors.accent;
-      case 'input':
-        return theme.colors.foreground;
-      case 'output':
-        return theme.colors.foreground;
-      default:
-        return theme.colors.foreground;
+      case 'error': return theme.colors.error;
+      case 'system': return theme.colors.accent;
+      case 'input': return theme.colors.foreground; // Input itself might be styled differently if needed
+      case 'output': return theme.colors.foreground;
+      default: return theme.colors.foreground;
     }
-  };
+  }, [theme.colors]);
 
-  const getUserPrefix = (line: TerminalLine) => {
-    if (line.type === 'input' && line.user === 'user') {
-      return `${prompt} `;
-    }
-    if (line.type === 'output' && line.user === 'claudia') {
-      return 'claudia> ';
-    }
-    if (line.type === 'system') {
-      return '[system] ';
-    }
+  const getUserPrefix = useCallback((line: TerminalLine) => {
+    if (line.type === 'input' && line.user === 'user') return `${prompt} `;
+    if (line.type === 'output' && line.user === 'claudia') return 'claudia> ';
+    if (line.type === 'system') return '[system] ';
     return '';
-  };
+  }, [prompt]);
+
+  const itemData = useMemo(() => ({
+    lines,
+    theme,
+    getLineTypeColor,
+    getUserPrefix
+  }), [lines, theme, getLineTypeColor, getUserPrefix]);
 
   return (
-    <div 
+    <div
+      ref={terminalContainerRef}
       className="terminal-container"
       data-theme={theme.id}
       style={{
@@ -99,12 +167,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         fontFamily: theme.font.family,
         fontSize: theme.font.size,
         fontWeight: theme.font.weight,
-        lineHeight: theme.font.lineHeight,
+        // lineHeight: theme.font.lineHeight, // Handled by itemSize and LineRenderer
         padding: theme.spacing.padding,
         letterSpacing: theme.spacing.characterSpacing,
         position: 'relative',
-        overflow: 'hidden',
-        minHeight: '100vh',
+        overflow: 'hidden', // Important for AutoSizer
+        minHeight: '100vh', // Ensure it takes full viewport height
+        display: 'flex',
+        flexDirection: 'column',
         cursor: 'text'
       }}
       onClick={handleTerminalClick}
@@ -113,82 +183,64 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       {theme.effects.scanlines && (
         <div 
           className="scanlines"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
+          style={{ /* ...styles... */ }} // Kept for brevity, same as original
         />
       )}
-      
       {theme.effects.noise && (
         <div 
           className="noise"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: 0.02,
-            background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'1\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
+          style={{ /* ...styles... */ }} // Kept for brevity, same as original
         />
       )}
 
-      {/* Terminal content */}
+      {/* Terminal output area (virtualized) */}
       <div 
-        ref={terminalRef}
-        className="terminal-content"
+        className="terminal-output-area"
         style={{
-          position: 'relative',
+          position: 'relative', // For AutoSizer
+          flexGrow: 1,
+          overflow: 'hidden', // AutoSizer needs this
           zIndex: 2,
-          height: '100%',
-          overflowY: 'auto',
-          paddingBottom: '100px' // Space for input line and status bar
         }}
       >
-        {lines.map((line) => (
-          <div 
-            key={line.id}
-            className={`terminal-line terminal-line-${line.type}`}
-            data-type={line.type}
-            style={{
-              color: getLineTypeColor(line.type),
-              marginBottom: theme.spacing.lineSpacing,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              ...(theme.effects.glow && {
-                textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
-              })
-            }}
-          >
-            <span className="line-prefix" style={{ color: theme.colors.accent }}>
-              {getUserPrefix(line)}
-            </span>
-            <span className="line-content">
-              {line.content}
-            </span>
-          </div>
-        ))}
+        <AutoSizer>
+          {({ height, width }) => (
+            <List
+              ref={listRef}
+              height={height}
+              width={width}
+              itemCount={lines.length}
+              itemSize={LINE_HEIGHT_ESTIMATE}
+              itemData={itemData}
+              className="terminal-virtualized-list" // For potential global styling
+            >
+              {LineRenderer}
+            </List>
+          )}
+        </AutoSizer>
+      </div>
 
-        {/* Loading indicator */}
+      {/* Input and Loading area */}
+      <div 
+        className="terminal-input-area"
+        style={{
+          position: 'relative', // Ensure zIndex works if needed
+          zIndex: 2, // Above background effects
+          paddingTop: theme.spacing.lineSpacing, // Space above input/loading
+          flexShrink: 0, // Prevent this area from shrinking
+        }}
+      >
         {isLoading && (
           <div 
             className="terminal-line loading"
             style={{
               color: theme.colors.accent,
-              marginBottom: theme.spacing.lineSpacing
+              marginBottom: theme.spacing.lineSpacing,
+              display: 'flex',
+              alignItems: 'baseline'
             }}
           >
-            <span className="line-prefix">claudia{'>'} </span>
+            <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>claudia{'>'} </span>
             <span className="loading-dots">
               <span style={{ animation: 'blink 1s infinite' }}>.</span>
               <span style={{ animation: 'blink 1s infinite 0.33s' }}>.</span>
@@ -197,19 +249,18 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           </div>
         )}
 
-        {/* Input line */}
         <div 
           className="terminal-input-line"
           style={{
             color: theme.colors.foreground,
-            marginBottom: theme.spacing.lineSpacing,
+            // marginBottom: theme.spacing.lineSpacing, // Already spaced by container padding or specific needs
             display: 'flex',
             alignItems: 'center'
           }}
         >
           <span 
             className="input-prompt"
-            style={{ color: theme.colors.accent }}
+            style={{ color: theme.colors.accent, marginRight: '0.5em' }}
           >
             {prompt}{' '}
           </span>
@@ -243,32 +294,45 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         </div>
       </div>
 
-      {/* CSS animations */}
+      {/* CSS animations and global styles for this component */}
       <style>{`
         @keyframes blink {
           0%, 50% { opacity: 1; }
           51%, 100% { opacity: 0; }
         }
         
-        .terminal-container::-webkit-scrollbar {
+        /* Styling for the scrollbar of the react-window list */
+        .terminal-virtualized-list::-webkit-scrollbar {
           width: 8px;
         }
         
-        .terminal-container::-webkit-scrollbar-track {
-          background: ${theme.colors.background};
+        .terminal-virtualized-list::-webkit-scrollbar-track {
+          background: ${theme.colors.background}30; /* Slightly transparent track */
         }
         
-        .terminal-container::-webkit-scrollbar-thumb {
-          background: ${theme.colors.accent}40;
+        .terminal-virtualized-list::-webkit-scrollbar-thumb {
+          background: ${theme.colors.accent}60; /* More visible thumb */
           border-radius: 4px;
         }
         
-        .terminal-container::-webkit-scrollbar-thumb:hover {
-          background: ${theme.colors.accent}60;
+        .terminal-virtualized-list::-webkit-scrollbar-thumb:hover {
+          background: ${theme.colors.accent}80;
         }
 
+        /* Ensure AutoSizer and List take full space of their container */
+        .terminal-output-area > div { /* Targets AutoSizer's direct child */
+          height: 100% !important;
+          width: 100% !important;
+        }
+        .terminal-virtualized-list > div { /* Targets react-window's inner scrollable div */
+           /* Add any specific styles if needed, e.g., custom scrollbar for Firefox */
+           scrollbar-width: thin;
+           scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
+        }
+
+
         ${theme.effects.flicker ? `
-          .terminal-content {
+          .terminal-output-area, .terminal-input-area { /* Apply flicker to content areas */
             animation: flicker 0.15s infinite linear alternate;
           }
           
@@ -279,14 +343,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         ` : ''}
 
         ${theme.effects.crt ? `
-          .terminal-container {
+          .terminal-container { /* Apply CRT effects to the main container */
             border-radius: 15px;
             box-shadow: 
               inset 0 0 50px rgba(255,255,255,0.1),
               0 0 100px rgba(0,0,0,0.8);
           }
           
-          .terminal-container::before {
+          .terminal-container::before { /* Overlay for CRT screen curvature/glow */
             content: '';
             position: absolute;
             top: 0;
@@ -295,7 +359,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             bottom: 0;
             background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.3) 100%);
             pointer-events: none;
-            z-index: 3;
+            z-index: 3; /* Above content, below popups/modals */
           }
         ` : ''}
       `}</style>

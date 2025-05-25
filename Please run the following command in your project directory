@@ -1,0 +1,3 @@
+npm install react-window react-virtualized-auto-sizer
+# or
+yarn add react-window react-virtualized-auto-sizer
