@@ -213,7 +213,6 @@ clear                  # Clear terminal history
    - Add more contextual avatar commands
 
 3. **User Experience Polish** (Days 6-7)
-   - Add API key configuration UI
    - Improve error handling and user feedback
    - Test cross-platform compatibility
 

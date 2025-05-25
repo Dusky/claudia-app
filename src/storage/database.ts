@@ -1,39 +1,15 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
+import type {
+  StorageService,
+  Conversation,
+  ConversationMessage,
+  MemoryEntry,
+  AppSetting, // Changed from AppSettings
+  CachedAvatarImage,
+} from './types'; // Import from the new types file
 
-export interface ConversationMessage {
-  id?: number;
-  conversationId: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
-  metadata?: string; // JSON string for additional data
-}
-
-export interface Conversation {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  metadata?: string; // JSON string for additional data
-}
-
-export interface MemoryEntry {
-  id?: number;
-  content: string;
-  embedding?: string; // JSON string for vector embeddings
-  type: 'conversation' | 'avatar' | 'system' | 'user_preference';
-  timestamp: string;
-  metadata?: string;
-}
-
-export interface AppSettings {
-  key: string;
-  value: string;
-  type: 'string' | 'number' | 'boolean' | 'json';
-}
-
-export class ClaudiaDatabase {
+export class ClaudiaDatabase implements StorageService {
   private db: Database.Database;
 
   constructor(dbPath?: string) {
@@ -119,18 +95,28 @@ export class ClaudiaDatabase {
   }
 
   // Conversation methods
-  createConversation(conversation: Omit<Conversation, 'id'>): string {
+  async createConversation(
+    conversationInput: Omit<Conversation, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: string; updatedAt?: string; }
+  ): Promise<Conversation> {
     const id = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
+    const newConversation: Conversation = {
+      id,
+      title: conversationInput.title,
+      createdAt: conversationInput.createdAt || now,
+      updatedAt: conversationInput.updatedAt || now,
+      metadata: conversationInput.metadata,
+    };
     const stmt = this.db.prepare(`
       INSERT INTO conversations (id, title, created_at, updated_at, metadata)
       VALUES (?, ?, ?, ?, ?)
     `);
     
-    stmt.run(id, conversation.title, conversation.createdAt, conversation.updatedAt, conversation.metadata);
-    return id;
+    stmt.run(newConversation.id, newConversation.title, newConversation.createdAt, newConversation.updatedAt, newConversation.metadata);
+    return newConversation;
   }
 
-  getConversation(id: string): Conversation | null {
+  async getConversation(id: string): Promise<Conversation | null> {
     const stmt = this.db.prepare('SELECT * FROM conversations WHERE id = ?');
     const row = stmt.get(id) as any;
     
@@ -141,11 +127,11 @@ export class ClaudiaDatabase {
       title: row.title,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata: row.metadata
+      metadata: row.metadata,
     };
   }
 
-  getAllConversations(): Conversation[] {
+  async getAllConversations(): Promise<Conversation[]> {
     const stmt = this.db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC');
     const rows = stmt.all() as any[];
     
@@ -154,11 +140,11 @@ export class ClaudiaDatabase {
       title: row.title,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata: row.metadata
+      metadata: row.metadata,
     }));
   }
 
-  updateConversation(id: string, updates: Partial<Conversation>): void {
+  async updateConversation(id: string, updates: Partial<Omit<Conversation, 'id' | 'createdAt'>>): Promise<boolean> {
     const fields = [];
     const values = [];
     
@@ -177,44 +163,54 @@ export class ClaudiaDatabase {
       values.push(updates.metadata);
     }
     
-    if (fields.length > 0) {
-      values.push(id);
-      const stmt = this.db.prepare(`UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`);
-      stmt.run(...values);
+    if (fields.length === 0) {
+      return false; // No updates to perform
     }
+    values.push(id);
+    const stmt = this.db.prepare(`UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`);
+    const result = stmt.run(...values);
+    return result.changes > 0;
   }
 
-  deleteConversation(id: string): void {
+  async deleteConversation(id: string): Promise<boolean> {
     const stmt = this.db.prepare('DELETE FROM conversations WHERE id = ?');
-    stmt.run(id);
+    const result = stmt.run(id);
+    // Also delete associated messages (handled by ON DELETE CASCADE in schema)
+    return result.changes > 0;
   }
 
   // Message methods
-  addMessage(message: Omit<ConversationMessage, 'id'>): number {
+  async addMessage(messageInput: Omit<ConversationMessage, 'id'>): Promise<ConversationMessage> {
     const stmt = this.db.prepare(`
       INSERT INTO messages (conversation_id, role, content, timestamp, metadata)
       VALUES (?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
-      message.conversationId,
-      message.role,
-      message.content,
-      message.timestamp,
-      message.metadata
+      messageInput.conversationId,
+      messageInput.role,
+      messageInput.content,
+      messageInput.timestamp,
+      messageInput.metadata
     );
     
-    return result.lastInsertRowid as number;
+    return {
+      ...messageInput,
+      id: result.lastInsertRowid as number,
+    };
   }
 
-  getMessages(conversationId: string): ConversationMessage[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM messages 
-      WHERE conversation_id = ? 
-      ORDER BY timestamp ASC
-    `);
+  async getMessages(conversationId: string, limit?: number): Promise<ConversationMessage[]> {
+    let query = 'SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC';
+    const params: any[] = [conversationId];
+
+    if (limit !== undefined && limit > 0) {
+      query += ' LIMIT ?';
+      params.push(limit);
+    }
     
-    const rows = stmt.all(conversationId) as any[];
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as any[];
     
     return rows.map(row => ({
       id: row.id,
@@ -227,24 +223,27 @@ export class ClaudiaDatabase {
   }
 
   // Memory/RAG methods
-  addMemory(memory: Omit<MemoryEntry, 'id'>): number {
+  async addMemory(memoryInput: Omit<MemoryEntry, 'id'>): Promise<MemoryEntry> {
     const stmt = this.db.prepare(`
       INSERT INTO memory (content, embedding, type, timestamp, metadata)
       VALUES (?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
-      memory.content,
-      memory.embedding,
-      memory.type,
-      memory.timestamp,
-      memory.metadata
+      memoryInput.content,
+      memoryInput.embedding,
+      memoryInput.type,
+      memoryInput.timestamp,
+      memoryInput.metadata
     );
     
-    return result.lastInsertRowid as number;
+    return {
+      ...memoryInput,
+      id: result.lastInsertRowid as number,
+    };
   }
 
-  searchMemory(type?: string, limit = 50): MemoryEntry[] {
+  async searchMemory(type?: string, limit = 50): Promise<MemoryEntry[]> {
     let query = 'SELECT * FROM memory';
     const params: any[] = [];
     
@@ -270,35 +269,57 @@ export class ClaudiaDatabase {
   }
 
   // Settings methods
-  setSetting(key: string, value: any, type: AppSettings['type'] = 'string'): void {
+  async setSetting(key: string, value: any, type?: AppSetting['type']): Promise<void> {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO settings (key, value, type)
       VALUES (?, ?, ?)
     `);
     
-    const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-    stmt.run(key, stringValue, type);
+    let stringValue = value;
+    let resolvedType = type;
+
+    if (typeof value === 'boolean') {
+      stringValue = value ? 'true' : 'false';
+      resolvedType = resolvedType || 'boolean';
+    } else if (typeof value === 'number') {
+      stringValue = value.toString();
+      resolvedType = resolvedType || 'number';
+    } else if (typeof value === 'object' || Array.isArray(value)) {
+      stringValue = JSON.stringify(value);
+      resolvedType = resolvedType || 'json';
+    } else {
+      // Default to string if type not provided and value is string
+      resolvedType = resolvedType || 'string';
+      stringValue = String(value);
+    }
+    
+    stmt.run(key, stringValue, resolvedType);
   }
 
-  getSetting(key: string): any {
+  async getSetting<T = any>(key: string, defaultValue?: T): Promise<T | null> {
     const stmt = this.db.prepare('SELECT * FROM settings WHERE key = ?');
-    const row = stmt.get(key) as any;
+    const row = stmt.get(key) as AppSetting | undefined;
     
-    if (!row) return null;
+    if (!row) return defaultValue !== undefined ? defaultValue : null;
     
     switch (row.type) {
       case 'number':
-        return parseFloat(row.value);
+        return parseFloat(row.value as string) as unknown as T;
       case 'boolean':
-        return row.value === 'true';
+        return (row.value === 'true') as unknown as T;
       case 'json':
-        return JSON.parse(row.value);
-      default:
-        return row.value;
+        try {
+          return JSON.parse(row.value as string) as T;
+        } catch (e) {
+          console.error(`Error parsing JSON setting for key ${key}:`, e);
+          return defaultValue !== undefined ? defaultValue : null;
+        }
+      default: // string
+        return row.value as unknown as T;
     }
   }
 
-  getAllSettings(): Record<string, any> {
+  async getAllSettings(): Promise<Record<string, any>> {
     const stmt = this.db.prepare('SELECT * FROM settings');
     const rows = stmt.all() as any[];
     
@@ -324,7 +345,13 @@ export class ClaudiaDatabase {
   }
 
   // Avatar cache methods
-  cacheAvatarImage(promptHash: string, imageUrl: string, parameters: Record<string, any>, localPath?: string): void {
+  async cacheAvatarImage(
+    promptHash: string,
+    imageUrl: string,
+    parameters: Record<string, any>,
+    localPath?: string,
+    fileSize?: number
+  ): Promise<void> {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO avatar_cache 
@@ -332,39 +359,49 @@ export class ClaudiaDatabase {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     
-    stmt.run(promptHash, imageUrl, localPath, JSON.stringify(parameters), now, now, 0);
+    stmt.run(promptHash, imageUrl, localPath, JSON.stringify(parameters), now, now, fileSize || 0);
   }
 
-  getCachedAvatar(promptHash: string): any {
+  async getCachedAvatar(promptHash: string): Promise<CachedAvatarImage | null> {
     const stmt = this.db.prepare('SELECT * FROM avatar_cache WHERE prompt_hash = ?');
-    const row = stmt.get(promptHash) as any;
+    // Cast to include all fields from CachedAvatarImage plus DB specific 'id'
+    const row = stmt.get(promptHash) as (Omit<CachedAvatarImage, 'parameters'> & { parameters: string; id: number }) | undefined;
     
-    if (row) {
-      // Update accessed_at timestamp
-      const updateStmt = this.db.prepare('UPDATE avatar_cache SET accessed_at = ? WHERE prompt_hash = ?');
-      updateStmt.run(new Date().toISOString(), promptHash);
+    if (!row) return null;
+
+    const accessedAt = new Date().toISOString();
+    // Update accessed_at timestamp
+    const updateStmt = this.db.prepare('UPDATE avatar_cache SET accessed_at = ? WHERE prompt_hash = ?');
+    updateStmt.run(accessedAt, promptHash);
       
-      return {
-        promptHash: row.prompt_hash,
-        imageUrl: row.image_url,
-        localPath: row.local_path,
-        parameters: JSON.parse(row.parameters),
-        createdAt: row.created_at,
-        accessedAt: row.accessed_at
-      };
+    let parsedParameters: Record<string, any>;
+    try {
+      parsedParameters = JSON.parse(row.parameters);
+    } catch (e) {
+      console.error(`Error parsing parameters for cached avatar ${promptHash}:`, e);
+      parsedParameters = {}; // Default to empty object on error
     }
-    
-    return null;
+
+    return {
+      promptHash: row.prompt_hash,
+      imageUrl: row.image_url,
+      localPath: row.local_path,
+      parameters: parsedParameters,
+      createdAt: row.created_at,
+      accessedAt: accessedAt, // use the new timestamp
+      file_size: row.file_size,
+    };
   }
 
-  cleanupOldAvatarCache(maxAge = 7 * 24 * 60 * 60 * 1000): number { // 7 days default
-    const cutoff = new Date(Date.now() - maxAge).toISOString();
-    const stmt = this.db.prepare('DELETE FROM avatar_cache WHERE accessed_at < ?');
+  async cleanupOldAvatarCache(maxAgeDays = 7): Promise<number> {
+    const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+    const stmt = this.db.prepare('DELETE FROM avatar_cache WHERE accessed_at < ? OR accessed_at IS NULL'); // Also clean up if accessed_at is somehow null
     const result = stmt.run(cutoff);
     return result.changes;
   }
 
-  close(): void {
+  async close(): Promise<void> {
     this.db.close();
   }
 }
