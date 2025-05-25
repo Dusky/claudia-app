@@ -136,7 +136,11 @@ export class CommandRegistryImpl implements CommandRegistry {
           }
         }
         
-        const llmResponse = await llmProvider.generateResponse(llmMessages);
+        const llmResponse = await llmProvider.generateResponse(llmMessages, {
+          temperature: optedTemperature ?? DEFAULT_AI_TEMPERATURE,
+          maxTokens: optedMaxTokens ?? DEFAULT_AI_MAX_TOKENS,
+          // stream: false, // if you add streaming options later
+        });
 
         // Parse avatar commands from the LLM response
         const { cleanText, commands: avatarCommands } = context.avatarController.parseAvatarCommands(llmResponse.content);
