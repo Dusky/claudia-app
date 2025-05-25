@@ -9,6 +9,7 @@ export * from './builtin/avatar';
 export * from './builtin/providers';
 export * from './builtin/test';
 export * from './builtin/personality';
+export * from './builtin/options'; // Export new command
 
 import { CommandRegistryImpl } from './registry';
 import { helpCommand } from './builtin/help';
@@ -18,6 +19,7 @@ import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
 import { testCommand } from './builtin/test';
 import { personalityCommand } from './builtin/personality';
+import { optionsCommand } from './builtin/options'; // Import new command
 
 // Create and configure the default command registry
 export function createCommandRegistry(): CommandRegistryImpl {
@@ -34,6 +36,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
   registry.register(providersCommand);
   registry.register(testCommand);
   registry.register(personalityCommand);
+  registry.register(optionsCommand); // Register new command
   
   return registry;
 }

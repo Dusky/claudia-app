@@ -1,6 +1,14 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
 import { generateSystemPrompt } from '../types/personality'; // Import for personality system prompt
+import { 
+  AI_OPTION_TEMPERATURE_KEY, 
+  AI_OPTION_CONTEXT_LENGTH_KEY, 
+  AI_OPTION_MAX_TOKENS_KEY, 
+  DEFAULT_AI_TEMPERATURE, 
+  DEFAULT_AI_CONTEXT_LENGTH, 
+  DEFAULT_AI_MAX_TOKENS 
+} from '../components/AIOptionsModal'; // Corrected path
 
 export class CommandRegistryImpl implements CommandRegistry {
   private commands = new Map<string, Command>();
@@ -86,7 +94,10 @@ export class CommandRegistryImpl implements CommandRegistry {
 
       try {
         const ACTIVE_CONVERSATION_ID_KEY = 'activeConversationId';
-        const CONVERSATION_HISTORY_LIMIT = 10; // Number of past messages to include
+        // Fetch AI options from storage
+        const optedContextLength = await context.storage.getSetting<number>(AI_OPTION_CONTEXT_LENGTH_KEY, DEFAULT_AI_CONTEXT_LENGTH);
+        const optedTemperature = await context.storage.getSetting<number>(AI_OPTION_TEMPERATURE_KEY, DEFAULT_AI_TEMPERATURE);
+        const optedMaxTokens = await context.storage.getSetting<number>(AI_OPTION_MAX_TOKENS_KEY, DEFAULT_AI_MAX_TOKENS);
 
         let activeConversationId = await context.storage.getSetting<string>(ACTIVE_CONVERSATION_ID_KEY);
 
@@ -104,8 +115,8 @@ export class CommandRegistryImpl implements CommandRegistry {
           timestamp: userLine.timestamp,
         });
 
-        // Fetch conversation history
-        const dbMessages = await context.storage.getMessages(activeConversationId, CONVERSATION_HISTORY_LIMIT);
+        // Fetch conversation history using the configured context length
+        const dbMessages = await context.storage.getMessages(activeConversationId, optedContextLength ?? DEFAULT_AI_CONTEXT_LENGTH);
         
         const llmMessages: import('../providers/llm/types').LLMMessage[] = dbMessages.map(msg => ({
           role: msg.role,
