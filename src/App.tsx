@@ -53,7 +53,7 @@ function App() {
   const [activePersonalityIdInModal, setActivePersonalityIdInModal] = useState<string | null>(null);
 
   const [activeConversationId, _setActiveConversationId] = useState<string | null>(null);
-  const activeConversationIdRef = useRef(activeConversationId); // Ref to hold current activeConversationId for async operations
+  const activeConversationIdRef = useRef(activeConversationId); 
 
   const effectRan = useRef(false); 
 
@@ -68,9 +68,9 @@ function App() {
 
   const themeObject: TerminalTheme = getTheme(currentTheme); 
 
-  const setActiveConversationAndPersist = async (id: string | null, loadMessages = true) => {
+  const setActiveConversationAndLoadMessages = async (id: string | null, loadMessages = true) => {
     _setActiveConversationId(id);
-    activeConversationIdRef.current = id; // Keep ref in sync
+    activeConversationIdRef.current = id; 
     if (id) {
       await database.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, id);
       if (loadMessages) {
@@ -80,22 +80,25 @@ function App() {
           content: m.content, timestamp: m.timestamp,
           user: m.role === 'user' ? 'user' : 'claudia'
         } as TerminalLine));
-        setLines(newLines); // Replace current lines with the loaded conversation
+        setLines(newLines); 
       }
-    } else {
-      await database.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, null); // Clear if no active convo
-      if (loadMessages) setLines([]); // Clear lines if no active convo
+    } else { 
+      await database.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, null); 
+      if (loadMessages) setLines([]); 
     }
   };
 
 
   useEffect(() => {
-    if (effectRan.current === true && process.env.NODE_ENV === 'development') {
+    // Guard against double execution in React Strict Mode (development)
+    if (import.meta.env.DEV && effectRan.current === true) {
       return;
     }
 
     const initializeSystem = async () => {
-      let conversationRestored = false;
+      let playBootAnimation = false; 
+      let activeConvIdToUse: string | null = null;
+
       try {        
         const activeP = await database.getActivePersonality();
         if (!activeP) {
@@ -106,20 +109,33 @@ function App() {
             await database.setActivePersonality('default');
         }
 
-        let currentConvIdSetting = await database.getSetting<string>(LAST_ACTIVE_CONVERSATION_ID_KEY);
-        if (currentConvIdSetting) {
-          const conv = await database.getConversation(currentConvIdSetting);
+        const lastActiveId = await database.getSetting<string>(LAST_ACTIVE_CONVERSATION_ID_KEY);
+        if (lastActiveId) {
+          const conv = await database.getConversation(lastActiveId);
           if (conv) {
-            await setActiveConversationAndPersist(conv.id, true);
-            conversationRestored = true;
+            activeConvIdToUse = conv.id;
+            const messages = await database.getMessages(conv.id, 1); 
+            if (messages.length === 0) {
+              playBootAnimation = true; 
+            }
           } else {
-            currentConvIdSetting = null; 
+            playBootAnimation = true; 
           }
+        } else {
+          playBootAnimation = true; 
+        }
+
+        if (!activeConvIdToUse) { 
+          const newConv = await database.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
+          activeConvIdToUse = newConv.id;
+          playBootAnimation = true; 
         }
         
-        if (!currentConvIdSetting) {
-          const newConv = await database.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
-          await setActiveConversationAndPersist(newConv.id, true); // Will also set lines to empty
+        // Set active conversation ID and persist, but handle message loading based on boot animation
+        _setActiveConversationId(activeConvIdToUse);
+        activeConversationIdRef.current = activeConvIdToUse;
+        if (activeConvIdToUse) {
+          await database.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, activeConvIdToUse);
         }
         
         try {
@@ -131,17 +147,32 @@ function App() {
           console.warn('Image provider initialization failed:', error);
         }
         
-        // Only run boot sequence if lines are currently empty (i.e., new session or empty restored convo)
-        if (lines.length === 0 && !conversationRestored) { // Check lines.length after potential load
-          await addLineWithDelay(setLines, { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() }, 500);
-          await addLineWithDelay(setLines, { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() }, 500);
-          await addLineWithDelay(setLines, { id: 'boot-3', type: 'system', content: 'MEMORY CHECK................PASS', timestamp: new Date().toISOString() }, 700);
-          await addLineWithDelay(setLines, { id: 'boot-4', type: 'system', content: 'AI CORE LINK ESTABLISHED....ACTIVE', timestamp: new Date().toISOString() }, 800);
-          await addLineWithDelay(setLines, { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() }, 600);
-          await addLineWithDelay(setLines, { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() }, 700);
-          await addLineWithDelay(setLines, { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }, 500);
-          await addLineWithDelay(setLines, { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' }, 1000);
-          await addLineWithDelay(setLines, { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' }, 500);
+        if (playBootAnimation) {
+          setLines([]); // Clear lines before starting boot animation
+          const bootLines: TerminalLine[] = [
+            { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() },
+            { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() },
+            { id: 'boot-3', type: 'system', content: 'MEMORY CHECK................PASS', timestamp: new Date().toISOString() },
+            { id: 'boot-4', type: 'system', content: 'AI CORE LINK ESTABLISHED....ACTIVE', timestamp: new Date().toISOString() },
+            { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() },
+            { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() },
+            { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() },
+            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' },
+            { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' },
+          ];
+          for (const line of bootLines) {
+            const delay = (line.id === 'boot-8' || line.id === 'boot-9') ? 1000 : (line.id === 'boot-1' || line.id === 'boot-2' ? 500 : (Math.random() * 200 + 600));
+            await addLineWithDelay(setLines, line, delay);
+          }
+        } else if (activeConvIdToUse) {
+          // Load messages for the existing, non-empty conversation
+          const history = await database.getMessages(activeConvIdToUse, config.conversationHistoryLength + 20);
+          const newDisplayLines = history.map(m => ({
+            id: `hist-${m.id}-${m.timestamp}`, type: m.role === 'user' ? 'input' : 'output',
+            content: m.content, timestamp: m.timestamp,
+            user: m.role === 'user' ? 'user' : 'claudia'
+          } as TerminalLine));
+          setLines(newDisplayLines);
         }
         
         if (imageManager.getActiveProvider() && avatarController) {
@@ -164,9 +195,11 @@ function App() {
     initializeSystem();
 
     return () => {
-      effectRan.current = true;
+      if (import.meta.env.DEV) {
+        effectRan.current = true;
+      }
     };
-  }, [llmManager, imageManager, database, avatarController]);
+  }, [llmManager, imageManager, database, avatarController]); // Dependencies are memoized, should be stable
 
   const addLinesToDisplay = (newLines: TerminalLine[]) => {
     setLines(prev => [...prev, ...newLines].flat());
@@ -235,7 +268,7 @@ function App() {
     };
     addLinesToDisplay([userLine]);
 
-    const currentActiveConvId = activeConversationIdRef.current; // Use ref for current value
+    const currentActiveConvId = activeConversationIdRef.current; 
 
     if (currentActiveConvId && !input.startsWith('/')) { 
       await database.addMessage({
@@ -255,7 +288,7 @@ function App() {
       addLines: addLinesToDisplay, setLoading: setIsLoading, currentTheme,
       setTheme: setCurrentTheme, openPersonalityEditor, commandRegistry,
       activeConversationId: currentActiveConvId, 
-      setActiveConversationId: setActiveConversationAndPersist,
+      setActiveConversationId: setActiveConversationAndLoadMessages,
     };
 
     try {
@@ -263,9 +296,14 @@ function App() {
       const result = await commandRegistry.execute(input.trim(), context);
       if (result.lines && result.lines.length > 0) addLinesToDisplay(result.lines); 
       
-      if (result.shouldContinue === false && input.trim().toLowerCase().startsWith('/clear') || (input.trim().toLowerCase().startsWith('/conversation') && (input.includes('new') || input.includes('load') || input.includes('clearhist')))) {
-        // For /clear, /conv new, /conv load, /conv clearhist, the lines are already set by setActiveConversationAndPersist or special handling
-        if (input.trim().toLowerCase().startsWith('/clear')) {
+      if (result.shouldContinue === false && (input.trim().toLowerCase().startsWith('/clear') || 
+          (input.trim().toLowerCase().startsWith('/conversation') && 
+           (input.includes('new') || input.includes('load') || input.includes('clearhist'))
+          )
+         )) {
+        if (input.trim().toLowerCase().startsWith('/clear') || input.trim().toLowerCase() === '/conversation-clearhist') {
+            // For /clear and /conv clearhist, set a minimal boot-like message after clearing.
+            // setActiveConversationAndLoadMessages would have already cleared lines for /conv new and /conv load.
             setLines([ 
               { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
             ]);
