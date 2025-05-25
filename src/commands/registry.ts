@@ -54,12 +54,71 @@ export class CommandRegistryImpl implements CommandRegistry {
     
     // Check if it's a command (starts with /)
     if (!trimmed.startsWith('/')) {
-      return {
-        success: false,
-        error: 'Not a command - should be handled by AI'
+      // Not a command, treat as input for AI
+      const userInput = trimmed;
+      const llmProvider = context.llmManager.getActiveProvider();
+
+      if (!llmProvider || !llmProvider.isConfigured()) {
+        const errorLine: TerminalLine = {
+          id: `error-no-llm-${Date.now()}`,
+          type: 'error',
+          content: 'No AI provider is configured or active. Please check your settings.',
+          timestamp: new Date().toISOString(),
+          user: 'claudia'
+        };
+        return {
+          success: false,
+          lines: [errorLine],
+          error: 'No AI provider configured or active.'
+        };
+      }
+
+      context.setLoading(true);
+
+      const userLine: TerminalLine = {
+        id: `user-${Date.now()}`,
+        type: 'input',
+        content: userInput,
+        timestamp: new Date().toISOString(),
+        user: 'user'
       };
+
+      try {
+        // TODO: In a future step, add conversation history and system prompt from personality
+        const messages: import('../providers/llm/types').LLMMessage[] = [{ role: 'user', content: userInput }];
+        
+        const llmResponse = await llmProvider.generateResponse(messages);
+
+        const assistantLine: TerminalLine = {
+          id: `assistant-${Date.now()}`,
+          type: 'output',
+          content: llmResponse.content,
+          timestamp: new Date().toISOString(),
+          user: 'claudia'
+        };
+        
+        // TODO: Add avatar command parsing from llmResponse.content here in a future step
+
+        context.setLoading(false);
+        // The App/Terminal component will take these lines and add them.
+        return { success: true, lines: [userLine, assistantLine] };
+
+      } catch (error) {
+        context.setLoading(false);
+        const errorContent = error instanceof Error ? error.message : 'Unknown error during AI response generation.';
+        const errorLine: TerminalLine = {
+          id: `error-ai-${Date.now()}`,
+          type: 'error',
+          content: `AI Error: ${errorContent}`,
+          timestamp: new Date().toISOString(),
+          user: 'claudia'
+        };
+        // Return userLine as well so their input isn't lost on error
+        return { success: false, lines: [userLine, errorLine], error: errorContent };
+      }
     }
 
+    // It's a command, proceed with command parsing
     // Remove the / and split into parts
     const parts = trimmed.slice(1).split(' ');
     const commandName = parts[0].toLowerCase();
