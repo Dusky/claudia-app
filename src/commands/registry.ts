@@ -129,8 +129,11 @@ export class CommandRegistryImpl implements CommandRegistry {
 
         // Add system prompt from personality
         const activePersonality = await context.storage.getActivePersonality();
-        if (activePersonality && activePersonality.system_prompt) {
-          llmMessages.unshift({ role: 'system', content: activePersonality.system_prompt });
+        if (activePersonality) {
+          const systemPromptString = generateSystemPrompt(activePersonality); // Use the imported function
+          if (systemPromptString) {
+            llmMessages.unshift({ role: 'system', content: systemPromptString });
+          }
         }
         
         const llmResponse = await llmProvider.generateResponse(llmMessages, {
