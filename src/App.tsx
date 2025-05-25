@@ -99,7 +99,7 @@ function App() {
                 user: m.role === 'user' ? 'user' : 'claudia'
             } as TerminalLine));
             conversationRestored = true;
-            setLines(initialLinesLoadedFromDB); // Load DB lines immediately
+            setLines(initialLinesLoadedFromDB); 
           } else {
             currentConvId = null; 
           }
@@ -120,9 +120,8 @@ function App() {
           console.warn('Image provider initialization failed:', error);
         }
         
-        // Slick boot sequence if no conversation was restored or it was empty
         if (!conversationRestored || initialLinesLoadedFromDB.length === 0) {
-          setLines([]); // Clear any potential previous state if starting fresh boot sequence
+          setLines([]); 
           await addLineWithDelay(setLines, { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() }, 500);
           await addLineWithDelay(setLines, { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() }, 500);
           await addLineWithDelay(setLines, { id: 'boot-3', type: 'system', content: 'MEMORY CHECK................PASS', timestamp: new Date().toISOString() }, 700);
@@ -229,6 +228,9 @@ function App() {
     setEditingPersonalityInModal(newActiveP || null); 
   };
 
+  const handleThemeStatusClick = () => {
+    handleInput("/themes");
+  };
 
   const handleInput = async (input: string) => {
     const userLine: TerminalLine = {
@@ -288,11 +290,10 @@ function App() {
           {
             id: `clear-${Date.now()}`,
             type: 'system',
-            content: 'INITIALIZING CLAUDIA OS...', // Keep consistent with new boot
+            content: 'INITIALIZING CLAUDIA OS...', 
             timestamp: new Date().toISOString()
           }
         ]);
-        // Add a few more boot lines after clear for effect
         await addLineWithDelay(setLines, { id: 'boot-re1', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() }, 300);
         await addLineWithDelay(setLines, { id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia' }, 300);
 
@@ -346,6 +347,8 @@ function App() {
         llmManager={llmManager}
         imageManager={imageManager}
         storage={database}
+        onThemeClick={handleThemeStatusClick}
+        onPersonalityClick={() => openPersonalityEditor()}
       />
 
       {personalityModalOpen && ( 

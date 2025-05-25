@@ -1,0 +1,118 @@
+.statusBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 15px; /* Reduced padding for a slimmer bar */
+  font-size: 0.8em; /* Slightly smaller font */
+  height: 28px; /* Fixed height for the bar */
+  box-sizing: border-box;
+  border-top: 1px solid var(--border-color, #555);
+  background-color: var(--bg-color, #1e1e1e);
+  color: var(--fg-color, #cccccc);
+  font-family: var(--font-family, "Courier New", monospace);
+  z-index: 100; /* Ensure it's above terminal content but below modals */
+  /* Optional: Add a subtle backdrop filter if supported and desired */
+  /* backdrop-filter: blur(5px); */
+}
+
+.statusBarSection {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Adjusted gap */
+}
+
+.statusBarItem {
+  display: flex;
+  align-items: center;
+  gap: 4px; /* Smaller gap within item */
+}
+
+.clickableItem {
+  cursor: pointer;
+  text-decoration: none; /* No underline by default */
+  padding: 2px 4px; /* Add some padding for better click area */
+  border-radius: 3px;
+}
+.clickableItem:hover {
+  background-color: var(--accent-color, #00ff00);
+  color: var(--bg-color, #1e1e1e); /* Invert color for hover */
+  text-decoration: none;
+}
+
+.providerStatus {
+  padding: 1px 5px; /* Slimmer padding */
+  border-radius: 3px;
+  font-size: 0.9em; /* Relative to status bar font size */
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.providerStatus.configured {
+  background-color: var(--success-color, green);
+  color: var(--button-fg-on-accent, white); 
+}
+
+.providerStatus.notConfigured {
+  background-color: var(--error-color, red);
+  color: var(--button-fg-on-accent, white);
+}
+
+/* Theme specific variable overrides */
+/* These ensure that the base styles above work well with each theme's color palette */
+
+.statusBar.theme-mainframe70s {
+  --bg-color: #000000;
+  --fg-color: #00ff00;
+  --border-color: #008800;
+  --accent-color: #00ff00;
+  --success-color: #008800; /* Darker green for success bg */
+  --error-color: #aa0000;   /* Darker red for error bg */
+  --button-fg-on-accent: #000000; /* Text color on accent bg */
+}
+.statusBar.theme-mainframe70s .clickableItem:hover {
+  color: #000000; /* Black text on green hover for mainframe */
+}
+
+
+.statusBar.theme-pc80s {
+  --bg-color: #000080;
+  --fg-color: #ffffff;
+  --border-color: #0000c0;
+  --accent-color: #ffff00; /* Yellow accent */
+  --success-color: #00aa00;
+  --error-color: #aa0000;
+  --button-fg-on-accent: #000000; /* Black text on yellow hover */
+}
+.statusBar.theme-pc80s .clickableItem:hover {
+  color: #000080; /* Dark blue text on yellow hover */
+}
+
+.statusBar.theme-bbs90s {
+  --bg-color: #000000;
+  --fg-color: #ffffff;
+  --border-color: #404040;
+  --accent-color: #ff00ff; /* Magenta accent */
+  --success-color: #00aa00;
+  --error-color: #ff0000;
+  --button-fg-on-accent: #000000; /* Black text on magenta hover */
+}
+.statusBar.theme-bbs90s .clickableItem:hover {
+  color: #000000; /* Black text on magenta hover */
+}
+
+.statusBar.theme-modern {
+  --bg-color: #1a1a1a;
+  --fg-color: #ffffff;
+  --border-color: #2a2a2a;
+  --accent-color: #00d4aa; /* Teal accent */
+  --success-color: #4ec9b0;
+  --error-color: #f44747;
+  --button-fg-on-accent: #1a1a1a; /* Dark text on teal hover */
+}
+.statusBar.theme-modern .clickableItem:hover {
+  color: #1a1a1a; /* Dark text on teal hover */
+}
