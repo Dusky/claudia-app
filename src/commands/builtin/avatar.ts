@@ -1,5 +1,12 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
+import type { AvatarAction, AvatarExpression, AvatarPosition, AvatarPose } from '../../avatar/types';
+
+const availableExpressions: AvatarExpression[] = ['neutral', 'happy', 'curious', 'focused', 'thinking', 'surprised', 'confused', 'excited', 'confident', 'mischievous', 'sleepy', 'shocked'];
+const availablePositions: AvatarPosition[] = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'beside-text', 'overlay-left', 'overlay-right', 'floating', 'peeking'];
+const availableActions: AvatarAction[] = ['idle', 'type', 'search', 'read', 'wave', 'nod', 'shrug', 'point', 'think', 'work'];
+const availablePoses: AvatarPose[] = ['standing', 'sitting', 'leaning', 'crossed-arms', 'hands-on-hips', 'casual'];
+
 
 export const avatarCommand: Command = {
   name: 'avatar',
@@ -9,184 +16,201 @@ export const avatarCommand: Command = {
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
+    const timestamp = new Date().toISOString();
     
     if (args.length === 0) {
       const state = context.avatarController.getState();
       
       lines.push({
-        id: `avatar-${Date.now()}-1`,
-        type: 'output',
+        id: `avatar-status-${timestamp}-header`,
+        type: 'system',
         content: '🤖 AVATAR STATUS:',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `avatar-${Date.now()}-2`,
+        id: `avatar-status-${timestamp}-visible`,
         type: 'output',
-        content: `Visible: ${state.visible ? '✅' : '❌'}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `  Visible: ${state.visible ? '✅ Yes' : '❌ No'}`,
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `avatar-${Date.now()}-3`,
+        id: `avatar-status-${timestamp}-position`,
         type: 'output',
-        content: `Position: ${state.position}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `  Position: ${state.position}`,
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `avatar-${Date.now()}-4`,
+        id: `avatar-status-${timestamp}-expression`,
         type: 'output',
-        content: `Expression: ${state.expression}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `  Expression: ${state.expression}`,
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `avatar-${Date.now()}-5`,
+        id: `avatar-status-${timestamp}-pose`,
         type: 'output',
-        content: `Pose: ${state.pose}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `  Pose: ${state.pose}`,
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `avatar-${Date.now()}-6`,
+        id: `avatar-status-${timestamp}-action`,
         type: 'output',
-        content: `Action: ${state.action}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `  Action: ${state.action}`,
+        timestamp, user: 'claudia'
       });
       
       return { success: true, lines };
     }
     
     const subCommand = args[0].toLowerCase();
+    const value = args[1]?.toLowerCase();
     
     try {
       switch (subCommand) {
         case 'show':
           await context.avatarController.show();
           lines.push({
-            id: `avatar-${Date.now()}`,
+            id: `avatar-show-${timestamp}`,
             type: 'output',
             content: '✨ Avatar is now visible!',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
+            timestamp, user: 'claudia'
           });
           break;
           
         case 'hide':
           await context.avatarController.hide();
           lines.push({
-            id: `avatar-${Date.now()}`,
+            id: `avatar-hide-${timestamp}`,
             type: 'output',
             content: '👻 Avatar is now hidden.',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
+            timestamp, user: 'claudia'
           });
           break;
           
         case 'expression':
         case 'expr':
-          if (args.length < 2) {
+          if (!value) {
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'error',
-              content: '❌ Please specify an expression: happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked',
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-expr-err-${timestamp}`, type: 'error',
+              content: `❌ Expression needed. Usage: /avatar expression <value>`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-expr-opts-${timestamp}`, type: 'output',
+              content: `   Available: ${availableExpressions.join(', ')}`, timestamp, user: 'claudia'
+            });
+          } else if (!availableExpressions.includes(value as AvatarExpression)) {
+            lines.push({
+              id: `avatar-expr-invalid-${timestamp}`, type: 'error',
+              content: `❌ Invalid expression: "${value}".`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-expr-invalidopts-${timestamp}`, type: 'output',
+              content: `   Available: ${availableExpressions.join(', ')}`, timestamp, user: 'claudia'
             });
           } else {
-            const expression = args[1].toLowerCase();
-            await context.avatarController.executeCommands([{ expression: expression as any }]);
+            await context.avatarController.executeCommands([{ expression: value as AvatarExpression }]);
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'output',
-              content: `😊 Avatar expression changed to: ${expression}`,
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-expr-succ-${timestamp}`, type: 'output',
+              content: `😊 Avatar expression set to: ${value}`, timestamp, user: 'claudia'
             });
           }
           break;
           
         case 'position':
         case 'pos':
-          if (args.length < 2) {
+          if (!value) {
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'error',
-              content: '❌ Please specify a position: center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking',
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-pos-err-${timestamp}`, type: 'error',
+              content: `❌ Position needed. Usage: /avatar position <value>`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-pos-opts-${timestamp}`, type: 'output',
+              content: `   Available: ${availablePositions.join(', ')}`, timestamp, user: 'claudia'
+            });
+          } else if (!availablePositions.includes(value as AvatarPosition)) {
+            lines.push({
+              id: `avatar-pos-invalid-${timestamp}`, type: 'error',
+              content: `❌ Invalid position: "${value}".`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-pos-invalidopts-${timestamp}`, type: 'output',
+              content: `   Available: ${availablePositions.join(', ')}`, timestamp, user: 'claudia'
             });
           } else {
-            const position = args[1].toLowerCase();
-            await context.avatarController.executeCommands([{ position: position as any }]);
+            await context.avatarController.executeCommands([{ position: value as AvatarPosition }]);
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'output',
-              content: `📍 Avatar position changed to: ${position}`,
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-pos-succ-${timestamp}`, type: 'output',
+              content: `📍 Avatar position set to: ${value}`, timestamp, user: 'claudia'
             });
           }
           break;
           
         case 'action':
-          if (args.length < 2) {
+          if (!value) {
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'error',
-              content: '❌ Please specify an action: idle, type, search, read, wave, nod, shrug, point, think, work',
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-act-err-${timestamp}`, type: 'error',
+              content: `❌ Action needed. Usage: /avatar action <value>`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-act-opts-${timestamp}`, type: 'output',
+              content: `   Available: ${availableActions.join(', ')}`, timestamp, user: 'claudia'
+            });
+          } else if (!availableActions.includes(value as AvatarAction)) {
+            lines.push({
+              id: `avatar-act-invalid-${timestamp}`, type: 'error',
+              content: `❌ Invalid action: "${value}".`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-act-invalidopts-${timestamp}`, type: 'output',
+              content: `   Available: ${availableActions.join(', ')}`, timestamp, user: 'claudia'
             });
           } else {
-            const action = args[1].toLowerCase();
-            await context.avatarController.executeCommands([{ action: action as any }]);
+            await context.avatarController.executeCommands([{ action: value as AvatarAction }]);
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'output',
-              content: `⚡ Avatar action changed to: ${action}`,
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-act-succ-${timestamp}`, type: 'output',
+              content: `⚡ Avatar action set to: ${value}`, timestamp, user: 'claudia'
             });
           }
           break;
           
         case 'pose':
-          if (args.length < 2) {
+          if (!value) {
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'error',
-              content: '❌ Please specify a pose: standing, sitting, leaning, crossed-arms, hands-on-hips, casual',
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-pose-err-${timestamp}`, type: 'error',
+              content: `❌ Pose needed. Usage: /avatar pose <value>`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-pose-opts-${timestamp}`, type: 'output',
+              content: `   Available: ${availablePoses.join(', ')}`, timestamp, user: 'claudia'
+            });
+          } else if (!availablePoses.includes(value as AvatarPose)) {
+            lines.push({
+              id: `avatar-pose-invalid-${timestamp}`, type: 'error',
+              content: `❌ Invalid pose: "${value}".`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-pose-invalidopts-${timestamp}`, type: 'output',
+              content: `   Available: ${availablePoses.join(', ')}`, timestamp, user: 'claudia'
             });
           } else {
-            const pose = args[1].toLowerCase();
-            await context.avatarController.executeCommands([{ pose: pose as any }]);
+            await context.avatarController.executeCommands([{ pose: value as AvatarPose }]);
             lines.push({
-              id: `avatar-${Date.now()}`,
-              type: 'output',
-              content: `🧍 Avatar pose changed to: ${pose}`,
-              timestamp: new Date().toISOString(),
-              user: 'claudia'
+              id: `avatar-pose-succ-${timestamp}`, type: 'output',
+              content: `🧍 Avatar pose set to: ${value}`, timestamp, user: 'claudia'
             });
           }
           break;
           
         default:
           lines.push({
-            id: `avatar-${Date.now()}`,
+            id: `avatar-unknown-${timestamp}`,
             type: 'error',
-            content: `❌ Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose`,
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
+            content: `❌ Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose.`,
+            timestamp, user: 'claudia'
           });
       }
       
@@ -194,11 +218,10 @@ export const avatarCommand: Command = {
       
     } catch (error) {
       lines.push({
-        id: `avatar-${Date.now()}`,
+        id: `avatar-error-${timestamp}`,
         type: 'error',
         content: `❌ Avatar Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       return { success: false, lines };
@@ -215,14 +238,14 @@ export const imagineCommand: Command = {
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
+    const timestamp = new Date().toISOString();
     
     if (args.length === 0) {
       lines.push({
-        id: `imagine-${Date.now()}`,
+        id: `imagine-err-${timestamp}`,
         type: 'error',
         content: '❌ Please provide a description. Usage: /imagine <description>',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       return { success: false, lines };
@@ -233,11 +256,10 @@ export const imagineCommand: Command = {
     
     if (!provider) {
       lines.push({
-        id: `imagine-${Date.now()}`,
+        id: `imagine-noprovider-${timestamp}`,
         type: 'error',
         content: '❌ No image generation provider is configured.',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       return { success: false, lines };
@@ -247,11 +269,10 @@ export const imagineCommand: Command = {
       context.setLoading(true);
       
       lines.push({
-        id: `imagine-${Date.now()}-start`,
+        id: `imagine-start-${timestamp}`,
         type: 'output',
-        content: `🎨 Generating avatar image: "${description}"...`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `🎨 Generating avatar image: "${description}"... This might take a moment.`,
+        timestamp, user: 'claudia'
       });
       
       // Add context to make it cyberpunk and avatar-appropriate
@@ -274,22 +295,20 @@ export const imagineCommand: Command = {
       });
       
       lines.push({
-        id: `imagine-${Date.now()}-success`,
+        id: `imagine-success-${timestamp}`,
         type: 'output',
         content: '✨ Avatar image generated successfully! Your new avatar is now visible.',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       return { success: true, lines };
       
     } catch (error) {
       lines.push({
-        id: `imagine-${Date.now()}`,
+        id: `imagine-apierr-${timestamp}`,
         type: 'error',
         content: `❌ Image Generation Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
       
       return { success: false, lines };

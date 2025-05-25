@@ -62,9 +62,9 @@ function App() {
         
         // Try to initialize image provider if configured
         try {
-          const replicateProvider = imageManager.getProvider('replicate');
-          if (replicateProvider && replicateProvider.isConfigured()) {
-            await imageManager.initializeProvider('replicate', {});
+          const imageProvider = imageManager.getProvider(config.defaultImageProvider);
+          if (imageProvider && imageProvider.isConfigured()) {
+            await imageManager.initializeProvider(config.defaultImageProvider, {});
           }
         } catch (error) {
           console.warn('Image provider initialization failed:', error);
@@ -73,41 +73,34 @@ function App() {
         // Add initialization messages
         const initLines: TerminalLine[] = [
           {
-            id: '1',
+            id: 'init-1',
             type: 'system',
             content: '🤖 CLAUDIA AI TERMINAL COMPANION v2.0.0',
             timestamp: new Date().toISOString()
           },
           {
-            id: '2',
+            id: 'init-2',
             type: 'system',
-            content: 'Initializing AI providers and avatar system...',
+            content: 'Booting up AI core systems... Please wait.',
             timestamp: new Date().toISOString()
           },
           {
-            id: '3',
+            id: 'init-3',
             type: 'system',
-            content: '✅ System initialized successfully!',
+            content: '✅ System Online. All modules loaded.',
             timestamp: new Date().toISOString()
           },
           {
-            id: '4',
+            id: 'init-4',
             type: 'output',
-            content: 'Hey there! I\'m Claudia, your AI companion! 🌟',
+            content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!',
             timestamp: new Date().toISOString(),
             user: 'claudia'
           },
           {
-            id: '5',
+            id: 'init-5',
             type: 'output',
-            content: 'Use /commands starting with / or just talk to me naturally!',
-            timestamp: new Date().toISOString(),
-            user: 'claudia'
-          },
-          {
-            id: '6',
-            type: 'output',
-            content: 'Type /help to see what I can do, or just say hello! 😊',
+            content: 'Type /help to see available commands, or just start chatting!',
             timestamp: new Date().toISOString(),
             user: 'claudia'
           }
@@ -116,12 +109,13 @@ function App() {
         setLines(initLines);
         
         // Show avatar with a friendly greeting
-        if (imageManager.getActiveProvider()) {
+        if (imageManager.getActiveProvider() && avatarController) {
           await avatarController.executeCommands([{
             show: true,
             expression: 'happy',
             position: 'beside-text',
-            action: 'wave'
+            action: 'wave',
+            pose: 'standing'
           }]);
         }
         
@@ -129,23 +123,23 @@ function App() {
         console.error('System initialization error:', error);
         
         const errorLine: TerminalLine = {
-          id: '3',
+          id: 'init-error',
           type: 'error',
-          content: `⚠️ Initialization warning: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          content: `⚠️ System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
           timestamp: new Date().toISOString()
         };
         
         const continueLines: TerminalLine[] = [
           errorLine,
           {
-            id: '4',
+            id: 'init-fallback-1',
             type: 'output',
-            content: 'Hi! I\'m Claudia. Some features may be limited without API keys.',
+            content: 'Hi! I\'m Claudia. Some features might be limited. Check API key configurations if issues persist.',
             timestamp: new Date().toISOString(),
             user: 'claudia'
           },
           {
-            id: '5',
+            id: 'init-fallback-2',
             type: 'output',
             content: 'Type /help to see available commands!',
             timestamp: new Date().toISOString(),

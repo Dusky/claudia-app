@@ -176,7 +176,7 @@ export const themes: Record<string, TerminalTheme> = {
       lineSpacing: '2px',
       characterSpacing: '0px'
     },
-    overlayClassName: undefined // No overlay for modern theme, or you can define one e.g., 'modern-subtle-overlay'
+    overlayClassName: 'modern-subtle-overlay' // Added subtle overlay for modern theme
   }
 };
 
