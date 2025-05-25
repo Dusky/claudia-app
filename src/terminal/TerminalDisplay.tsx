@@ -10,6 +10,7 @@ export interface TerminalLine {
   content: string;
   timestamp: string;
   user?: 'user' | 'claudia';
+  isChatResponse?: boolean; // New flag to identify AI chat responses
 }
 
 interface TerminalDisplayProps {
@@ -281,8 +282,13 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   const getUserPrefix = useCallback((line: TerminalLine) => {
     if (line.type === 'input' && line.user === 'user') return `${prompt} `;
-    if (line.type === 'output' && line.user === 'claudia') return 'claudia> ';
+    // Only add "claudia>" if it's an 'output' type, from 'claudia', AND it's a chat response
+    if (line.type === 'output' && line.user === 'claudia' && line.isChatResponse === true) {
+      return 'claudia> ';
+    }
     if (line.type === 'system') return '[system] ';
+    // Other 'output' lines from 'claudia' (e.g., command results that are not chat responses)
+    // and other line types will not get the "claudia>" prefix.
     return '';
   }, [prompt]);
 

@@ -70,6 +70,7 @@ export class CommandRegistryImpl implements CommandRegistry {
           id: `error-no-llm-${timestamp}`, type: 'error',
           content: 'No AI provider is configured or active. Please check your settings.',
           timestamp, user: 'claudia'
+          // isChatResponse is false/undefined for errors
         };
         // Save error to DB if active conversation
         if (context.activeConversationId) {
@@ -131,7 +132,8 @@ Respond naturally to the user's message while optionally incorporating avatar co
         
         const assistantLinesForUI: TerminalLine[] = cleanText.split('\n').map((line, index) => ({
           id: `assistant-${assistantTimestamp}-${index}`, type: 'output',
-          content: line, timestamp: assistantTimestamp, user: 'claudia'
+          content: line, timestamp: assistantTimestamp, user: 'claudia',
+          isChatResponse: true // Mark these as direct AI chat responses
         }));
 
         if (context.activeConversationId) {
@@ -159,6 +161,7 @@ Respond naturally to the user's message while optionally incorporating avatar co
         const errorLine: TerminalLine = {
           id: `error-ai-${timestamp}`, type: 'error',
           content: `AI Error: ${errorContent}`, timestamp, user: 'claudia'
+          // isChatResponse is false/undefined for errors
         };
         if (context.activeConversationId) {
             await context.storage.addMessage({
@@ -181,6 +184,7 @@ Respond naturally to the user's message while optionally incorporating avatar co
         id: `error-cmd-unknown-${timestamp}`, type: 'error',
         content: `Unknown command: /${commandName}. Type /help for available commands.`,
         timestamp, user: 'claudia'
+        // isChatResponse is false/undefined for command errors
       };
       return { success: false, lines: [errorLine], error: `Unknown command: ${commandName}` };
     }
@@ -190,6 +194,7 @@ Respond naturally to the user's message while optionally incorporating avatar co
         id: `error-cmd-noai-${timestamp}`, type: 'error',
         content: `Command /${commandName} requires a configured AI provider.`,
         timestamp, user: 'claudia'
+        // isChatResponse is false/undefined
       };
       return { success: false, lines: [errorLine], error: 'No AI provider configured for command' };
     }
@@ -199,11 +204,15 @@ Respond naturally to the user's message while optionally incorporating avatar co
         id: `error-cmd-noimg-${timestamp}`, type: 'error',
         content: `Command /${commandName} requires a configured Image provider.`,
         timestamp, user: 'claudia'
+        // isChatResponse is false/undefined
       };
       return { success: false, lines: [errorLine], error: 'No Image provider configured for command' };
     }
 
     try {
+      // Command execution itself will determine if its output lines are chat responses.
+      // For most commands (like /help), their output lines will not have isChatResponse: true.
+      // For /ask, it should set isChatResponse: true on its output lines.
       return await command.execute(args, context);
     } catch (error) {
       const errorContent = error instanceof Error ? error.message : 'Unknown error';
@@ -211,6 +220,7 @@ Respond naturally to the user's message while optionally incorporating avatar co
         id: `error-cmd-exec-${timestamp}`, type: 'error',
         content: `Error executing /${commandName}: ${errorContent}`,
         timestamp, user: 'claudia'
+        // isChatResponse is false/undefined
       };
       // Save command execution error to conversation if relevant
       if (context.activeConversationId && command.name !== 'ask') { // 'ask' handles its own errors more specifically
