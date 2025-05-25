@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
 import type { TerminalTheme } from '../terminal/themes';
@@ -7,6 +7,9 @@ import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { StorageService } from '../storage/types';
 import type { Personality } from '../types/personality';
+// Import styles if you need to reference specific class names, though data-attributes are preferred
+// import styles from './StatusBar.module.css';
+
 
 // Mock dependencies
 const mockLLMManager = {
@@ -67,14 +70,13 @@ describe('StatusBar Component', () => {
     // Check for personality name (mocked to resolve to 'Default Persona')
     expect(await screen.findByText('Default Persona')).toBeInTheDocument();
 
-    // Check for LLM provider ID
-    expect(screen.getByText('mock-llm')).toBeInTheDocument();
+    // Check for LLM provider ID (use findBy to ensure useEffect updates are processed)
+    expect(await screen.findByText('mock-llm')).toBeInTheDocument();
     // Check for Image provider ID
-    expect(screen.getByText('mock-img')).toBeInTheDocument();
+    expect(await screen.findByText('mock-img')).toBeInTheDocument();
 
-    // Check for time (format might vary, so check for presence of a time-like string)
-    // This regex matches HH:MM format
-    expect(screen.getByText(/^\d{2}:\d{2}$/)).toBeInTheDocument();
+    // Check for time
+    expect(await screen.findByText(/^\d{2}:\d{2}$/)).toBeInTheDocument();
   });
 
   it('shows provider status correctly (configured)', async () => {
@@ -82,22 +84,23 @@ describe('StatusBar Component', () => {
       <StatusBar
         theme={mockTheme}
         currentTheme="test-theme"
-        llmManager={mockLLMManager} // Mock returns configured: true
-        imageManager={mockImageManager} // Mock returns configured: true
+        llmManager={mockLLMManager} 
+        imageManager={mockImageManager} 
         storage={mockStorageService}
       />
     );
     
     // LLM provider
-    const llmStatusElement = screen.getByText('mock-llm');
-    expect(llmStatusElement).toHaveClass('configured');
-    expect(llmStatusElement).not.toHaveClass('notConfigured');
+    const llmStatusElement = await screen.findByText('mock-llm');
+    // Assert on data-status attribute
+    expect(llmStatusElement).toHaveAttribute('data-status', 'configured');
+    // Optionally, you can still check the class name if it's part of your visual regression or specific styling needs
+    // expect(llmStatusElement.className).toContain(styles.configured); // If styles.configured is imported
     expect(llmStatusElement).toHaveAttribute('title', 'LLM: Mock LLM - Ready');
 
     // Image provider
-    const imageStatusElement = screen.getByText('mock-img');
-    expect(imageStatusElement).toHaveClass('configured');
-    expect(imageStatusElement).not.toHaveClass('notConfigured');
+    const imageStatusElement = await screen.findByText('mock-img');
+    expect(imageStatusElement).toHaveAttribute('data-status', 'configured');
     expect(imageStatusElement).toHaveAttribute('title', 'Image: Mock Image - Ready');
   });
 
@@ -120,15 +123,13 @@ describe('StatusBar Component', () => {
     );
 
     // LLM provider
-    const llmStatusElement = screen.getByText('unconf-llm');
-    expect(llmStatusElement).toHaveClass('notConfigured');
-    expect(llmStatusElement).not.toHaveClass('configured');
+    const llmStatusElement = await screen.findByText('unconf-llm');
+    expect(llmStatusElement).toHaveAttribute('data-status', 'not-configured');
     expect(llmStatusElement).toHaveAttribute('title', 'LLM: Unconf LLM - Needs API Key');
     
     // Image provider
-    const imageStatusElement = screen.getByText('unconf-img');
-    expect(imageStatusElement).toHaveClass('notConfigured');
-    expect(imageStatusElement).not.toHaveClass('configured');
+    const imageStatusElement = await screen.findByText('unconf-img');
+    expect(imageStatusElement).toHaveAttribute('data-status', 'not-configured');
     expect(imageStatusElement).toHaveAttribute('title', 'Image: Unconf Image - Needs API Key');
   });
 });

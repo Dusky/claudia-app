@@ -87,6 +87,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<List>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLSpanElement>(null); // Ref for the prompt span
 
   // Command History State
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -100,6 +101,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   // Command Suggestions State
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [suggestionsLeftOffset, setSuggestionsLeftOffset] = useState(0);
 
 
   const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
@@ -116,6 +118,13 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     }
   }, [isInputFocused]);
 
+  // Calculate offset for suggestions box based on prompt width
+  useEffect(() => {
+    if (promptRef.current) {
+      setSuggestionsLeftOffset(promptRef.current.offsetWidth);
+    }
+  }, [prompt, theme.font.family, theme.font.size]); // Recalculate if prompt or font changes
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTypedInput = e.target.value;
     setCurrentInput(newTypedInput);
@@ -125,7 +134,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       setHistoryPointer(-1); 
     }
     
-    setSuggestionCycleIndex(-1); // Reset tab cycle
+    setSuggestionCycleIndex(-1); 
     setLastTabCompletionPrefix(null);
 
     if (newTypedInput.startsWith('/') && newTypedInput.length > 1) {
@@ -133,14 +142,15 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       if (commandPrefix) {
         const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
         const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
-        if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== newTypedInput.trim())) {
+        // Only show suggestions if there are matches AND the current input isn't an exact match already
+        if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== newTypedInput.trim().split(' ')[0])) {
           setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
           setShowSuggestions(true);
         } else {
           setShowSuggestions(false);
         }
       } else {
-        setShowSuggestions(false);
+        setShowSuggestions(false); // e.g. user typed "/" then deleted the char
       }
     } else {
       setShowSuggestions(false);
@@ -204,7 +214,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       setLastTabCompletionPrefix(null);
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      setShowSuggestions(false); // Hide suggestions when tabbing for command name
+      setShowSuggestions(false); 
       if (!currentInput.startsWith('/')) return; 
 
       const parts = currentInput.split(' ');
@@ -350,7 +360,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       <div 
         className="terminal-input-area"
         style={{
-          position: 'relative', // For suggestions box positioning
+          position: 'relative', 
           zIndex: 2,
           paddingTop: theme.spacing.lineSpacing,
           flexShrink: 0,
@@ -381,10 +391,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             color: theme.colors.foreground,
             display: 'flex',
             alignItems: 'center',
-            position: 'relative' // For suggestions box positioning
+            position: 'relative' 
           }}
         >
           <span 
+            ref={promptRef}
             className="input-prompt"
             style={{ color: theme.colors.accent, marginRight: '0.5em' }}
           >
@@ -398,13 +409,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             onKeyDown={handleKeyDown} 
             onFocus={() => {
               setIsInputFocused(true);
-              // Optionally re-trigger suggestion check on focus if input is valid for suggestions
               if (currentInput.startsWith('/') && currentInput.length > 1) {
                 const commandPrefix = currentInput.substring(1).split(' ')[0];
                  if (commandPrefix) {
                     const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
                     const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
-                    if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== currentInput.trim())) {
+                    if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== currentInput.trim().split(' ')[0])) {
                       setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
                       setShowSuggestions(true);
                     }
@@ -413,7 +423,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             }}
             onBlur={() => {
               setIsInputFocused(false);
-              // Delay hiding suggestions to allow click
               setTimeout(() => setShowSuggestions(false), 150);
             }}
             style={{
@@ -436,13 +445,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             spellCheck={false}
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="suggestions-box">
+            <div 
+              className="suggestions-box"
+              style={{ left: suggestionsLeftOffset }} // Apply dynamic left offset
+            >
               {suggestions.map((suggestion, index) => (
                 <div
                   key={index}
                   className="suggestion-item"
                   onClick={() => handleSuggestionClick(suggestion)}
-                  onMouseDown={(e) => e.preventDefault()} // Prevents input blur before click
+                  onMouseDown={(e) => e.preventDefault()} 
                 >
                   {suggestion}
                 </div>
@@ -479,44 +491,47 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           background: ${theme.colors.accent}80;
         }
 
-        .terminal-output-area > div { /* AutoSizer child */
+        .terminal-output-area > div { 
           height: 100% !important;
           width: 100% !important;
         }
-        .terminal-virtualized-list > div { /* react-window inner scrollable */
+        .terminal-virtualized-list > div { 
            scrollbar-width: thin;
            scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
         }
 
         .suggestions-box {
           position: absolute;
-          bottom: 100%; /* Position above the input line initially */
-          left: ${prompt.length + 1}ch; /* Align with where text starts after prompt */
-          width: calc(100% - ${prompt.length + 1}ch);
+          bottom: 100%; 
+          /* left: ${prompt.length + 1}ch; REMOVED - Handled by suggestionsLeftOffset state */
+          /* width: calc(100% - ${prompt.length + 1}ch); REMOVED - Handled by right: 0 or specific width */
+          right: 0; /* Let it expand from the dynamic left offset to the right edge of the parent */
           max-height: 150px;
           overflow-y: auto;
-          background-color: ${theme.colors.background || '#1e1e1e'}EE; /* Slightly transparent */
+          background-color: ${theme.colors.background || '#1e1e1e'}EE; 
           border: 1px solid ${theme.colors.accent || '#00FFFF'}80;
-          border-bottom: none; /* Avoid double border with input line */
+          border-bottom: none; 
           border-radius: 4px 4px 0 0;
-          z-index: 100; /* Ensure it's above other elements */
+          z-index: 100; 
           color: ${theme.colors.foreground || '#FFFFFF'};
           font-family: ${theme.font.family};
-          font-size: calc(${theme.font.size} * 0.9); /* Slightly smaller than input */
+          font-size: calc(${theme.font.size} * 0.9); 
+          box-shadow: 0 -2px 5px rgba(0,0,0,0.2); /* Optional: adds some depth */
         }
 
         .suggestion-item {
           padding: 6px 10px;
           cursor: pointer;
           border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
+          white-space: nowrap; /* Prevent suggestions from wrapping */
         }
         .suggestion-item:last-child {
           border-bottom: none;
         }
 
         .suggestion-item:hover {
-          background-color: ${theme.colors.accent || '#00FFFF'}40; /* Highlight on hover */
-          color: ${theme.colors.background}; /* Ensure text is readable on hover */
+          background-color: ${theme.colors.accent || '#00FFFF'}40; 
+          color: ${theme.colors.background}; 
         }
 
 

@@ -56,7 +56,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   const imageConfigured = activeImage?.isConfigured() ?? false;
   const personalityName = activePersonality?.name || 'Default';
 
-  const themeClass = `theme-${theme.id}`; // For CSS module scoping if needed, or direct var use
+  const themeClass = `theme-${theme.id}`; 
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -92,6 +92,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
           <span>💬</span> {/* LLM Icon */}
           <span
             className={`${styles.providerStatus} ${llmConfigured ? styles.configured : styles.notConfigured}`}
+            data-status={llmConfigured ? 'configured' : 'not-configured'}
             title={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'}`}
           >
             {llmProviderId}
@@ -101,6 +102,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
           <span>📷</span> {/* Image Icon */}
            <span
             className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured}`}
+            data-status={imageConfigured ? 'configured' : 'not-configured'}
             title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'}`}
           >
             {imageProviderId}
