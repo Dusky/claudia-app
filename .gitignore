@@ -40,3 +40,5 @@ temp/
 *.sln
 *.sw?
 .aider*
+package-lock.json
+package-lock.json
