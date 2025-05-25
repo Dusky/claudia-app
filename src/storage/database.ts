@@ -9,13 +9,14 @@ import type {
   CachedAvatarImage,
 } from './types'; // Import from the new types file
 import type { Personality } from '../types/personality'; // Import Personality type
+import { config } from '../config/env'; // Import the global config
 
 export class ClaudiaDatabase implements StorageService {
   private db: Database.Database;
 
   constructor(dbPath?: string) {
-    // Use provided path or default to local app data
-    const path = dbPath || join(process.cwd(), 'claudia.db');
+    // Use provided path, or config path, or default to local app data
+    const path = dbPath || config.databasePath || join(process.cwd(), 'claudia.db');
     this.db = new Database(path);
     
     // Enable WAL mode for better concurrency
@@ -441,8 +442,12 @@ export class ClaudiaDatabase implements StorageService {
     };
   }
 
-  async cleanupOldAvatarCache(maxAgeDays = 7): Promise<number> {
-    const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+  async cleanupOldAvatarCache(maxAgeDays?: number): Promise<number> {
+    // Use configured TTL in seconds, convert to days. Default to 7 days if config is not available or zero.
+    const ttlSeconds = config.avatarCacheTTL > 0 ? config.avatarCacheTTL : 604800; // Default to 7 days in seconds
+    const effectiveMaxAgeDays = maxAgeDays !== undefined ? maxAgeDays : Math.floor(ttlSeconds / (24 * 60 * 60));
+
+    const maxAgeMs = effectiveMaxAgeDays * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
     const stmt = this.db.prepare('DELETE FROM avatar_cache WHERE accessed_at < ? OR accessed_at IS NULL');
     const result = stmt.run(cutoff);
