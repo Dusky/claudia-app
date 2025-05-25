@@ -61,12 +61,14 @@ html, body, #root {
 
 /* Ensure terminal takes full screen and stays above backgrounds */
 .terminal-container {
-  height: 100vh !important;
-  width: 100vw;
-  overflow-y: auto;
+  height: 100%; /* Changed from 100vh !important to fill parent's content box */
+  width: 100vw; /* This might be better as 100% if parent controls width */
+  overflow-y: auto; /* For internal scrolling of TerminalDisplay */
   position: relative;
   z-index: 2;
   backdrop-filter: blur(0.5px);
+  display: flex; /* Added to ensure TerminalDisplay's internal flex layout works */
+  flex-direction: column; /* Added to ensure TerminalDisplay's internal flex layout works */
 }
 
 /* Enhanced theme-specific backgrounds */
@@ -139,11 +141,13 @@ html, body, #root {
 }
 
 /* Hide default scrollbars in Firefox */
+/* This was on .terminal-container, which is fine if it's the outermost scrollable element of terminal */
 .terminal-container {
   scrollbar-width: thin;
 }
 
 /* Enhanced scrollbar styling */
+/* This was on .terminal-container, which is fine */
 .terminal-container::-webkit-scrollbar {
   width: 12px;
 }

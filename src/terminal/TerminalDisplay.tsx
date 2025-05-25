@@ -293,22 +293,20 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   return (
     <div
       ref={terminalContainerRef}
-      className="terminal-container"
+      className="terminal-container" // This class is styled by App.css
       data-theme={theme.id}
-      style={{
-        backgroundColor: theme.colors.background,
-        color: theme.colors.foreground,
-        fontFamily: theme.font.family,
-        fontSize: theme.font.size,
-        fontWeight: theme.font.weight,
-        padding: theme.spacing.padding,
-        letterSpacing: theme.spacing.characterSpacing,
-        position: 'relative',
-        overflow: 'hidden',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'text'
+      style={{ // Inline styles for TerminalDisplay's root element
+        // backgroundColor, color, fontFamily, etc., are applied by .terminal-container in App.css
+        // or by data-theme specific styles in App.css
+        // minHeight: '100vh', // REMOVED: Height should be controlled by parent and App.css
+        padding: theme.spacing.padding, // Padding can be kept if it's for internal content spacing
+        // The flex properties are for internal layout of TerminalDisplay (output area + input area)
+        // display: 'flex', // This is now in App.css for .terminal-container
+        // flexDirection: 'column', // This is now in App.css for .terminal-container
+        // overflow: 'hidden', // This is now in App.css for .terminal-container
+        // cursor: 'text', // This is now in App.css for .terminal-container
+        // letterSpacing: theme.spacing.characterSpacing, // This is now in App.css for .terminal-container
+        // position: 'relative', // This is now in App.css for .terminal-container
       }}
       onClick={handleTerminalClick}
     >
@@ -339,8 +337,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         style={{
           position: 'relative',
           flexGrow: 1,
-          overflow: 'hidden',
-          zIndex: 2,
+          overflow: 'hidden', // Important for AutoSizer and to contain the virtualized list
+          zIndex: 2, // Ensure output is above background effects
         }}
       >
         <AutoSizer>
@@ -352,7 +350,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               itemCount={lines.length}
               itemSize={LINE_HEIGHT_ESTIMATE}
               itemData={itemData}
-              className="terminal-virtualized-list"
+              className="terminal-virtualized-list" // For specific styling of the list itself
             >
               {LineRenderer}
             </List>
@@ -364,9 +362,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         className="terminal-input-area"
         style={{
           position: 'relative', 
-          zIndex: 2,
-          paddingTop: theme.spacing.lineSpacing,
-          flexShrink: 0,
+          zIndex: 2, // Ensure input is above background effects
+          paddingTop: theme.spacing.lineSpacing, // Space between output and input
+          flexShrink: 0, // Prevent this area from shrinking
         }}
       >
         {isLoading && (
@@ -394,7 +392,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             color: theme.colors.foreground,
             display: 'flex',
             alignItems: 'center',
-            position: 'relative' 
+            position: 'relative' // For suggestions box positioning
           }}
         >
           <span 
@@ -477,6 +475,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           100% { background-position: 0 100%; }
         }
         
+        /* Styles for the scrollbar of the react-window list itself */
         .terminal-virtualized-list::-webkit-scrollbar {
           width: 8px;
         }
@@ -494,10 +493,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           background: ${theme.colors.accent}80;
         }
 
+        /* Ensure AutoSizer's direct child (the List) takes full space */
         .terminal-output-area > div { 
           height: 100% !important;
           width: 100% !important;
         }
+        /* Styles for the inner scrollable div of react-window */
         .terminal-virtualized-list > div { 
            scrollbar-width: thin;
            scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
@@ -506,9 +507,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         .suggestions-box {
           position: absolute;
           bottom: 100%; 
-          /* left: ${prompt.length + 1}ch; REMOVED - Handled by suggestionsLeftOffset state */
-          /* width: calc(100% - ${prompt.length + 1}ch); REMOVED - Handled by right: 0 or specific width */
-          right: 0; /* Let it expand from the dynamic left offset to the right edge of the parent */
+          right: 0; 
           max-height: 150px;
           overflow-y: auto;
           background-color: ${theme.colors.background || '#1e1e1e'}EE; 
@@ -519,14 +518,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           color: ${theme.colors.foreground || '#FFFFFF'};
           font-family: ${theme.font.family};
           font-size: calc(${theme.font.size} * 0.9); 
-          box-shadow: 0 -2px 5px rgba(0,0,0,0.2); /* Optional: adds some depth */
+          box-shadow: 0 -2px 5px rgba(0,0,0,0.2); 
         }
 
         .suggestion-item {
           padding: 6px 10px;
           cursor: pointer;
           border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
-          white-space: nowrap; /* Prevent suggestions from wrapping */
+          white-space: nowrap; 
         }
         .suggestion-item:last-child {
           border-bottom: none;
@@ -550,14 +549,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         ` : ''}
 
         ${theme.effects.crt ? `
-          .terminal-container {
+          .terminal-container { /* This class is on TerminalDisplay's root */
             border-radius: 15px;
             box-shadow: 
               inset 0 0 50px rgba(255,255,255,0.1),
               0 0 100px rgba(0,0,0,0.8);
           }
           
-          .terminal-container::before {
+          .terminal-container::before { /* CRT overlay for TerminalDisplay */
             content: '';
             position: absolute;
             top: 0;
@@ -566,7 +565,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             bottom: 0;
             background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.3) 100%);
             pointer-events: none;
-            z-index: 3;
+            z-index: 3; /* Above content, below popups/modals */
           }
         ` : ''}
       `}</style>
