@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react'; // Added useRef
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarDisplay } from './avatar/AvatarDisplay';
 import { PersonalityModal } from './components/PersonalityModal';
@@ -57,6 +57,7 @@ function App() {
   // Active Conversation State
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
+  const effectRan = useRef(false); // Ref to track if initialization effect has run
 
   // Initialize providers and systems
   const llmManager = useMemo(() => new LLMProviderManager(), []);
@@ -72,6 +73,11 @@ function App() {
 
   // Initialize system on mount
   useEffect(() => {
+    // Prevent double execution in Strict Mode (development)
+    if (effectRan.current === true && process.env.NODE_ENV === 'development') {
+      return;
+    }
+
     const initializeSystem = async () => {
       let initialLinesLoadedFromDB: TerminalLine[] = [];
       let conversationRestored = false;
@@ -151,7 +157,12 @@ function App() {
     };
 
     initializeSystem();
-  }, [llmManager, imageManager, database, avatarController]);
+
+    // Cleanup function to set the ref, ensuring the effect logic runs only once in dev
+    return () => {
+      effectRan.current = true;
+    };
+  }, [llmManager, imageManager, database, avatarController]); // Dependencies remain the same
 
   const addLinesToDisplay = (newLines: TerminalLine[]) => {
     setLines(prev => [...prev, ...newLines].flat());
