@@ -33,7 +33,7 @@ export const helpCommand: Command = {
       });
       
 
-      const commands = context.commandRegistry.getAll().sort((a, b) => a.name.localeCompare(b.name));
+      const commands = context.commandRegistry.getAllCommands().sort((a, b) => a.name.localeCompare(b.name)); // Changed getAll to getAllCommands
       commands.forEach(cmd => {
         lines.push({
           id: `help-cmd-${cmd.name}-${timestamp}`,
@@ -103,7 +103,8 @@ export const helpCommand: Command = {
           lines.push({
             id: `help-spec-aliases-${command.name}-${timestamp}`,
             type: 'output',
-            content: `║ Aliases: /${cmd.aliases.join(', /').padEnd(54)} ║`,
+            // Corrected to use command.aliases instead of cmd.aliases
+            content: `║ Aliases: /${command.aliases.join(', /').padEnd(54)} ║`, 
             timestamp,
           });
         }
