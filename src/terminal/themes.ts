@@ -20,7 +20,7 @@ export interface TerminalTheme {
     lineHeight: string;
   };
   effects: {
-    scanlines: boolean;
+    scanlines: boolean; // This existing property might be related, but overlayClassName offers more flexibility
     glow: boolean;
     flicker: boolean;
     crt: boolean;
@@ -31,6 +31,7 @@ export interface TerminalTheme {
     lineSpacing: string;
     characterSpacing: string;
   };
+  overlayClassName?: string; // Added for theme-specific shader overlay CSS class
 }
 
 export const themes: Record<string, TerminalTheme> = {
@@ -66,7 +67,8 @@ export const themes: Record<string, TerminalTheme> = {
       padding: '20px',
       lineSpacing: '2px',
       characterSpacing: '0.5px'
-    }
+    },
+    overlayClassName: 'mainframe-70s-overlay' // Example overlay class
   },
 
   pc80s: {
@@ -101,7 +103,8 @@ export const themes: Record<string, TerminalTheme> = {
       padding: '16px',
       lineSpacing: '1px',
       characterSpacing: '0px'
-    }
+    },
+    overlayClassName: 'pc-80s-overlay' // Example overlay class
   },
 
   bbs90s: {
@@ -136,7 +139,8 @@ export const themes: Record<string, TerminalTheme> = {
       padding: '12px',
       lineSpacing: '1px',
       characterSpacing: '0.2px'
-    }
+    },
+    overlayClassName: 'bbs-90s-overlay' // Example overlay class
   },
 
   modern: {
@@ -171,7 +175,8 @@ export const themes: Record<string, TerminalTheme> = {
       padding: '20px',
       lineSpacing: '2px',
       characterSpacing: '0px'
-    }
+    },
+    overlayClassName: undefined // No overlay for modern theme, or you can define one e.g., 'modern-subtle-overlay'
   }
 };
 

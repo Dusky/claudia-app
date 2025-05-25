@@ -1,0 +1,85 @@
+/* Base styles for any shader overlay */
+.shader-overlay {
+  position: fixed; /* Or absolute if .App is the positioning context */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allows clicks to pass through to elements underneath */
+  z-index: 9999; /* Ensures it's on top of other content, adjust as needed */
+  opacity: 0.5; /* Default opacity, can be overridden by specific overlays */
+}
+
+/* Example: Mainframe 70s Overlay (Strong Scanlines & Glow) */
+.mainframe-70s-overlay {
+  background: linear-gradient(
+    rgba(0, 255, 0, 0) 50%, /* Greenish tint for scanlines */
+    rgba(0, 50, 0, 0.25) 50%
+  );
+  background-size: 100% 3px; /* Adjust scanline thickness */
+  animation: scanline-animation-70s 0.15s linear infinite;
+  opacity: 0.2; /* Adjust overall effect strength */
+  box-shadow: 0 0 15px 5px rgba(0, 255, 0, 0.15); /* Greenish glow */
+}
+
+@keyframes scanline-animation-70s {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 3px;
+  }
+}
+
+/* Example: PC 80s Overlay (Subtle CRT effect, maybe slight pixelation if possible with CSS) */
+.pc-80s-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 20%, transparent 20%),
+                    radial-gradient(circle, rgba(255,255,255,0.03) 20%, transparent 20%);
+  background-size: 3px 3px; /* Simulates a bit of a pixel grid */
+  background-position: 0 0, 1.5px 1.5px;
+  opacity: 0.5;
+  animation: flicker-animation-80s 0.1s infinite alternate;
+}
+
+@keyframes flicker-animation-80s {
+  from { opacity: 0.4; }
+  to { opacity: 0.5; }
+}
+
+/* Example: BBS 90s Overlay (Noise & Flicker) */
+.bbs-90s-overlay {
+  opacity: 0.1; /* Adjust overall effect strength */
+}
+.bbs-90s-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><filter id="n" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100" height="100" filter="url(%23n)" opacity=".2"/></svg>');
+  animation: noise-flicker-animation-90s 0.15s steps(1) infinite;
+}
+
+@keyframes noise-flicker-animation-90s {
+  0% { opacity: 0.8; }
+  25% { opacity: 0.7; }
+  50% { opacity: 1; }
+  75% { opacity: 0.6; }
+  100% { opacity: 0.9; }
+}
+
+/* Example: Modern Subtle Overlay (e.g., very light noise or gradient) */
+.modern-subtle-overlay {
+  background: linear-gradient(transparent, rgba(0,0,0,0.02));
+  opacity: 1; /* Full opacity for subtle effect */
+}
+
+/* If a theme has no overlayClassName, this class won't be applied, 
+   and the .shader-overlay div won't render due to the conditional in App.tsx */
