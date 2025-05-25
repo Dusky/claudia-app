@@ -3,6 +3,8 @@ import type { TerminalTheme } from './themes';
 import { FixedSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import type { CommandRegistry } from '../commands/types';
+import type { ConfigSettings } from '../components/ConfigModal';
+import { ContentRenderer } from './ContentRenderer';
 
 export interface TerminalLine {
   id: string;
@@ -20,11 +22,12 @@ interface TerminalDisplayProps {
   prompt?: string;
   isLoading?: boolean;
   commandRegistry: CommandRegistry; // Passed from App.tsx
+  config?: ConfigSettings; // Configuration for visual effects
 }
 
 // Define a constant for the padding to be applied at the bottom of each line item.
 // This ensures consistent spacing and is used in both height calculation and rendering.
-const INTER_MESSAGE_PADDING_BOTTOM = 8; // pixels
+const INTER_MESSAGE_PADDING_BOTTOM = 2; // pixels
 
 const calculateLineHeight = (theme: TerminalTheme): number => {
   const fontSize = parseFloat(theme.font.size) || 16;
@@ -34,8 +37,8 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
   const singleVisualLineHeight = fontSize * lineHeightMultiplier;
   
   // Estimate how many lines of text we want to accommodate comfortably within one item.
-  // Let's aim for 3 lines, which should handle moderately wrapped content.
-  const estimatedContentLines = 3;
+  // Let's aim for 1.2 lines, which should handle single line content with some buffer.
+  const estimatedContentLines = 1.2;
   
   // The total height for an item will be the space for the estimated content lines
   // plus the explicit padding we want between messages.
@@ -88,7 +91,7 @@ const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
         {getUserPrefix(line)}
       </span>
       <span className="line-content" style={{ flex: 1 }}>
-        {line.content}
+        <ContentRenderer content={line.content} />
       </span>
     </div>
   );
@@ -101,7 +104,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   onInput,
   prompt = '>',
   isLoading = false,
-  commandRegistry 
+  commandRegistry,
+  config
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
@@ -134,13 +138,31 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         listRef.current?.scrollToItem(lines.length - 1, 'end'); 
       });
     }
-  }, [lines, isLoading]); 
+  }, [lines, isLoading]);
+
+  // Auto-focus input when component mounts or becomes visible
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        setIsInputFocused(true);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []); 
 
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
-      inputRef.current.focus();
+      // Ensure proper focus without interference
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // Ensure cursor is positioned correctly
+          inputRef.current.setSelectionRange(currentInput.length, currentInput.length);
+        }
+      });
     }
-  }, [isInputFocused]);
+  }, [isInputFocused, currentInput.length]);
 
   // Calculate offset for suggestions box based on prompt width
   useEffect(() => {
@@ -312,34 +334,62 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     getUserPrefix
   }), [lines, theme, getLineTypeColor, getUserPrefix]);
 
+  const getTerminalContainerStyle = (): React.CSSProperties => {
+    const baseStyle: React.CSSProperties = {
+      padding: theme.spacing.padding,
+    };
+
+    if (config?.terminalBreathing) {
+      baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
+    }
+
+    if (config?.crtGlow) {
+      baseStyle.filter = 'brightness(1.1) contrast(1.1)';
+      baseStyle.boxShadow = `0 0 20px ${theme.colors.accent}40, inset 0 0 20px ${theme.colors.accent}20`;
+    }
+
+    return baseStyle;
+  };
+
   return (
     <div
       ref={terminalContainerRef}
-      className="terminal-container" 
+      className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''}`}
       data-theme={theme.id}
-      style={{ 
-        padding: theme.spacing.padding, 
-      }}
+      style={getTerminalContainerStyle()}
       onClick={handleTerminalClick}
     >
-      {theme.effects.scanlines && (
+      {(theme.effects.scanlines || config?.scanLines !== 'off') && (
         <div 
           className="scanlines"
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
             backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
             backgroundSize: '100% 4px', animation: 'scanmove 10s linear infinite',
-            pointerEvents: 'none', zIndex: 1, opacity: 0.5
+            pointerEvents: 'none', zIndex: 1, 
+            opacity: config?.scanLines === 'heavy' ? 0.8 : config?.scanLines === 'subtle' ? 0.3 : 0.5
           }}
         />
       )}
-      {theme.effects.noise && (
+      {(theme.effects.noise || config?.staticOverlay) && (
         <div 
           className="noise"
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
-            pointerEvents: 'none', zIndex: 1, opacity: theme.effects.noiseIntensity ?? 0.5
+            pointerEvents: 'none', zIndex: 1, 
+            opacity: config?.staticOverlay ? 0.3 : (theme.effects.noiseIntensity ?? 0.5)
+          }}
+        />
+      )}
+      
+      {config?.visualArtifacts && (
+        <div 
+          className="visual-artifacts"
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            pointerEvents: 'none', zIndex: 1,
+            animation: 'artifacts 8s ease-in-out infinite'
           }}
         />
       )}
@@ -485,6 +535,35 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         @keyframes scanmove {
           0% { background-position: 0 0; }
           100% { background-position: 0 100%; }
+        }
+        @keyframes terminalBreathe {
+          0%, 100% { 
+            transform: scale(1); 
+            filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'};
+          }
+          50% { 
+            transform: scale(1.002); 
+            filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'};
+          }
+        }
+        @keyframes artifacts {
+          0%, 100% { opacity: 0; }
+          2% { opacity: 0.3; background: linear-gradient(90deg, transparent 0%, rgba(255,0,0,0.1) 50%, transparent 100%); }
+          4% { opacity: 0; }
+          85% { opacity: 0; }
+          87% { opacity: 0.2; background: linear-gradient(180deg, transparent 0%, rgba(0,255,255,0.1) 50%, transparent 100%); }
+          89% { opacity: 0; }
+        }
+        
+        .screen-flicker {
+          animation: screenFlicker ${config?.flickerIntensity ? (2 / config.flickerIntensity) : 6}s ease-in-out infinite;
+        }
+        
+        @keyframes screenFlicker {
+          0%, 100% { opacity: 1; filter: brightness(1); }
+          98% { opacity: 1; filter: brightness(1); }
+          99% { opacity: ${1 - (config?.flickerIntensity || 0.3)}; filter: brightness(0.8); }
+          99.5% { opacity: 1; filter: brightness(1.2); }
         }
         
         .terminal-virtualized-list::-webkit-scrollbar {

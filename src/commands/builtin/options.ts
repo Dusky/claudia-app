@@ -2,33 +2,18 @@ import type { Command, CommandResult, CommandContext } from '../types';
 
 export const optionsCommand: Command = {
   name: 'options',
-  description: 'Configure AI generation options.',
+  description: 'Configure AI generation options (deprecated - use /config)',
   usage: '/options',
-  aliases: ['config', 'settings ai'],
+  aliases: ['settings'],
   
-  async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
-    if (context.openAIOptionsModal) { // Check if the function exists on context
-      context.openAIOptionsModal();
-    } else {
-      // Fallback or error if the function isn't provided, though it should be.
-      return {
-        success: false,
-        lines: [{
-          id: `options-modal-error-${Date.now()}`,
-          type: 'error',
-          content: 'AI options modal functionality is not available.',
-          timestamp: new Date().toISOString(),
-          user: 'claudia'
-        }]
-      };
-    }
-    
+  async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
+    // This command is deprecated - AI options are now handled via /config
     return {
-      success: true,
+      success: false,
       lines: [{
-        id: `options-modal-open-${Date.now()}`,
-        type: 'system', // Or 'output'
-        content: 'Opening AI generation options...',
+        id: `options-deprecated-${Date.now()}`,
+        type: 'error',
+        content: 'This command is deprecated. Use /config instead.',
         timestamp: new Date().toISOString(),
         user: 'claudia'
       }]

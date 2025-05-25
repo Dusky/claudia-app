@@ -1,7 +1,6 @@
 import type { Command, CommandResult, CommandContext } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
-import { DEFAULT_PERSONALITY, type Personality } from '../../types/personality';
-import type { StorageService } from '../../storage/types';
+import { DEFAULT_PERSONALITY } from '../../types/personality';
 
 // --- Main /personality command ---
 export const personalityCommand: Command = {
@@ -42,13 +41,13 @@ export const personalityCommand: Command = {
         timestamp, user: 'claudia'
       });
 
-      const allCommands = context.commandRegistry.getAll();
+      const allCommands = context.commandRegistry.getAllCommands();
       const personalitySubCommands = allCommands
-        .filter(cmd => cmd.name.startsWith('personality-') && cmd.name !== this.name && cmd.name !== 'personality-gui')
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .filter((cmd: any) => cmd.name.startsWith('personality-') && cmd.name !== 'personality' && cmd.name !== 'personality-gui')
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
       if (personalitySubCommands.length > 0) {
-        personalitySubCommands.forEach(cmd => {
+        personalitySubCommands.forEach((cmd: any) => {
           lines.push({
             id: `p-help-cmd-${cmd.name}-${timestamp}`,
             type: 'output',
@@ -212,26 +211,6 @@ export const currentPersonalityCommand: Command = {
     }
     lines.push({ id: `p-curr-space1-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
-    lines.push({ id: `p-curr-traits-header-${timestamp}`, type: 'system', content: '  Character Traits:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-tone-${timestamp}`, type: 'output', content: `    - Tone: ${personality.traits.tone}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-formality-${timestamp}`, type: 'output', content: `    - Formality: ${personality.traits.formality}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-humor-${timestamp}`, type: 'output', content: `    - Humor: ${personality.traits.humor}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-verbosity-${timestamp}`, type: 'output', content: `    - Verbosity: ${personality.traits.verbosity}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-enthusiasm-${timestamp}`, type: 'output', content: `    - Enthusiasm: ${personality.traits.enthusiasm}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-space2-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
-
-    lines.push({ id: `p-curr-background-header-${timestamp}`, type: 'system', content: '  Background & Expertise:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-role-${timestamp}`, type: 'output', content: `    - Role: ${personality.background.role}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-expertise-${timestamp}`, type: 'output', content: `    - Expertise: ${personality.background.expertise.join(', ')}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-desc-${timestamp}`, type: 'output', content: `    - Details: ${personality.background.personality_description}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-space3-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
-    
-    lines.push({ id: `p-curr-behavior-header-${timestamp}`, type: 'system', content: '  Behavioral Style:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-style-${timestamp}`, type: 'output', content: `    - Response Style: ${personality.behavior.response_style}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-emoji-${timestamp}`, type: 'output', content: `    - Emoji Usage: ${personality.behavior.emoji_usage}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-questions-${timestamp}`, type: 'output', content: `    - Question Asking: ${personality.behavior.question_asking}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-creativity-${timestamp}`, type: 'output', content: `    - Creativity: ${personality.behavior.creativity_level}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-space4-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
     lines.push({ id: `p-curr-prompt-info-${timestamp}`, type: 'system', content: `  Info: System prompt is active. Use "/personality-view ${personality.id}" to see the full prompt.`, timestamp, user: 'claudia' });
     
@@ -418,10 +397,10 @@ export const viewPersonalityCommand: Command = {
       { id: `pv-prompt-header-${timestamp}`, type: 'system', content: `  System Prompt:`, timestamp, user: 'claudia' },
       ...p.system_prompt.split('\n').map((line, index) => ({
         id: `pv-prompt-line-${index}-${timestamp}`,
-        type: 'output',
+        type: 'output' as const,
         content: `    ${line}`, 
         timestamp,
-        user: 'claudia'
+        user: 'claudia' as const
       })),
     ];
     return { success: true, lines };

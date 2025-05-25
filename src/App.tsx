@@ -1,16 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'; // Added useState
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarDisplay } from './avatar/AvatarDisplay';
 import { PersonalityModal } from './components/PersonalityModal';
+import { ConfigModal, defaultConfig, type ConfigSettings } from './components/ConfigModal';
+import { HelpModal } from './components/HelpModal';
+import { ImageGenerationModal } from './components/ImageGenerationModal';
+import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { getTheme, type TerminalTheme } from './terminal/themes';
-import { config } from './config/env';
+import { config as envConfig } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
 import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
 import { createCommandRegistry, type CommandContext } from './commands';
-import { DEFAULT_PERSONALITY, type Personality } from './types/personality';
+import { DEFAULT_PERSONALITY } from './types/personality';
 import { useAppStore } from './store/appStore';
 import './App.css';
 import './styles/overlays.css';
@@ -31,6 +35,13 @@ const addLineWithDelay = (
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false); // Initialization flag
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [helpModalCommandName, setHelpModalCommandName] = useState<string | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [config, setConfig] = useState<ConfigSettings>(defaultConfig);
+  const [configLoaded, setConfigLoaded] = useState(false); // Track if config has been loaded from localStorage
+  const [showBootSequence, setShowBootSequence] = useState(false);
 
   // Zustand store selectors for state
   const currentTheme = useAppStore(state => state.currentTheme);
@@ -46,7 +57,6 @@ function App() {
   // Select actions individually - their references are stable from Zustand
   const setTheme = useAppStore(state => state.setTheme);
   const addLines = useAppStore(state => state.addLines);
-  const setLines = useAppStore(state => state.setLines);
   const setLoading = useAppStore(state => state.setLoading);
   const setAvatarState = useAppStore(state => state.setAvatarState);
   const openPersonalityEditorModal = useAppStore(state => state.openPersonalityEditorModal);
@@ -74,7 +84,7 @@ function App() {
   const themeObject: TerminalTheme = getTheme(currentTheme);
 
   useEffect(() => {
-    if (isInitialized || (import.meta.env.DEV && effectRan.current)) {
+    if (isInitialized || !configLoaded || (import.meta.env.DEV && effectRan.current)) {
       return;
     }
 
@@ -93,29 +103,27 @@ function App() {
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
         
         try {
-          const imageProvider = imageManager.getProvider(config.defaultImageProvider);
+          const imageProvider = imageManager.getProvider(envConfig.defaultImageProvider);
           if (imageProvider && imageProvider.isConfigured()) {
-            await imageManager.initializeProvider(config.defaultImageProvider, {});
+            await imageManager.initializeProvider(envConfig.defaultImageProvider, {});
           }
         } catch (error) {
           console.warn('Image provider initialization failed:', error);
         }
 
         if (playBootAnimation) {
-          const bootLines: TerminalLine[] = [
-            { id: 'boot-1', type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString() },
-            { id: 'boot-2', type: 'system', content: 'BOOT SEQUENCE v2.0.0', timestamp: new Date().toISOString() },
-            { id: 'boot-3', type: 'system', content: 'MEMORY CHECK................PASS', timestamp: new Date().toISOString() },
-            { id: 'boot-4', type: 'system', content: 'AI CORE LINK ESTABLISHED....ACTIVE', timestamp: new Date().toISOString() },
-            { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() },
-            { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() },
-            { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() },
-            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-            { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-          ];
-          for (const line of bootLines) {
-            const delay = (line.id === 'boot-8' || line.id === 'boot-9') ? 1000 : (line.id === 'boot-1' || line.id === 'boot-2' ? 500 : (Math.random() * 200 + 600));
-            await addLineWithDelay(addLines, line, delay); // addLines is stable
+          if (config.enhancedBoot) {
+            setShowBootSequence(true);
+            return; // Return early, boot sequence will handle completion
+          } else {
+            // Fallback to simple boot lines
+            const bootLines: TerminalLine[] = [
+              { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+              { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+            ];
+            for (const line of bootLines) {
+              await addLineWithDelay(addLines, line, 500);
+            }
           }
         } else if (activeConvIdToUse) {
           await loadConversationMessages(database, activeConvIdToUse); // loadConversationMessages is stable
@@ -150,11 +158,72 @@ function App() {
   // Add specific actions used inside this useEffect to the dependency array if they were not stable
   // However, Zustand actions are typically stable by reference.
   // Managers and DB are memoized. isInitialized controls the single run.
-  }, [isInitialized, llmManager, imageManager, database, avatarController, 
+  }, [isInitialized, configLoaded, config.enhancedBoot, llmManager, imageManager, database, avatarController, 
       initializeActiveConversation, addLines, loadConversationMessages]);
 
 
   const handleThemeStatusClick = () => handleInput("/themes");
+
+  const handleBootSequenceComplete = async () => {
+    setShowBootSequence(false);
+    
+    // Add welcome messages after boot sequence
+    const bootLines: TerminalLine[] = [
+      { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+    ];
+    
+    for (const line of bootLines) {
+      await addLineWithDelay(addLines, line, 500);
+    }
+
+    // Initialize avatar if available
+    if (imageManager.getActiveProvider() && avatarController) {
+      await avatarController.executeCommands([{
+        show: true, expression: 'happy', position: 'beside-text', action: 'wave', pose: 'standing'
+      }]);
+    }
+  };
+
+  const handleBootSequenceSkip = () => {
+    setShowBootSequence(false);
+    // Skip directly to welcome messages
+    const bootLines: TerminalLine[] = [
+      { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+    ];
+    addLines(bootLines);
+  };
+
+  const handleConfigChange = (newConfig: ConfigSettings) => {
+    setConfig(newConfig);
+    // Save config to localStorage for persistence
+    localStorage.setItem('claudia-config', JSON.stringify(newConfig));
+  };
+
+  // Load config from localStorage on startup
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('claudia-config');
+    if (savedConfig) {
+      try {
+        setConfig(JSON.parse(savedConfig));
+      } catch (error) {
+        console.warn('Failed to load saved config:', error);
+      }
+    }
+    setConfigLoaded(true);
+  }, []);
+
+  // Listen for help modal events
+  useEffect(() => {
+    const handleShowHelpModal = (event: any) => {
+      setHelpModalCommandName(event.detail?.commandName || null);
+      setHelpModalOpen(true);
+    };
+
+    window.addEventListener('showHelpModal', handleShowHelpModal);
+    return () => window.removeEventListener('showHelpModal', handleShowHelpModal);
+  }, []);
 
   const handleInput = async (input: string) => {
     const userLine: TerminalLine = {
@@ -183,10 +252,11 @@ function App() {
       currentTheme, 
       setTheme,
       openPersonalityEditor: (p) => openPersonalityEditorModal(database, p),
+      openConfigModal: () => setConfigModalOpen(true),
       commandRegistry,
       activeConversationId: activeConversationId,
       setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs),
-      resetConversationAndTerminal: (db) => resetConversationAndTerminal(db), // Pass new action
+      resetConversationAndTerminal: (db) => resetConversationAndTerminal(db as any), // Pass new action
     };
 
     try {
@@ -231,20 +301,35 @@ function App() {
 
   return (
     <div className="App" style={{ position: 'relative', minHeight: '100vh', paddingBottom: '50px' }}>
-      {themeObject.overlayClassName && (
-        <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
+      {showBootSequence && (
+        <BootSequence
+          config={config}
+          onComplete={handleBootSequenceComplete}
+          onSkip={handleBootSequenceSkip}
+        />
       )}
-      <TerminalDisplay
-        theme={themeObject} lines={lines} onInput={handleInput}
-        prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
-      />
-      <AvatarDisplay state={avatarState} className="claudia-avatar" />
-      <StatusBar
-        theme={themeObject} currentTheme={currentTheme}
-        llmManager={llmManager} imageManager={imageManager} storage={database}
-        onThemeClick={handleThemeStatusClick}
-        onPersonalityClick={() => openPersonalityEditorModal(database)}
-      />
+      
+      {!showBootSequence && (
+        <>
+          {themeObject.overlayClassName && (
+            <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
+          )}
+          <TerminalDisplay
+            theme={themeObject} lines={lines} onInput={handleInput}
+            prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
+            config={config}
+          />
+          <AvatarDisplay state={avatarState} className="claudia-avatar" />
+          <StatusBar
+            theme={themeObject} currentTheme={currentTheme}
+            llmManager={llmManager} imageManager={imageManager} storage={database}
+            onThemeClick={handleThemeStatusClick}
+            onPersonalityClick={() => openPersonalityEditorModal(database)}
+            onImageProviderClick={() => setImageModalOpen(true)}
+          />
+        </>
+      )}
+
       {personalityModalOpen && (
         <PersonalityModal
           isOpen={personalityModalOpen} onClose={closePersonalityModal}
@@ -256,6 +341,29 @@ function App() {
           theme={themeObject}
         />
       )}
+
+      <ConfigModal
+        isOpen={configModalOpen}
+        onClose={() => setConfigModalOpen(false)}
+        config={config}
+        onConfigChange={handleConfigChange}
+      />
+
+      <HelpModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+        commandRegistry={commandRegistry}
+        commandName={helpModalCommandName}
+        theme={themeObject}
+      />
+
+      <ImageGenerationModal
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
+        imageManager={imageManager}
+        avatarController={avatarController}
+        theme={themeObject}
+      />
     </div>
   );
 }

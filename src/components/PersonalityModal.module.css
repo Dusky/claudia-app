@@ -1,18 +1,18 @@
-.modalOverlay {
+.overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  font-family: var(--font-family, "Courier New", monospace); /* Fallback font */
+  z-index: 9999;
+  font-family: var(--font-family, "Courier New", monospace);
 }
 
-.modalContent {
+.modal {
   background-color: var(--bg-color, #1e1e1e);
   color: var(--fg-color, #cccccc);
   padding: 20px;
@@ -25,7 +25,7 @@
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
-.modalHeader {
+.header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -51,6 +51,107 @@
 .closeButton:hover {
   background-color: var(--button-hover-bg, #444);
   color: var(--button-hover-fg, #ffffff);
+}
+
+.content {
+  margin-bottom: 20px;
+}
+
+.selector {
+  margin-bottom: 15px;
+}
+
+.selector label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: var(--secondary-color, #aaa);
+}
+
+.selector select {
+  width: 100%;
+  background-color: var(--input-bg, #333);
+  color: var(--input-fg, #ddd);
+  border: 1px solid var(--input-border, #666);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: var(--secondary-color, #aaa);
+}
+
+.field input,
+.field textarea {
+  background-color: var(--input-bg, #333);
+  color: var(--input-fg, #ddd);
+  border: 1px solid var(--input-border, #666);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1em;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent-color, #00ff00);
+  box-shadow: 0 0 5px var(--accent-color, #00ff00);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.checkbox input[type="checkbox"] {
+  margin-right: 10px;
+  accent-color: var(--accent-color, #00ff00);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color, #555);
+}
+
+.info {
+  flex-grow: 1;
+  color: var(--secondary-color, #aaa);
+  font-size: 0.9em;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.actions button {
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  border: 1px solid var(--button-border-color, #888);
 }
 
 .formSection {
@@ -170,7 +271,6 @@
 .deleteButton {
   background-color: var(--error-color, #a00);
   color: var(--button-fg-on-accent, #fff);
-  margin-right: auto; /* Pushes it to the left */
 }
 .deleteButton:hover {
   background-color: var(--error-hover-color, #c00);
@@ -199,7 +299,7 @@
 }
 
 /* Theme Specific Variables */
-.modalContent.theme-mainframe70s {
+.modal.mainframe70s {
   --font-family: "IBM Plex Mono", "Courier New", monospace;
   --bg-color: #000000;
   --fg-color: #00ff00;
@@ -220,7 +320,7 @@
   --button-fg-on-secondary: #000000;
 }
 
-.modalContent.theme-pc80s {
+.modal.pc80s {
   --font-family: "Perfect DOS VGA 437", "Monaco", monospace;
   --bg-color: #000080;
   --fg-color: #ffffff;
@@ -241,7 +341,7 @@
   --button-fg-on-secondary: #000000;
 }
 
-.modalContent.theme-bbs90s {
+.modal.bbs90s {
   --font-family: "MS-DOS", "Terminal", monospace;
   --bg-color: #000000;
   --fg-color: #ffffff;
@@ -262,7 +362,7 @@
   --button-fg-on-secondary: #000000;
 }
 
-.modalContent.theme-modern {
+.modal.modern {
   --font-family: "JetBrains Mono", "Fira Code", monospace;
   --bg-color: #1a1a1a;
   --fg-color: #ffffff;

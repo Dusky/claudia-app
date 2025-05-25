@@ -25,6 +25,7 @@ export interface TerminalTheme {
     flicker: boolean;
     crt: boolean;
     noise: boolean;
+    noiseIntensity?: number;
   };
   spacing: {
     padding: string;

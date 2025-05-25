@@ -31,35 +31,35 @@ export const avatarCommand: Command = {
       lines.push({
         id: `avatar-status-${timestamp}-visible`,
         type: 'output',
-        content: `  Visible: ${state.visible ? 'Yes' : 'No'}`, // Emoji removed
+        content: `  Visible:     ${state.visible ? 'Yes' : 'No'}`,
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `avatar-status-${timestamp}-position`,
         type: 'output',
-        content: `  Position: ${state.position}`,
+        content: `  Position:    ${state.position}`,
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `avatar-status-${timestamp}-expression`,
         type: 'output',
-        content: `  Expression: ${state.expression}`,
+        content: `  Expression:  ${state.expression}`,
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `avatar-status-${timestamp}-pose`,
         type: 'output',
-        content: `  Pose: ${state.pose}`,
+        content: `  Pose:        ${state.pose}`,
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `avatar-status-${timestamp}-action`,
         type: 'output',
-        content: `  Action: ${state.action}`,
+        content: `  Action:      ${state.action}`,
         timestamp, user: 'claudia'
       });
       
@@ -271,15 +271,59 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-start-${timestamp}`,
         type: 'output',
-        content: `Image: Generating avatar image: "${description}"... This might take a moment.`, // Emoji removed
+        content: `Image: Generating custom avatar: "${description}"... This might take a moment.`,
         timestamp, user: 'claudia'
       });
       
-      // Add context to make it cyberpunk and avatar-appropriate
-      const enhancedPrompt = `cyberpunk anime girl avatar, ${description}, digital art, high quality, neon lighting, futuristic background, transparent background, PNG`;
+      // Use the new prompt composer system for enhanced prompts
+      const promptComposer = context.avatarController.getPromptComposer();
+      const avatarState = context.avatarController.getState();
+      
+      // Generate base prompt components for current avatar state
+      let promptComponents = promptComposer.generatePromptComponents({
+        expression: avatarState.expression,
+        pose: avatarState.pose,
+        action: avatarState.action,
+        style: 'cyberpunk anime girl',
+        background: 'transparent',
+        lighting: 'neon',
+        quality: 'standard'
+      });
+      
+      // Apply personality modifications
+      try {
+        const activePersonality = await context.storage.getActivePersonality();
+        if (activePersonality) {
+          const modContext = {
+            personality: {
+              name: activePersonality.name,
+              systemPrompt: activePersonality.system_prompt
+            },
+            conversationContext: `Custom avatar request: ${description}`
+          };
+          
+          promptComponents = await promptComposer.applyPersonalityModifications(promptComponents, modContext);
+        }
+      } catch (error) {
+        console.warn('Could not apply personality modifications:', error);
+      }
+      
+      // Modify character component to include user's description
+      promptComponents.character = `cyberpunk anime girl avatar, ${description}, digital art character`;
+      
+      // Compile the enhanced prompt
+      const finalPrompt = promptComposer.compilePrompt(promptComponents);
+      const negativePrompt = promptComposer.getNegativePrompt(promptComponents);
+      
+      console.log('Generating custom avatar with enhanced prompt:', {
+        userDescription: description,
+        finalPrompt,
+        negativePrompt
+      });
       
       const response = await provider.generateImage({
-        prompt: enhancedPrompt,
+        prompt: finalPrompt,
+        negativePrompt,
         width: 512,
         height: 512,
         steps: 20,
@@ -287,7 +331,6 @@ export const imagineCommand: Command = {
       });
       
       // Update avatar with the new image
-      const avatarState = context.avatarController.getState();
       context.avatarController.setState({
         ...avatarState,
         imageUrl: response.imageUrl,
@@ -297,7 +340,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-success-${timestamp}`,
         type: 'output',
-        content: 'Info: Avatar image generated successfully! Your new avatar is now visible.', // Emoji removed
+        content: 'Info: Custom avatar generated successfully! Your new avatar is now visible.',
         timestamp, user: 'claudia'
       });
       

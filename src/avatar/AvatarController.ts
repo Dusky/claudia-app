@@ -1,6 +1,7 @@
 import type { AvatarCommand, AvatarState, AvatarGenerationParams } from './types';
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
+import { ImagePromptComposer, type PromptModificationContext } from '../providers/image/promptComposer';
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
   let hash = 0;
@@ -17,6 +18,7 @@ export class AvatarController {
   private state: AvatarState;
   private imageProvider: ImageProviderManager;
   private database: ClaudiaDatabase;
+  private promptComposer: ImagePromptComposer;
   private onStateChange?: (state: AvatarState) => void;
 
   constructor(
@@ -26,6 +28,7 @@ export class AvatarController {
   ) {
     this.imageProvider = imageProvider;
     this.database = database;
+    this.promptComposer = new ImagePromptComposer();
     this.onStateChange = onStateChange;
     
     this.state = {
@@ -180,7 +183,7 @@ export class AvatarController {
     }, command.duration || 500);
   }
 
-  private async generateAvatarImage(): Promise<void> {
+  private async generateAvatarImage(conversationContext?: string): Promise<void> {
     const params: AvatarGenerationParams = {
       expression: this.state.expression,
       pose: this.state.pose,
@@ -191,13 +194,38 @@ export class AvatarController {
       quality: 'standard'
     };
 
-    const promptHash = this.generatePromptHash(params);
+    // Generate prompt components using the new system
+    let promptComponents = this.promptComposer.generatePromptComponents(params);
+
+    // Get current personality for context-aware modifications
+    try {
+      const activePersonality = await this.database.getActivePersonality();
+      if (activePersonality) {
+        const context: PromptModificationContext = {
+          personality: {
+            name: activePersonality.name,
+            systemPrompt: activePersonality.system_prompt
+          },
+          conversationContext
+        };
+
+        // Apply personality-based modifications to prompts
+        promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
+      }
+    } catch (error) {
+      console.warn('Could not get personality for prompt modification:', error);
+    }
+
+    // Create final prompts
+    const finalPrompt = this.promptComposer.compilePrompt(promptComponents);
+    const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
+    
+    const promptHash = this.generatePromptHash({ ...params, prompt: finalPrompt });
     
     // Check cache first
-    const cached = await this.database.getCachedAvatar(promptHash); // Await the promise
+    const cached = await this.database.getCachedAvatar(promptHash);
     if (cached) {
       this.state.imageUrl = cached.imageUrl;
-      // Also update accessedAt if needed, though getCachedAvatar should handle it
       return;
     }
 
@@ -209,14 +237,20 @@ export class AvatarController {
         return;
       }
 
-      const prompt = this.buildImagePrompt(params);
       const imageRequest: ImageGenerationRequest = {
-        prompt,
+        prompt: finalPrompt,
+        negativePrompt,
         width: 512,
         height: 512,
         steps: 20,
         guidance: 7.5
       };
+
+      console.log('Generating avatar with enhanced prompt:', {
+        prompt: finalPrompt,
+        negativePrompt,
+        params
+      });
 
       const response = await provider.generateImage(imageRequest);
       
@@ -230,70 +264,14 @@ export class AvatarController {
     }
   }
 
-  private buildImagePrompt(params: AvatarGenerationParams): string {
-    const basePrompt = 'cyberpunk anime girl, digital art, high quality';
-    const expressionDesc = this.getExpressionDescription(params.expression);
-    const poseDesc = this.getPoseDescription(params.pose);
-    const actionDesc = params.action ? this.getActionDescription(params.action) : '';
-    
-    let prompt = `${basePrompt}, ${expressionDesc}, ${poseDesc}`;
-    
-    if (actionDesc) {
-      prompt += `, ${actionDesc}`;
-    }
-    
-    prompt += ', neon lighting, futuristic background, transparent background, PNG';
-    
-    return prompt;
+  // Methods to access the new prompt composer system
+  getPromptComposer(): ImagePromptComposer {
+    return this.promptComposer;
   }
 
-  private getExpressionDescription(expression: string): string {
-    const descriptions = {
-      neutral: 'calm neutral expression',
-      happy: 'bright happy smile',
-      curious: 'curious inquisitive look',
-      focused: 'intense focused expression',
-      thinking: 'thoughtful contemplative look',
-      surprised: 'wide-eyed surprised expression',
-      confused: 'puzzled confused look',
-      excited: 'energetic excited expression',
-      confident: 'confident determined look',
-      mischievous: 'playful mischievous grin',
-      sleepy: 'tired sleepy expression',
-      shocked: 'shocked amazed expression'
-    };
-    
-    return descriptions[expression as keyof typeof descriptions] || 'neutral expression';
-  }
-
-  private getPoseDescription(pose: string): string {
-    const descriptions = {
-      standing: 'standing upright',
-      sitting: 'sitting casually',
-      leaning: 'leaning against surface',
-      'crossed-arms': 'arms crossed confidently',
-      'hands-on-hips': 'hands on hips',
-      casual: 'relaxed casual pose'
-    };
-    
-    return descriptions[pose as keyof typeof descriptions] || 'standing pose';
-  }
-
-  private getActionDescription(action: string): string {
-    const descriptions = {
-      idle: '',
-      type: 'typing on holographic keyboard',
-      search: 'searching through data streams',
-      read: 'reading digital information',
-      wave: 'waving hand',
-      nod: 'nodding head',
-      shrug: 'shrugging shoulders',
-      point: 'pointing gesture',
-      think: 'thinking pose with finger on chin',
-      work: 'working with digital interfaces'
-    };
-    
-    return descriptions[action as keyof typeof descriptions] || '';
+  // Generate avatar with conversation context
+  async generateAvatarWithContext(conversationContext?: string): Promise<void> {
+    await this.generateAvatarImage(conversationContext);
   }
 
   private generatePromptHash(params: AvatarGenerationParams): string {

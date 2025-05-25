@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
 import type { TerminalTheme } from '../terminal/themes';
@@ -23,18 +22,32 @@ const mockImageManager = {
 } as unknown as ImageProviderManager;
 
 const mockStorageService = {
-  getActivePersonality: vi.fn(async () => ({ id: 'default', name: 'Default Persona', description: 'Default', traits: {}, background: {}, behavior: {}, constraints: {} } as Personality)),
+  getActivePersonality: vi.fn(async () => ({ 
+    id: 'default', 
+    name: 'Default Persona', 
+    description: 'Default', 
+    system_prompt: 'You are a helpful assistant',
+    isDefault: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    usage_count: 0
+  } as Personality)),
 } as unknown as StorageService;
 
 const mockTheme: TerminalTheme = {
   id: 'test-theme',
   name: 'Test Theme',
+  era: 'test',
   colors: {
     background: '#000000',
     foreground: '#FFFFFF',
     accent: '#00FFFF',
     error: '#FF0000',
     cursor: '#FFFFFF',
+    selection: '#333333',
+    secondary: '#666666',
+    success: '#00FF00',
+    warning: '#FFFF00',
   },
   font: {
     family: 'monospace',
@@ -47,7 +60,13 @@ const mockTheme: TerminalTheme = {
     lineSpacing: '4px',
     characterSpacing: 'normal',
   },
-  effects: {},
+  effects: {
+    scanlines: false,
+    glow: false,
+    flicker: false,
+    crt: false,
+    noise: false,
+  },
 };
 
 describe('StatusBar Component', () => {

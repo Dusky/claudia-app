@@ -14,10 +14,13 @@ export type {
 // Image Providers
 export { ImageProviderManager } from './image/manager';
 export { ReplicateProvider } from './image/replicate';
+export { ImagePromptComposer } from './image/promptComposer';
 export type { 
   ImageProvider, 
   ImageGenerationRequest, 
   ImageGenerationResponse, 
   ImageProviderConfig,
-  PredictionStatus
+  PredictionStatus,
+  ImagePromptComponents,
+  PromptModificationContext
 } from './image/types';

@@ -92,10 +92,6 @@ export class ClaudiaDatabase implements StorageService {
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         is_default INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
-        traits TEXT NOT NULL, -- JSON string of Personality['traits']
-        background TEXT NOT NULL, -- JSON string of Personality['background']
-        behavior TEXT NOT NULL, -- JSON string of Personality['behavior']
-        constraints TEXT NOT NULL, -- JSON string of Personality['constraints']
         system_prompt TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -255,6 +251,11 @@ export class ClaudiaDatabase implements StorageService {
       timestamp: row.timestamp,
       metadata: row.metadata
     }));
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    const stmt = this.db.prepare('DELETE FROM messages WHERE id = ?');
+    stmt.run(messageId);
   }
 
   // Memory/RAG methods
@@ -461,22 +462,18 @@ export class ClaudiaDatabase implements StorageService {
     const stmt = this.db.prepare(`
       INSERT INTO personalities (
         id, name, description, is_default, 
-        traits, background, behavior, constraints, system_prompt, 
+        system_prompt, 
         usage_count, created_at, updated_at
       )
       VALUES (
         ?, ?, ?, ?, 
-        ?, ?, ?, ?, ?, 
+        ?, 
         ?, ?, ?
       )
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         description = excluded.description,
         is_default = excluded.is_default,
-        traits = excluded.traits,
-        background = excluded.background,
-        behavior = excluded.behavior,
-        constraints = excluded.constraints,
         system_prompt = excluded.system_prompt,
         usage_count = excluded.usage_count,
         updated_at = excluded.updated_at -- For conflict, updated_at is taken from excluded (which will be 'now')
@@ -488,10 +485,6 @@ export class ClaudiaDatabase implements StorageService {
       personality.name,
       personality.description,
       personality.isDefault ? 1 : 0,
-      JSON.stringify(personality.traits),
-      JSON.stringify(personality.background),
-      JSON.stringify(personality.behavior),
-      JSON.stringify(personality.constraints),
       personality.system_prompt,
       personality.usage_count,
       now, // created_at for new inserts (excluded.created_at for updates, but not used)
@@ -517,10 +510,6 @@ export class ClaudiaDatabase implements StorageService {
         name: row.name,
         description: row.description,
         isDefault: !!row.is_default,
-        traits: JSON.parse(row.traits),
-        background: JSON.parse(row.background),
-        behavior: JSON.parse(row.behavior),
-        constraints: JSON.parse(row.constraints),
         system_prompt: row.system_prompt,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -575,9 +564,8 @@ export class ClaudiaDatabase implements StorageService {
         if (key === 'isDefault') {
           fields.push('is_default = ?');
           values.push(value ? 1 : 0);
-        } else if (['traits', 'background', 'behavior', 'constraints'].includes(key)) {
-          fields.push(`${key} = ?`);
-          values.push(JSON.stringify(value));
+        } else if (false) { // Remove old trait handling
+          // No longer handling traits, background, behavior, constraints
         } else {
           fields.push(`${key.replace(/([A-Z])/g, '_$1').toLowerCase()} = ?`); // Convert camelCase to snake_case for DB columns
           values.push(value);

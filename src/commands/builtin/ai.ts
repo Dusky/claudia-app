@@ -84,8 +84,7 @@ Respond naturally to the user's message while optionally incorporating avatar co
       
       const response = await provider.generateResponse(llmMessages, {
         temperature: 0.8,
-        maxTokens: activePersonality?.constraints?.max_response_length === 'short' ? 150 : 
-                   activePersonality?.constraints?.max_response_length === 'long' ? 1000 : 500,
+        maxTokens: 500,
       });
       
       const { cleanText, commands: avatarCmds } = context.avatarController.parseAvatarCommands(response.content);

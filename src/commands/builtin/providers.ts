@@ -28,11 +28,12 @@ export const providersCommand: Command = {
       });
       llmProviders.forEach((provider, index) => {
         const isActive = activeLLM?.id === provider.id;
-        const status = provider.configured ? 'OK' : 'FAIL'; // Emoji removed
+        const status = provider.configured ? 'OK  ' : 'FAIL';
         const activeIndicator = isActive ? ' (active)' : '';
+        const providerId = provider.id.padEnd(15);
         lines.push({
           id: `providers-${timestamp}-llm-${index}`, type: 'output',
-          content: `  [${status}] ${provider.id.padEnd(12)} - ${provider.name}${activeIndicator}`,
+          content: `  [${status}] ${providerId} ${provider.name}${activeIndicator}`,
           timestamp, user: 'claudia'
         });
       });
@@ -46,11 +47,12 @@ export const providersCommand: Command = {
       });
       imageProviders.forEach((provider, index) => {
         const isActive = activeImage?.id === provider.id;
-        const status = provider.configured ? 'OK' : 'FAIL'; // Emoji removed
+        const status = provider.configured ? 'OK  ' : 'FAIL';
         const activeIndicator = isActive ? ' (active)' : '';
+        const providerId = provider.id.padEnd(15);
         lines.push({
           id: `providers-${timestamp}-img-${index}`, type: 'output',
-          content: `  [${status}] ${provider.id.padEnd(12)} - ${provider.name}${activeIndicator}`,
+          content: `  [${status}] ${providerId} ${provider.name}${activeIndicator}`,
           timestamp, user: 'claudia'
         });
       });

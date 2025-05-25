@@ -56,6 +56,7 @@ export interface StorageService {
   // Message methods
   addMessage(messageInput: Omit<ConversationMessage, 'id'>): Promise<ConversationMessage>;
   getMessages(conversationId: string, limit?: number): Promise<ConversationMessage[]>;
+  deleteMessage(messageId: string): Promise<void>;
 
   // Settings methods
   setSetting(key: string, value: any, type?: AppSetting['type']): Promise<void>;

@@ -1,7 +1,8 @@
 import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
-import type { StorageService, ClaudiaDatabase } from '../storage/types'; // Added ClaudiaDatabase for specific db operations
+import type { StorageService } from '../storage/types';
+import type { ClaudiaDatabase } from '../storage/database';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
 import type { Personality } from '../types/personality';
 // Removed direct import of CommandRegistry from './registry' to avoid circular dependency potential
@@ -17,6 +18,7 @@ export interface CommandContext {
   currentTheme: string;
   setTheme: (theme: string) => void;
   openPersonalityEditor: (personality?: Personality | null | undefined) => void; 
+  openConfigModal?: () => void; // Function to open config modal
   commandRegistry: CommandRegistry; // Provide access to the registry itself for sub-commands or help
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null, loadMessages?: boolean) => Promise<void>;

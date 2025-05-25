@@ -7,7 +7,10 @@ import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
 import { askCommand } from './builtin/ai'; 
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
-import { testCommand } from './builtin/test'; 
+import { testCommand } from './builtin/test';
+import { configCommand } from './builtin/config';
+import { debugCommand } from './builtin/debug';
+import { retryCommand, continueCommand, undoCommand, contextCommand } from './builtin/conversation-tools';
 import {
   conversationCommand,
   listConversationsCommand,
@@ -48,7 +51,13 @@ export function createCommandRegistry(): CommandRegistryImpl {
     avatarCommand,
     imagineCommand,
     providersCommand,
-    testCommand, 
+    testCommand,
+    configCommand,
+    debugCommand,
+    retryCommand,
+    continueCommand, 
+    undoCommand,
+    contextCommand,
     
     personalityCommand, 
     personalityGuiCommand, 

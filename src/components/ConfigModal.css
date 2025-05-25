@@ -1,0 +1,272 @@
+.config-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.config-modal {
+  background: #1a1a1a;
+  border: 2px solid #00ffff;
+  border-radius: 8px;
+  max-width: 800px;
+  width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #ffffff;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #333;
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+}
+
+.config-header h2 {
+  margin: 0;
+  color: #00ffff;
+  font-size: 1.5rem;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background: rgba(255, 107, 107, 0.2);
+}
+
+.config-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.config-tabs {
+  display: flex;
+  flex-direction: column;
+  background: #222;
+  border-right: 1px solid #333;
+  min-width: 150px;
+}
+
+.config-tabs button {
+  background: none;
+  border: none;
+  color: #ccc;
+  padding: 15px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid #333;
+  font-family: inherit;
+}
+
+.config-tabs button:hover {
+  background: #333;
+  color: #fff;
+}
+
+.config-tabs button.active {
+  background: #00ffff20;
+  color: #00ffff;
+  border-right: 2px solid #00ffff;
+}
+
+.config-panel {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-item label {
+  color: #fff;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-item input[type="checkbox"] {
+  accent-color: #00ffff;
+  transform: scale(1.2);
+}
+
+.config-item select {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  max-width: 200px;
+}
+
+.config-item select:focus {
+  outline: none;
+  border-color: #00ffff;
+  box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+}
+
+.config-item select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.config-item input[type="range"] {
+  max-width: 200px;
+  accent-color: #00ffff;
+}
+
+.config-item input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.config-presets {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+
+.config-presets h3 {
+  color: #00ffff;
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preset-buttons button {
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.preset-buttons button:hover {
+  background: #00ffff;
+  color: #000;
+  border-color: #00ffff;
+}
+
+.config-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-top: 1px solid #333;
+  background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+}
+
+.reset-button {
+  background: #ff6b6b;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.reset-button:hover {
+  background: #ff5252;
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+}
+
+.cancel-button {
+  background: #666;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.cancel-button:hover {
+  background: #777;
+}
+
+.save-button {
+  background: #00ffff;
+  border: none;
+  color: #000;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.save-button:hover {
+  background: #00e6e6;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+/* Scrollbar styling */
+.config-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.config-panel::-webkit-scrollbar-track {
+  background: #222;
+}
+
+.config-panel::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.config-panel::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}

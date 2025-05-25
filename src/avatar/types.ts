@@ -77,6 +77,7 @@ export interface AvatarGenerationParams {
   background?: 'transparent' | 'none' | 'cyber';
   lighting?: 'soft' | 'dramatic' | 'neon';
   quality?: 'draft' | 'standard' | 'high';
+  prompt?: string; // Allow including the final compiled prompt for caching
 }
 
 export interface AvatarState {

@@ -185,6 +185,20 @@ export class MockDatabase implements StorageService {
     return limit ? sortedMessages.slice(-limit) : sortedMessages;
   }
 
+  async deleteMessage(messageId: string): Promise<void> {
+    const numericId = typeof messageId === 'string' ? parseInt(messageId, 10) : messageId;
+    
+    for (const [conversationId, messagesList] of this.messages.entries()) {
+      const messageIndex = messagesList.findIndex(m => m.id === numericId);
+      if (messageIndex !== -1) {
+        messagesList.splice(messageIndex, 1);
+        this.messages.set(conversationId, messagesList);
+        this.saveToLocalStorage();
+        return;
+      }
+    }
+  }
+
   // Settings methods
   async setSetting(key: string, value: any, type?: AppSetting['type']): Promise<void> {
     let resolvedType = type;

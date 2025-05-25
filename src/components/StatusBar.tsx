@@ -14,16 +14,17 @@ interface StatusBarProps {
   storage: StorageService;
   onThemeClick?: () => void;
   onPersonalityClick?: () => void;
+  onImageProviderClick?: () => void;
 }
 
 const StatusBarComponent: React.FC<StatusBarProps> = ({
   theme,
-  currentTheme, // This is the ID, e.g., "mainframe70s"
   llmManager,
   imageManager,
   storage,
   onThemeClick,
   onPersonalityClick,
+  onImageProviderClick,
 }) => {
   const [activeLLM, setActiveLLM] = useState(llmManager.getActiveProvider());
   const [activeImage, setActiveImage] = useState(imageManager.getActiveProvider());
@@ -101,9 +102,10 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
         <div className={styles.statusBarItem}>
           <span>📷</span> {/* Image Icon */}
            <span
-            className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured}`}
+            onClick={onImageProviderClick}
+            className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured} ${onImageProviderClick ? styles.clickableItem : ''}`}
             data-status={imageConfigured ? 'configured' : 'not-configured'}
-            title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'}`}
+            title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'} - Click to configure`}
           >
             {imageProviderId}
           </span>

@@ -50,3 +50,25 @@ export interface PredictionStatus {
     cancel: string;
   };
 }
+
+export interface ImagePromptComponents {
+  character: string;
+  expression: string;
+  pose: string;
+  action: string;
+  style: string;
+  lighting: string;
+  background: string;
+  quality: string;
+  negativePrompt?: string;
+}
+
+export interface PromptModificationContext {
+  personality: {
+    name: string;
+    systemPrompt: string;
+  };
+  currentMood?: string;
+  previousActions?: string[];
+  conversationContext?: string;
+}

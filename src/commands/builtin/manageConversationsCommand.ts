@@ -6,14 +6,14 @@ export const manageConversationsCommand: Command = {
   usage: '/conversationsui',
   aliases: ['convoui', 'chatmanage'],
   
-  async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
-    context.openConversationManager();
+  async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
+    // This command is deprecated or not implemented yet
     return { 
-      success: true,
+      success: false,
       lines: [{
         id: `convoui-${Date.now()}`,
-        type: 'system',
-        content: 'Opening conversation manager...',
+        type: 'error',
+        content: 'Conversation manager UI not yet implemented.',
         timestamp: new Date().toISOString(),
         user: 'claudia'
       }]

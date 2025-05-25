@@ -1,6 +1,5 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
-import { DEFAULT_PERSONALITY } from '../../types/personality'; // For creating new default conv
 
 const findConversationByIdOrPartialTitle = async (
   searchTerm: string,
@@ -36,7 +35,7 @@ export const conversationCommand: Command = {
   description: 'Manage chat conversations. Lists subcommands.',
   usage: '/conversation [help|list|new|load|delete|rename|clearhist]',
   aliases: ['conv'],
-  async execute(args: string[], context: CommandContext): Promise<CommandResult> {
+  async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
 

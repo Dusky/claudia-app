@@ -89,13 +89,15 @@ export const themesCommand: Command = {
     
     availableThemes.forEach((theme, index) => {
       const isActive = theme.id === context.currentTheme;
-      const prefix = isActive ? '-> ' : '  ';
+      const prefix = isActive ? '-> ' : '   ';
       const suffix = isActive ? ' (current)' : '';
+      const themeId = theme.id.padEnd(15);
+      const themeName = theme.name.padEnd(20);
       
       lines.push({
         id: `themes-${timestamp}-${index + 3}`,
         type: 'output',
-        content: `${prefix}${theme.id.padEnd(12)} - ${theme.name} (${theme.era})${suffix}`,
+        content: `${prefix}${themeId} ${themeName} (${theme.era})${suffix}`,
         timestamp, user: 'claudia'
       });
     });
@@ -127,7 +129,7 @@ export const clearCommand: Command = {
   async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
     // The resetConversationAndTerminal action (to be added to the store and context)
     // will handle creating a new conversation, setting it active, and updating the terminal lines.
-    await context.resetConversationAndTerminal(context.storage);
+    await context.resetConversationAndTerminal(context.storage as any);
 
     // shouldContinue: false indicates to the caller (App.tsx) that the environment
     // has significantly changed, and normal follow-up processing might be skipped.
