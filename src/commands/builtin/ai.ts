@@ -42,11 +42,30 @@ export const askCommand: Command = {
     try {
       context.setLoading(true);
       
+      // Get active personality for system prompt
+      const activePersonality = await context.storage.getActivePersonality();
+      let systemPrompt = activePersonality?.system_prompt || 
+        `You are Claudia, a helpful AI terminal companion. You are friendly, knowledgeable, and always ready to assist with questions and tasks.`;
+
+      // Add avatar instructions to system prompt
+      const avatarInstructions = `
+
+Avatar Commands (use these to enhance your responses):
+- Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
+- Use [AVATAR:position=center] to change position (center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking)
+- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
+- Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
+- Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
+- Combine multiple attributes: [AVATAR:expression=excited,action=wave,position=center]
+
+Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
+      
+      const fullSystemPrompt = systemPrompt + avatarInstructions;
+
+
       const messages: LLMMessage[] = [
-        {
-          role: 'user',
-          content: question
-        }
+        { role: 'system', content: fullSystemPrompt },
+        { role: 'user', content: question }
       ];
       
       const response = await provider.generateResponse(messages);

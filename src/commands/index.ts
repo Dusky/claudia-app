@@ -2,41 +2,67 @@ export * from './types';
 export * from './registry';
 
 // Builtin commands
-export * from './builtin/help';
-export * from './builtin/theme';
-export * from './builtin/ai';
-export * from './builtin/avatar';
-export * from './builtin/providers';
-export * from './builtin/test';
-export * from './builtin/personality';
-
-import { CommandRegistryImpl } from './registry';
 import { helpCommand } from './builtin/help';
 import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
-import { askCommand } from './builtin/ai';
+import { askCommand, handleAIMessage } from './builtin/ai';
 import { avatarCommand, imagineCommand } from './builtin/avatar';
 import { providersCommand } from './builtin/providers';
-import { testCommand } from './builtin/test';
-import { personalityCommand } from './builtin/personality';
+import { testCommand } from './builtin/test'; // Assuming you have this file and it exports testCommand
+
+// Import all personality commands (main and subcommands)
+import {
+  personalityCommand, // Main /personality command
+  listPersonalitiesCommand,
+  createPersonalityCommand,
+  editPersonalityCommand,
+  deletePersonalityCommand,
+  setPersonalityCommand,
+  currentPersonalityCommand,
+  initDefaultPersonalityCommand,
+  viewPersonalityCommand,
+} from './builtin/personality';
+
+import { CommandRegistryImpl } from './registry';
+import type { Command } from './types';
+
 
 // Create and configure the default command registry
 export function createCommandRegistry(): CommandRegistryImpl {
   const registry = new CommandRegistryImpl();
   
-  // Register all builtin commands
-  registry.register(helpCommand);
-  registry.register(themeCommand);
-  registry.register(themesCommand);
-  registry.register(clearCommand);
-  registry.register(askCommand);
-  registry.register(avatarCommand);
-  registry.register(imagineCommand);
-  registry.register(providersCommand);
-  registry.register(testCommand);
-  registry.register(personalityCommand);
+  const commandsToRegister: Command[] = [
+    helpCommand,
+    themeCommand,
+    themesCommand,
+    clearCommand,
+    askCommand,
+    avatarCommand,
+    imagineCommand,
+    providersCommand,
+    testCommand, // Make sure testCommand is imported if it exists
+    
+    // Personality commands
+    personalityCommand, // Main /personality
+    listPersonalitiesCommand,
+    createPersonalityCommand,
+    editPersonalityCommand,
+    deletePersonalityCommand,
+    setPersonalityCommand,
+    currentPersonalityCommand,
+    initDefaultPersonalityCommand,
+    viewPersonalityCommand,
+  ];
+
+  commandsToRegister.forEach(command => {
+    if (command) { // Add a check to ensure command is not undefined
+      registry.register(command);
+    } else {
+      console.warn('Attempted to register an undefined command. Check imports in src/commands/index.ts');
+    }
+  });
   
   return registry;
 }
 
 // Export the AI message handler
-export { handleAIMessage } from './builtin/ai';
+export { handleAIMessage };

@@ -137,7 +137,7 @@ export const clearCommand: Command = {
     // and setting a special flag
     return { 
       success: true, 
-      lines: [],
+      lines: [], // No lines needed, App.tsx handles the visual clear
       shouldContinue: false // This tells the terminal to clear
     };
   }
