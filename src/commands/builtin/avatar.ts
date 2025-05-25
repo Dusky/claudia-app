@@ -24,14 +24,14 @@ export const avatarCommand: Command = {
       lines.push({
         id: `avatar-status-${timestamp}-header`,
         type: 'system',
-        content: '🤖 AVATAR STATUS:',
+        content: 'Avatar Status:', // Emoji removed
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `avatar-status-${timestamp}-visible`,
         type: 'output',
-        content: `  Visible: ${state.visible ? '✅ Yes' : '❌ No'}`,
+        content: `  Visible: ${state.visible ? 'Yes' : 'No'}`, // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -76,7 +76,7 @@ export const avatarCommand: Command = {
           lines.push({
             id: `avatar-show-${timestamp}`,
             type: 'output',
-            content: '✨ Avatar is now visible!',
+            content: 'Info: Avatar is now visible!', // Emoji removed
             timestamp, user: 'claudia'
           });
           break;
@@ -86,7 +86,7 @@ export const avatarCommand: Command = {
           lines.push({
             id: `avatar-hide-${timestamp}`,
             type: 'output',
-            content: '👻 Avatar is now hidden.',
+            content: 'Info: Avatar is now hidden.', // Emoji removed
             timestamp, user: 'claudia'
           });
           break;
@@ -96,7 +96,7 @@ export const avatarCommand: Command = {
           if (!value) {
             lines.push({
               id: `avatar-expr-err-${timestamp}`, type: 'error',
-              content: `❌ Expression needed. Usage: /avatar expression <value>`, timestamp, user: 'claudia'
+              content: `Error: Expression needed. Usage: /avatar expression <value>`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-expr-opts-${timestamp}`, type: 'output',
@@ -105,7 +105,7 @@ export const avatarCommand: Command = {
           } else if (!availableExpressions.includes(value as AvatarExpression)) {
             lines.push({
               id: `avatar-expr-invalid-${timestamp}`, type: 'error',
-              content: `❌ Invalid expression: "${value}".`, timestamp, user: 'claudia'
+              content: `Error: Invalid expression: "${value}".`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-expr-invalidopts-${timestamp}`, type: 'output',
@@ -115,7 +115,7 @@ export const avatarCommand: Command = {
             await context.avatarController.executeCommands([{ expression: value as AvatarExpression }]);
             lines.push({
               id: `avatar-expr-succ-${timestamp}`, type: 'output',
-              content: `😊 Avatar expression set to: ${value}`, timestamp, user: 'claudia'
+              content: `Info: Avatar expression set to: ${value}`, timestamp, user: 'claudia' // Emoji removed
             });
           }
           break;
@@ -125,7 +125,7 @@ export const avatarCommand: Command = {
           if (!value) {
             lines.push({
               id: `avatar-pos-err-${timestamp}`, type: 'error',
-              content: `❌ Position needed. Usage: /avatar position <value>`, timestamp, user: 'claudia'
+              content: `Error: Position needed. Usage: /avatar position <value>`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-pos-opts-${timestamp}`, type: 'output',
@@ -134,7 +134,7 @@ export const avatarCommand: Command = {
           } else if (!availablePositions.includes(value as AvatarPosition)) {
             lines.push({
               id: `avatar-pos-invalid-${timestamp}`, type: 'error',
-              content: `❌ Invalid position: "${value}".`, timestamp, user: 'claudia'
+              content: `Error: Invalid position: "${value}".`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-pos-invalidopts-${timestamp}`, type: 'output',
@@ -144,7 +144,7 @@ export const avatarCommand: Command = {
             await context.avatarController.executeCommands([{ position: value as AvatarPosition }]);
             lines.push({
               id: `avatar-pos-succ-${timestamp}`, type: 'output',
-              content: `📍 Avatar position set to: ${value}`, timestamp, user: 'claudia'
+              content: `Info: Avatar position set to: ${value}`, timestamp, user: 'claudia' // Emoji removed
             });
           }
           break;
@@ -153,7 +153,7 @@ export const avatarCommand: Command = {
           if (!value) {
             lines.push({
               id: `avatar-act-err-${timestamp}`, type: 'error',
-              content: `❌ Action needed. Usage: /avatar action <value>`, timestamp, user: 'claudia'
+              content: `Error: Action needed. Usage: /avatar action <value>`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-act-opts-${timestamp}`, type: 'output',
@@ -162,7 +162,7 @@ export const avatarCommand: Command = {
           } else if (!availableActions.includes(value as AvatarAction)) {
             lines.push({
               id: `avatar-act-invalid-${timestamp}`, type: 'error',
-              content: `❌ Invalid action: "${value}".`, timestamp, user: 'claudia'
+              content: `Error: Invalid action: "${value}".`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-act-invalidopts-${timestamp}`, type: 'output',
@@ -172,7 +172,7 @@ export const avatarCommand: Command = {
             await context.avatarController.executeCommands([{ action: value as AvatarAction }]);
             lines.push({
               id: `avatar-act-succ-${timestamp}`, type: 'output',
-              content: `⚡ Avatar action set to: ${value}`, timestamp, user: 'claudia'
+              content: `Info: Avatar action set to: ${value}`, timestamp, user: 'claudia' // Emoji removed
             });
           }
           break;
@@ -181,7 +181,7 @@ export const avatarCommand: Command = {
           if (!value) {
             lines.push({
               id: `avatar-pose-err-${timestamp}`, type: 'error',
-              content: `❌ Pose needed. Usage: /avatar pose <value>`, timestamp, user: 'claudia'
+              content: `Error: Pose needed. Usage: /avatar pose <value>`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-pose-opts-${timestamp}`, type: 'output',
@@ -190,7 +190,7 @@ export const avatarCommand: Command = {
           } else if (!availablePoses.includes(value as AvatarPose)) {
             lines.push({
               id: `avatar-pose-invalid-${timestamp}`, type: 'error',
-              content: `❌ Invalid pose: "${value}".`, timestamp, user: 'claudia'
+              content: `Error: Invalid pose: "${value}".`, timestamp, user: 'claudia' // Emoji removed
             });
             lines.push({
               id: `avatar-pose-invalidopts-${timestamp}`, type: 'output',
@@ -200,7 +200,7 @@ export const avatarCommand: Command = {
             await context.avatarController.executeCommands([{ pose: value as AvatarPose }]);
             lines.push({
               id: `avatar-pose-succ-${timestamp}`, type: 'output',
-              content: `🧍 Avatar pose set to: ${value}`, timestamp, user: 'claudia'
+              content: `Info: Avatar pose set to: ${value}`, timestamp, user: 'claudia' // Emoji removed
             });
           }
           break;
@@ -209,7 +209,7 @@ export const avatarCommand: Command = {
           lines.push({
             id: `avatar-unknown-${timestamp}`,
             type: 'error',
-            content: `❌ Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose.`,
+            content: `Error: Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose.`, // Emoji removed
             timestamp, user: 'claudia'
           });
       }
@@ -220,7 +220,7 @@ export const avatarCommand: Command = {
       lines.push({
         id: `avatar-error-${timestamp}`,
         type: 'error',
-        content: `❌ Avatar Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `Error: Avatar Error: ${error instanceof Error ? error.message : 'Unknown error'}`, // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -244,7 +244,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-err-${timestamp}`,
         type: 'error',
-        content: '❌ Please provide a description. Usage: /imagine <description>',
+        content: 'Error: Please provide a description. Usage: /imagine <description>', // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -258,7 +258,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-noprovider-${timestamp}`,
         type: 'error',
-        content: '❌ No image generation provider is configured.',
+        content: 'Error: No image generation provider is configured.', // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -271,7 +271,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-start-${timestamp}`,
         type: 'output',
-        content: `🎨 Generating avatar image: "${description}"... This might take a moment.`,
+        content: `Image: Generating avatar image: "${description}"... This might take a moment.`, // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -297,7 +297,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-success-${timestamp}`,
         type: 'output',
-        content: '✨ Avatar image generated successfully! Your new avatar is now visible.',
+        content: 'Info: Avatar image generated successfully! Your new avatar is now visible.', // Emoji removed
         timestamp, user: 'claudia'
       });
       
@@ -307,7 +307,7 @@ export const imagineCommand: Command = {
       lines.push({
         id: `imagine-apierr-${timestamp}`,
         type: 'error',
-        content: `❌ Image Generation Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `Error: Image Generation Error: ${error instanceof Error ? error.message : 'Unknown error'}`, // Emoji removed
         timestamp, user: 'claudia'
       });
       

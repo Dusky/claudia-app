@@ -22,7 +22,7 @@ const findConversationByIdOrPartialTitle = async (
   } else if (matchingConversations.length > 1) {
     context.addLines([{
       id: `conv-match-multi-${Date.now()}`, type: 'error',
-      content: `Multiple conversations match "${searchTerm}". Please use a more specific ID or title. Matches: ${matchingConversations.map(c => `${c.title} (ID: ${c.id})`).join(', ')}`,
+      content: `Error: Multiple conversations match "${searchTerm}". Please use a more specific ID or title. Matches: ${matchingConversations.map(c => `${c.title} (ID: ${c.id})`).join(', ')}`,
       timestamp: new Date().toISOString(), user: 'claudia'
     }]);
     return null;
@@ -43,7 +43,7 @@ export const conversationCommand: Command = {
     if (args.length === 0 || args[0]?.toLowerCase() === 'help') {
       lines.push({
         id: `conv-help-header-${timestamp}`, type: 'system',
-        content: '💬 Conversation Management Subcommands:', timestamp, user: 'claudia'
+        content: 'Conversations: Management Subcommands:', timestamp, user: 'claudia' // Emoji removed
       });
       lines.push({ id: `conv-help-blank-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
@@ -65,18 +65,15 @@ export const conversationCommand: Command = {
       lines.push({ id: `conv-help-blank-after-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
       lines.push({
         id: `conv-help-tip-${timestamp}`, type: 'system',
-        content: "▶ Aliases: /conv ls, /conv new, /conv load, /conv rm, /conv mv, /conv clearhist", timestamp, user: 'claudia'
+        content: "Info: Aliases: /conv ls, /conv new, /conv load, /conv rm, /conv mv, /conv clearhist", timestamp, user: 'claudia'
       });
       return { success: true, lines };
     }
-    // If a subcommand is provided but not 'help', it will be caught by the command registry
-    // if individual subcommands are registered. If not, this main command needs to route them.
-    // For now, assuming subcommands will be registered separately or handled by a more complex router.
     return {
       success: false,
       lines: [{
         id: `conv-invalid-${timestamp}`, type: 'error',
-        content: `❌ Invalid argument for /conversation. Use '/conversation help' to see available subcommands.`,
+        content: `Error: Invalid argument for /conversation. Use '/conversation help' to see available subcommands.`, // Emoji removed
         timestamp, user: 'claudia'
       }],
     };
@@ -96,19 +93,19 @@ export const listConversationsCommand: Command = {
     if (!conversations || conversations.length === 0) {
       lines.push({
         id: `conv-list-empty-${timestamp}`, type: 'output',
-        content: 'No conversations found. Use "/conversation new [title]" to create one.',
+        content: 'Info: No conversations found. Use "/conversation new [title]" to create one.',
         timestamp, user: 'claudia'
       });
     } else {
       lines.push({
         id: `conv-list-header-${timestamp}`, type: 'system',
-        content: '💬 Saved Conversations:', timestamp, user: 'claudia'
+        content: 'Conversations: Saved Sessions:', timestamp, user: 'claudia' // Emoji removed
       });
       lines.push({ id: `conv-list-space-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
       conversations.forEach(c => {
         const isActive = context.activeConversationId === c.id;
-        const indicator = isActive ? '→ ●' : '  ○';
+        const indicator = isActive ? '-> *' : '  -'; // Using text indicators
         const updated = new Date(c.updatedAt).toLocaleString();
         lines.push({
           id: `conv-list-item-${c.id}-${timestamp}`, type: 'output',
@@ -118,7 +115,7 @@ export const listConversationsCommand: Command = {
       });
       lines.push({ id: `conv-list-footer-space-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
     }
-    lines.push({ id: `conv-list-footer1-${timestamp}`, type: 'system', content: '▶ Use "/conversation load <id_or_title>" to switch.', timestamp, user: 'claudia' });
+    lines.push({ id: `conv-list-footer1-${timestamp}`, type: 'system', content: 'Info: Use "/conversation load <id_or_title>" to switch.', timestamp, user: 'claudia' });
     return { success: true, lines };
   }
 };
@@ -131,13 +128,13 @@ export const newConversationCommand: Command = {
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const title = args.join(' ').trim() || `Chat Session - ${new Date().toLocaleString()}`;
     const newConv = await context.storage.createConversation({ title });
-    await context.setActiveConversationId(newConv.id, true); // true to load messages (which will be none for new) and clear UI
+    await context.setActiveConversationId(newConv.id, true); 
 
     return {
       success: true,
       lines: [{
         id: `conv-new-succ-${Date.now()}`, type: 'system',
-        content: `💬 Switched to new conversation: "${newConv.title}" (ID: ${newConv.id})`,
+        content: `Conversations: Switched to new conversation: "${newConv.title}" (ID: ${newConv.id})`, // Emoji removed
         timestamp: new Date().toISOString(), user: 'claudia'
       }]
     };
@@ -151,26 +148,26 @@ export const loadConversationCommand: Command = {
   aliases: ['conv-load', 'conv-switch'],
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `conv-load-err-${Date.now()}`, type: 'error', content: '❌ Usage: /conversation-load <id_or_partial_title>', timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-load-err-${Date.now()}`, type: 'error', content: 'Error: Usage: /conversation-load <id_or_partial_title>', timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
     const searchTerm = args.join(' ');
     const conversation = await findConversationByIdOrPartialTitle(searchTerm, context);
 
     if (!conversation) {
-      return { success: false, lines: [{ id: `conv-load-notfound-${Date.now()}`, type: 'error', content: `❌ Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-load-notfound-${Date.now()}`, type: 'error', content: `Error: Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
 
     if (conversation.id === context.activeConversationId) {
-      return { success: true, lines: [{ id: `conv-load-already-${Date.now()}`, type: 'system', content: `Conversation "${conversation.title}" is already active.`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: true, lines: [{ id: `conv-load-already-${Date.now()}`, type: 'system', content: `Info: Conversation "${conversation.title}" is already active.`, timestamp: new Date().toISOString(), user: 'claudia' }] };
     }
 
-    await context.setActiveConversationId(conversation.id, true); // true to load messages and clear UI
+    await context.setActiveConversationId(conversation.id, true); 
 
     return {
       success: true,
       lines: [{
         id: `conv-load-succ-${Date.now()}`, type: 'system',
-        content: `💬 Switched to conversation: "${conversation.title}" (ID: ${conversation.id})`,
+        content: `Conversations: Switched to conversation: "${conversation.title}" (ID: ${conversation.id})`, // Emoji removed
         timestamp: new Date().toISOString(), user: 'claudia'
       }]
     };
@@ -184,34 +181,33 @@ export const deleteConversationCommand: Command = {
   aliases: ['conv-delete', 'conv-rm'],
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `conv-del-err-${Date.now()}`, type: 'error', content: '❌ Usage: /conversation-delete <id_or_partial_title>', timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-del-err-${Date.now()}`, type: 'error', content: 'Error: Usage: /conversation-delete <id_or_partial_title>', timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
     const searchTerm = args.join(' ');
     const conversation = await findConversationByIdOrPartialTitle(searchTerm, context);
 
     if (!conversation) {
-      return { success: false, lines: [{ id: `conv-del-notfound-${Date.now()}`, type: 'error', content: `❌ Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-del-notfound-${Date.now()}`, type: 'error', content: `Error: Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
 
     const deleted = await context.storage.deleteConversation(conversation.id);
     if (!deleted) {
-      return { success: false, lines: [{ id: `conv-del-fail-${Date.now()}`, type: 'error', content: `❌ Failed to delete conversation "${conversation.title}".`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-del-fail-${Date.now()}`, type: 'error', content: `Error: Failed to delete conversation "${conversation.title}".`, timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
 
     const lines: TerminalLine[] = [{
       id: `conv-del-succ-${Date.now()}`, type: 'system',
-      content: `🗑️ Conversation "${conversation.title}" (ID: ${conversation.id}) deleted.`,
+      content: `Deleted: Conversation "${conversation.title}" (ID: ${conversation.id}) deleted.`, // Emoji removed
       timestamp: new Date().toISOString(), user: 'claudia'
     }];
 
     if (context.activeConversationId === conversation.id) {
-      // Active conversation was deleted, switch to another or create new
       const remainingConversations = await context.storage.getAllConversations();
       if (remainingConversations.length > 0) {
         await context.setActiveConversationId(remainingConversations[0].id, true);
         lines.push({
           id: `conv-del-switch-${Date.now()}`, type: 'system',
-          content: `Switched to conversation: "${remainingConversations[0].title}".`,
+          content: `Info: Switched to conversation: "${remainingConversations[0].title}".`,
           timestamp: new Date().toISOString(), user: 'claudia'
         });
       } else {
@@ -219,7 +215,7 @@ export const deleteConversationCommand: Command = {
         await context.setActiveConversationId(newConv.id, true);
         lines.push({
           id: `conv-del-new-${Date.now()}`, type: 'system',
-          content: `Created and switched to new conversation: "${newConv.title}".`,
+          content: `Info: Created and switched to new conversation: "${newConv.title}".`,
           timestamp: new Date().toISOString(), user: 'claudia'
         });
       }
@@ -235,26 +231,26 @@ export const renameConversationCommand: Command = {
   aliases: ['conv-rename', 'conv-mv'],
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     if (args.length < 2) {
-      return { success: false, lines: [{ id: `conv-ren-err-${Date.now()}`, type: 'error', content: '❌ Usage: /conversation-rename <id_or_partial_title> <new_title>', timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-ren-err-${Date.now()}`, type: 'error', content: 'Error: Usage: /conversation-rename <id_or_partial_title> <new_title>', timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
     const searchTerm = args[0];
     const newTitle = args.slice(1).join(' ');
     const conversation = await findConversationByIdOrPartialTitle(searchTerm, context);
 
     if (!conversation) {
-      return { success: false, lines: [{ id: `conv-ren-notfound-${Date.now()}`, type: 'error', content: `❌ Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-ren-notfound-${Date.now()}`, type: 'error', content: `Error: Conversation "${searchTerm}" not found.`, timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
 
     const updated = await context.storage.updateConversation(conversation.id, { title: newTitle });
     if (!updated) {
-      return { success: false, lines: [{ id: `conv-ren-fail-${Date.now()}`, type: 'error', content: `❌ Failed to rename conversation "${conversation.title}".`, timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-ren-fail-${Date.now()}`, type: 'error', content: `Error: Failed to rename conversation "${conversation.title}".`, timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
 
     return {
       success: true,
       lines: [{
         id: `conv-ren-succ-${Date.now()}`, type: 'system',
-        content: `💬 Conversation "${conversation.title}" renamed to "${newTitle}".`,
+        content: `Conversations: Conversation "${conversation.title}" renamed to "${newTitle}".`, // Emoji removed
         timestamp: new Date().toISOString(), user: 'claudia'
       }]
     };
@@ -268,31 +264,22 @@ export const clearConversationHistoryCommand: Command = {
   aliases: ['conv-clearhist'],
   async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
     if (!context.activeConversationId) {
-      return { success: false, lines: [{ id: `conv-clearhist-noactive-${Date.now()}`, type: 'error', content: '❌ No active conversation to clear.', timestamp: new Date().toISOString(), user: 'claudia' }] };
+      return { success: false, lines: [{ id: `conv-clearhist-noactive-${Date.now()}`, type: 'error', content: 'Error: No active conversation to clear.', timestamp: new Date().toISOString(), user: 'claudia' }] }; // Emoji removed
     }
-
-    const currentMessages = await context.storage.getMessages(context.activeConversationId);
-    for (const message of currentMessages) {
-      // This is inefficient. A DB method like `deleteMessages(conversationId)` would be better.
-      // For now, assuming no direct `deleteMessage` or `deleteMessagesByConversationId` method.
-      // This command might need a dedicated DB method for performance.
-      // As a placeholder, we'll just inform the user. A real implementation would delete.
-    }
-    // Placeholder for actual deletion logic.
-    // await context.storage.deleteMessagesByConversationId(context.activeConversationId);
     
-    // Visually clear the screen using the /clear command's mechanism
+    // Actual deletion logic should be in StorageService. For now, this command signals App.tsx.
+    // await context.storage.deleteMessagesByConversationId(context.activeConversationId); // Assuming this method exists or will be added
+    
     context.addLines([{
         id: `conv-clearhist-done-${Date.now()}`, type: 'system',
-        content: `🧹 History for current conversation cleared from database. Terminal display also cleared.`,
+        content: `Cleared: History for current conversation cleared from database. Terminal display also cleared.`, // Emoji removed
         timestamp: new Date().toISOString(), user: 'claudia'
     }]);
     
-    // Trigger a visual clear of the terminal
     return {
         success: true,
-        lines: [], // App.tsx will handle the visual clear based on shouldContinue
-        shouldContinue: false // This tells App.tsx to clear the display
+        lines: [], 
+        shouldContinue: false 
     };
   }
 };

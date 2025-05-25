@@ -19,14 +19,14 @@ export const personalityCommand: Command = {
       if (guiCommand) {
         return guiCommand.execute([], context);
       }
-      return { success: false, lines: [{ id: `p-gui-err-${timestamp}`, type: 'error', content: 'GUI command not found.', timestamp }]};
+      return { success: false, lines: [{ id: `p-gui-err-${timestamp}`, type: 'error', content: 'Error: GUI command not found.', timestamp }]};
     }
 
     if (args.length === 0 || args[0]?.toLowerCase() === 'help') {
       lines.push({
         id: `p-help-header-${timestamp}`,
         type: 'system',
-        content: '🎭 Personality Management Subcommands:',
+        content: 'Personality: Management Subcommands:', // Emoji removed
         timestamp, user: 'claudia'
       });
        lines.push({
@@ -60,7 +60,7 @@ export const personalityCommand: Command = {
         lines.push({
           id: `p-help-none-${timestamp}`,
           type: 'output',
-          content: '  No other personality subcommands found (ensure they are registered).',
+          content: '  Info: No other personality subcommands found (ensure they are registered).',
           timestamp, user: 'claudia'
         });
       }
@@ -73,7 +73,7 @@ export const personalityCommand: Command = {
       lines.push({
         id: `p-help-tip-${timestamp}`,
         type: 'system',
-        content: "▶ Type '/help [subcommand_name]' for more details on a specific subcommand.",
+        content: "Info: Type '/help [subcommand_name]' for more details on a specific subcommand.",
         timestamp, user: 'claudia'
       });
       return { success: true, lines };
@@ -84,7 +84,7 @@ export const personalityCommand: Command = {
       lines: [{
         id: `p-invalid-${timestamp}`,
         type: 'error',
-        content: `❌ Invalid argument for /personality. Use '/personality gui' or '/personality help'.`,
+        content: `Error: Invalid argument for /personality. Use '/personality gui' or '/personality help'.`, // Emoji removed
         timestamp, user: 'claudia'
       }],
     };
@@ -99,15 +99,13 @@ export const personalityGuiCommand: Command = {
   aliases: ['p-gui', 'p-editor'],
 
   async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
-    // Pass undefined to openPersonalityEditor to let App.tsx decide which personality to load initially
-    // (e.g., active one, or a blank slate for new)
     context.openPersonalityEditor(undefined); 
     return {
       success: true,
       lines: [{
         id: `p-gui-open-${Date.now()}`,
         type: 'system',
-        content: 'Opening graphical personality editor...',
+        content: 'System: Opening graphical personality editor...',
         timestamp: new Date().toISOString(),
         user: 'claudia'
       }],
@@ -134,7 +132,7 @@ export const listPersonalitiesCommand: Command = {
       lines.push({
         id: `p-list-empty-${timestamp}`,
         type: 'output',
-        content: 'No personalities found. Use "/personality-gui" or "/personality-create" to make one, or "/personality-init" to restore the default.',
+        content: 'Info: No personalities found. Use "/personality-gui" or "/personality-create" to make one, or "/personality-init" to restore the default.',
         timestamp,
         user: 'claudia'
       });
@@ -142,7 +140,7 @@ export const listPersonalitiesCommand: Command = {
       lines.push({
         id: `p-list-header-${timestamp}`,
         type: 'system',
-        content: '🎭 Available Personalities:',
+        content: 'Personality: Available Personalities:', // Emoji removed
         timestamp,
         user: 'claudia'
       });
@@ -150,7 +148,7 @@ export const listPersonalitiesCommand: Command = {
 
       personalities.forEach((p, index) => {
         const isActive = activePersonality?.id === p.id;
-        const indicator = isActive ? '→ ●' : '  ○';
+        const indicator = isActive ? '-> *' : '  -'; // Using text indicators
         const defaultLabel = p.isDefault ? ' (default)' : '';
         const usageCount = p.usage_count > 0 ? `(Used ${p.usage_count} times)` : '';
         
@@ -178,8 +176,8 @@ export const listPersonalitiesCommand: Command = {
       });
       lines.push({ id: `p-list-footer-space-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
     }
-    lines.push({ id: `p-list-footer1-${timestamp}`, type: 'system', content: '▶ Use "/personality-set <id>" to change personality.', timestamp, user: 'claudia' });
-    lines.push({ id: `p-list-footer2-${timestamp}`, type: 'system', content: '▶ Use "/personality-gui" or "/personality-create" to create/edit.', timestamp, user: 'claudia' });
+    lines.push({ id: `p-list-footer1-${timestamp}`, type: 'system', content: 'Info: Use "/personality-set <id>" to change personality.', timestamp, user: 'claudia' });
+    lines.push({ id: `p-list-footer2-${timestamp}`, type: 'system', content: 'Info: Use "/personality-gui" or "/personality-create" to create/edit.', timestamp, user: 'claudia' });
     return { success: true, lines };
   }
 };
@@ -200,13 +198,13 @@ export const currentPersonalityCommand: Command = {
       lines.push({
         id: `p-curr-none-${timestamp}`,
         type: 'error',
-        content: '❌ No active personality set. Use "/personality-list" and "/personality-set <id>".',
+        content: 'Error: No active personality set. Use "/personality-list" and "/personality-set <id>".', // Emoji removed
         timestamp, user: 'claudia'
       });
       return { success: false, lines };
     }
 
-    lines.push({ id: `p-curr-title-${timestamp}`, type: 'system', content: `🎭 Current Personality: ${personality.name} (ID: ${personality.id})`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-title-${timestamp}`, type: 'system', content: `Personality: Current Personality: ${personality.name} (ID: ${personality.id})`, timestamp, user: 'claudia' }); // Emoji removed
     lines.push({ id: `p-curr-desc-${timestamp}`, type: 'output', content: `  Description: "${personality.description}"`, timestamp, user: 'claudia' });
     lines.push({ id: `p-curr-usage-${timestamp}`, type: 'output', content: `  Usage Count: ${personality.usage_count}`, timestamp, user: 'claudia' });
     if (personality.isDefault) {
@@ -215,27 +213,27 @@ export const currentPersonalityCommand: Command = {
     lines.push({ id: `p-curr-space1-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
     lines.push({ id: `p-curr-traits-header-${timestamp}`, type: 'system', content: '  Character Traits:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-tone-${timestamp}`, type: 'output', content: `    • Tone: ${personality.traits.tone}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-formality-${timestamp}`, type: 'output', content: `    • Formality: ${personality.traits.formality}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-humor-${timestamp}`, type: 'output', content: `    • Humor: ${personality.traits.humor}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-verbosity-${timestamp}`, type: 'output', content: `    • Verbosity: ${personality.traits.verbosity}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-trait-enthusiasm-${timestamp}`, type: 'output', content: `    • Enthusiasm: ${personality.traits.enthusiasm}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-tone-${timestamp}`, type: 'output', content: `    - Tone: ${personality.traits.tone}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-formality-${timestamp}`, type: 'output', content: `    - Formality: ${personality.traits.formality}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-humor-${timestamp}`, type: 'output', content: `    - Humor: ${personality.traits.humor}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-verbosity-${timestamp}`, type: 'output', content: `    - Verbosity: ${personality.traits.verbosity}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-trait-enthusiasm-${timestamp}`, type: 'output', content: `    - Enthusiasm: ${personality.traits.enthusiasm}`, timestamp, user: 'claudia' });
     lines.push({ id: `p-curr-space2-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
     lines.push({ id: `p-curr-background-header-${timestamp}`, type: 'system', content: '  Background & Expertise:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-role-${timestamp}`, type: 'output', content: `    • Role: ${personality.background.role}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-expertise-${timestamp}`, type: 'output', content: `    • Expertise: ${personality.background.expertise.join(', ')}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-background-desc-${timestamp}`, type: 'output', content: `    • Details: ${personality.background.personality_description}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-role-${timestamp}`, type: 'output', content: `    - Role: ${personality.background.role}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-expertise-${timestamp}`, type: 'output', content: `    - Expertise: ${personality.background.expertise.join(', ')}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-background-desc-${timestamp}`, type: 'output', content: `    - Details: ${personality.background.personality_description}`, timestamp, user: 'claudia' });
     lines.push({ id: `p-curr-space3-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
     
     lines.push({ id: `p-curr-behavior-header-${timestamp}`, type: 'system', content: '  Behavioral Style:', timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-style-${timestamp}`, type: 'output', content: `    • Response Style: ${personality.behavior.response_style}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-emoji-${timestamp}`, type: 'output', content: `    • Emoji Usage: ${personality.behavior.emoji_usage}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-questions-${timestamp}`, type: 'output', content: `    • Question Asking: ${personality.behavior.question_asking}`, timestamp, user: 'claudia' });
-    lines.push({ id: `p-curr-behavior-creativity-${timestamp}`, type: 'output', content: `    • Creativity: ${personality.behavior.creativity_level}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-style-${timestamp}`, type: 'output', content: `    - Response Style: ${personality.behavior.response_style}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-emoji-${timestamp}`, type: 'output', content: `    - Emoji Usage: ${personality.behavior.emoji_usage}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-questions-${timestamp}`, type: 'output', content: `    - Question Asking: ${personality.behavior.question_asking}`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-behavior-creativity-${timestamp}`, type: 'output', content: `    - Creativity: ${personality.behavior.creativity_level}`, timestamp, user: 'claudia' });
     lines.push({ id: `p-curr-space4-${timestamp}`, type: 'output', content: '', timestamp, user: 'claudia' });
 
-    lines.push({ id: `p-curr-prompt-info-${timestamp}`, type: 'system', content: `  ▶ System prompt is active. Use "/personality-view ${personality.id}" to see the full prompt.`, timestamp, user: 'claudia' });
+    lines.push({ id: `p-curr-prompt-info-${timestamp}`, type: 'system', content: `  Info: System prompt is active. Use "/personality-view ${personality.id}" to see the full prompt.`, timestamp, user: 'claudia' });
     
     return { success: true, lines };
   }
@@ -251,20 +249,20 @@ export const setPersonalityCommand: Command = {
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const timestamp = new Date().toISOString();
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `p-set-err-${timestamp}`, type: 'error', content: '❌ Usage: /personality-set <personality_id>', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-set-err-${timestamp}`, type: 'error', content: 'Error: Usage: /personality-set <personality_id>', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     const personalityId = args[0];
     const personality = await context.storage.getPersonality(personalityId);
 
     if (!personality) {
-      return { success: false, lines: [{ id: `p-set-notfound-${timestamp}`, type: 'error', content: `❌ Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-set-notfound-${timestamp}`, type: 'error', content: `Error: Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] }; // Emoji removed
     }
 
     const success = await context.storage.setActivePersonality(personalityId);
     if (success) {
-      return { success: true, lines: [{ id: `p-set-succ-${timestamp}`, type: 'output', content: `🎭 Switched to personality: ${personality.name}`, timestamp, user: 'claudia' }] };
+      return { success: true, lines: [{ id: `p-set-succ-${timestamp}`, type: 'output', content: `Personality: Switched to personality: ${personality.name}`, timestamp, user: 'claudia' }] }; // Emoji removed
     } else {
-      return { success: false, lines: [{ id: `p-set-fail-${timestamp}`, type: 'error', content: '❌ Failed to switch personality.', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-set-fail-${timestamp}`, type: 'error', content: 'Error: Failed to switch personality.', timestamp, user: 'claudia' }] }; // Emoji removed
     }
   }
 };
@@ -283,7 +281,7 @@ export const createPersonalityCommand: Command = {
       lines: [{
         id: `p-create-open-${Date.now()}`,
         type: 'system',
-        content: 'Opening personality editor to create a new personality...',
+        content: 'System: Opening personality editor to create a new personality...',
         timestamp: new Date().toISOString(),
         user: 'claudia'
       }],
@@ -302,13 +300,13 @@ export const editPersonalityCommand: Command = {
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const timestamp = new Date().toISOString();
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `p-edit-err-${timestamp}`, type: 'error', content: '❌ Usage: /personality-edit <personality_id>', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-edit-err-${timestamp}`, type: 'error', content: 'Error: Usage: /personality-edit <personality_id>', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     const personalityId = args[0];
     const personality = await context.storage.getPersonality(personalityId);
 
     if (!personality) {
-      return { success: false, lines: [{ id: `p-edit-notfound-${timestamp}`, type: 'error', content: `❌ Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-edit-notfound-${timestamp}`, type: 'error', content: `Error: Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] }; // Emoji removed
     }
     context.openPersonalityEditor(personality); 
     return {
@@ -316,7 +314,7 @@ export const editPersonalityCommand: Command = {
       lines: [{
         id: `p-edit-open-${timestamp}`,
         type: 'system',
-        content: `Opening personality editor for "${personality.name}"...`,
+        content: `System: Opening personality editor for "${personality.name}"...`,
         timestamp,
         user: 'claudia'
       }],
@@ -336,34 +334,34 @@ export const deletePersonalityCommand: Command = {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `p-del-err-${timestamp}`, type: 'error', content: '❌ Usage: /personality-delete <personality_id>', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-del-err-${timestamp}`, type: 'error', content: 'Error: Usage: /personality-delete <personality_id>', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     const personalityId = args[0];
     const personality = await context.storage.getPersonality(personalityId);
 
     if (!personality) {
-      return { success: false, lines: [{ id: `p-del-notfound-${timestamp}`, type: 'error', content: `❌ Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-del-notfound-${timestamp}`, type: 'error', content: `Error: Personality "${personalityId}" not found.`, timestamp, user: 'claudia' }] }; // Emoji removed
     }
     if (personality.isDefault) {
-      return { success: false, lines: [{ id: `p-del-default-${timestamp}`, type: 'error', content: '❌ Cannot delete the default system personality.', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-del-default-${timestamp}`, type: 'error', content: 'Error: Cannot delete the default system personality.', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     const activePersonality = await context.storage.getActivePersonality();
     if (activePersonality?.id === personalityId) {
         const defaultP = await context.storage.getPersonality(DEFAULT_PERSONALITY.id);
-        if (defaultP && defaultP.id !== personalityId) { // Ensure default is not the one being deleted
+        if (defaultP && defaultP.id !== personalityId) { 
             await context.storage.setActivePersonality(DEFAULT_PERSONALITY.id);
-             lines.push({ id: `p-del-autoswitch-${timestamp}`, type: 'system', content: `Switched to default personality before deleting active one.`, timestamp, user: 'claudia' });
+             lines.push({ id: `p-del-autoswitch-${timestamp}`, type: 'system', content: `System: Switched to default personality before deleting active one.`, timestamp, user: 'claudia' });
         } else {
-            return { success: false, lines: [{ id: `p-del-active-nodefault-${timestamp}`, type: 'error', content: '❌ Cannot delete active personality. Set another active first or ensure a different default exists.', timestamp, user: 'claudia' }] };
+            return { success: false, lines: [{ id: `p-del-active-nodefault-${timestamp}`, type: 'error', content: 'Error: Cannot delete active personality. Set another active first or ensure a different default exists.', timestamp, user: 'claudia' }] }; // Emoji removed
         }
     }
 
     const success = await context.storage.deletePersonality(personalityId);
     if (success) {
-      lines.push({ id: `p-del-succ-${timestamp}`, type: 'output', content: `🗑️ Deleted personality: ${personality.name}`, timestamp, user: 'claudia' });
+      lines.push({ id: `p-del-succ-${timestamp}`, type: 'output', content: `Deleted: Personality: ${personality.name}`, timestamp, user: 'claudia' }); // Emoji removed
       return { success: true, lines };
     } else {
-      lines.push({ id: `p-del-fail-${timestamp}`, type: 'error', content: '❌ Failed to delete personality.', timestamp, user: 'claudia' });
+      lines.push({ id: `p-del-fail-${timestamp}`, type: 'error', content: 'Error: Failed to delete personality.', timestamp, user: 'claudia' }); // Emoji removed
       return { success: false, lines };
     }
   }
@@ -384,10 +382,10 @@ export const initDefaultPersonalityCommand: Command = {
     await context.storage.setActivePersonality('default');
 
     if (existing) {
-      return { success: true, lines: [{ id: `p-init-reset-${timestamp}`, type: 'output', content: '🎭 Default personality has been reset and set as active.', timestamp, user: 'claudia' }] };
+      return { success: true, lines: [{ id: `p-init-reset-${timestamp}`, type: 'output', content: 'Personality: Default personality has been reset and set as active.', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     
-    return { success: true, lines: [{ id: `p-init-succ-${timestamp}`, type: 'output', content: '🎭 Initialized default personality: Claudia - Default, and set as active.', timestamp, user: 'claudia' }] };
+    return { success: true, lines: [{ id: `p-init-succ-${timestamp}`, type: 'output', content: 'Personality: Initialized default personality: Claudia - Default, and set as active.', timestamp, user: 'claudia' }] }; // Emoji removed
   }
 };
 
@@ -400,17 +398,17 @@ export const viewPersonalityCommand: Command = {
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const timestamp = new Date().toISOString();
     if (args.length === 0) {
-      return { success: false, lines: [{ id: `p-view-err-${timestamp}`, type: 'error', content: '❌ Usage: /personality-view <personality_id>', timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-view-err-${timestamp}`, type: 'error', content: 'Error: Usage: /personality-view <personality_id>', timestamp, user: 'claudia' }] }; // Emoji removed
     }
     const personalityId = args[0];
     const p = await context.storage.getPersonality(personalityId);
 
     if (!p) {
-      return { success: false, lines: [{ id: `p-view-notfound-${timestamp}`, type: 'error', content: `❌ Personality with ID '${personalityId}' not found.`, timestamp, user: 'claudia' }] };
+      return { success: false, lines: [{ id: `p-view-notfound-${timestamp}`, type: 'error', content: `Error: Personality with ID '${personalityId}' not found.`, timestamp, user: 'claudia' }] }; // Emoji removed
     }
 
     const lines: TerminalLine[] = [
-      { id: `pv-header-${timestamp}`, type: 'system', content: `🎭 Details for Personality: ${p.name} (ID: ${p.id})`, timestamp, user: 'claudia' },
+      { id: `pv-header-${timestamp}`, type: 'system', content: `Personality Details: ${p.name} (ID: ${p.id})`, timestamp, user: 'claudia' }, // Emoji removed
       { id: `pv-desc-${timestamp}`, type: 'output', content: `  Description: "${p.description}"`, timestamp, user: 'claudia' },
       { id: `pv-default-${timestamp}`, type: 'output', content: `  Is Default: ${p.isDefault ? 'Yes (System Default)' : 'No'}`, timestamp, user: 'claudia' },
       { id: `pv-created-${timestamp}`, type: 'output', content: `  Created: ${new Date(p.created_at).toLocaleString()}`, timestamp, user: 'claudia' },

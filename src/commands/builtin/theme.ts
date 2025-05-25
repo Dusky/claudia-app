@@ -10,22 +10,21 @@ export const themeCommand: Command = {
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
+    const timestamp = new Date().toISOString();
     
     if (args.length === 0) {
       lines.push({
-        id: `theme-${Date.now()}-1`,
+        id: `theme-${timestamp}-1`,
         type: 'output',
-        content: `Current theme: ${context.currentTheme}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `Info: Current theme: ${context.currentTheme}`,
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `theme-${Date.now()}-2`,
+        id: `theme-${timestamp}-2`,
         type: 'output',
-        content: 'Use /themes to see available themes.',
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: 'Info: Use /themes to see available themes.',
+        timestamp, user: 'claudia'
       });
       
       return { success: true, lines };
@@ -39,27 +38,24 @@ export const themeCommand: Command = {
       context.setTheme(themeName);
       
       lines.push({
-        id: `theme-${Date.now()}`,
+        id: `theme-${timestamp}`,
         type: 'output',
-        content: `✨ Theme changed to: ${foundTheme.name} (${foundTheme.era})`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `Info: Theme changed to: ${foundTheme.name} (${foundTheme.era})`, // Emoji removed
+        timestamp, user: 'claudia'
       });
     } else {
       lines.push({
-        id: `theme-${Date.now()}-1`,
+        id: `theme-${timestamp}-1`,
         type: 'error',
-        content: `❌ Unknown theme: ${themeName}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `Error: Unknown theme: ${themeName}`, // Emoji removed
+        timestamp, user: 'claudia'
       });
       
       lines.push({
-        id: `theme-${Date.now()}-2`,
+        id: `theme-${timestamp}-2`,
         type: 'output',
-        content: `Available themes: ${availableThemes.map(t => t.id).join(', ')}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        content: `Info: Available themes: ${availableThemes.map(t => t.id).join(', ')}`,
+        timestamp, user: 'claudia'
       });
     }
     
@@ -74,52 +70,48 @@ export const themesCommand: Command = {
   
   async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
+    const timestamp = new Date().toISOString();
     const availableThemes = getAllThemes();
     
     lines.push({
-      id: `themes-${Date.now()}-1`,
-      type: 'output',
-      content: '🎨 AVAILABLE THEMES:',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
+      id: `themes-${timestamp}-1`,
+      type: 'system',
+      content: 'Themes: AVAILABLE THEMES:', // Emoji removed
+      timestamp, user: 'claudia'
     });
     
     lines.push({
-      id: `themes-${Date.now()}-2`,
+      id: `themes-${timestamp}-2`,
       type: 'output',
       content: '',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
+      timestamp, user: 'claudia'
     });
     
     availableThemes.forEach((theme, index) => {
       const isActive = theme.id === context.currentTheme;
-      const prefix = isActive ? '→ ' : '  ';
+      const prefix = isActive ? '-> ' : '  ';
       const suffix = isActive ? ' (current)' : '';
       
       lines.push({
-        id: `themes-${Date.now()}-${index + 3}`,
+        id: `themes-${timestamp}-${index + 3}`,
         type: 'output',
         content: `${prefix}${theme.id.padEnd(12)} - ${theme.name} (${theme.era})${suffix}`,
-        timestamp: new Date().toISOString(),
-        user: 'claudia'
+        timestamp, user: 'claudia'
       });
     });
     
     lines.push({
-      id: `themes-${Date.now()}-${availableThemes.length + 3}`,
+      id: `themes-${timestamp}-${availableThemes.length + 3}`,
       type: 'output',
       content: '',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
+      timestamp, user: 'claudia'
     });
     
     lines.push({
-      id: `themes-${Date.now()}-${availableThemes.length + 4}`,
+      id: `themes-${timestamp}-${availableThemes.length + 4}`,
       type: 'output',
-      content: 'Use /theme <name> to switch themes.',
-      timestamp: new Date().toISOString(),
-      user: 'claudia'
+      content: 'Info: Use /theme <name> to switch themes.',
+      timestamp, user: 'claudia'
     });
     
     return { success: true, lines };
@@ -133,12 +125,10 @@ export const clearCommand: Command = {
   aliases: ['cls', 'c'],
   
   async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
-    // Clear is handled specially by returning an empty lines array
-    // and setting a special flag
     return { 
       success: true, 
-      lines: [], // No lines needed, App.tsx handles the visual clear
-      shouldContinue: false // This tells the terminal to clear
+      lines: [], 
+      shouldContinue: false 
     };
   }
 };

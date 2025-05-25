@@ -157,7 +157,7 @@ function App() {
             { id: 'boot-5', type: 'system', content: 'AVATAR MODULE..............ONLINE', timestamp: new Date().toISOString() },
             { id: 'boot-6', type: 'system', content: 'PERSONALITY MATRIX.........LOADED', timestamp: new Date().toISOString() },
             { id: 'boot-7', type: 'system', content: 'SYSTEM ONLINE. ALL MODULES LOADED.', timestamp: new Date().toISOString() },
-            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion! 🌟 Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' },
+            { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia' }, // Star emoji removed
             { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia' },
           ];
           for (const line of bootLines) {
@@ -185,7 +185,7 @@ function App() {
         console.error('System initialization error:', error);
         const errorLine: TerminalLine = {
           id: 'init-error', type: 'error',
-          content: `⚠️ System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
+          content: `Warning: System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
           timestamp: new Date().toISOString()
         };
         setLines(prev => [...prev, errorLine]);
@@ -225,7 +225,7 @@ function App() {
     if (personality.isDefault) await database.setActivePersonality(personality.id);
     addLinesToDisplay([{
       id: `personality-saved-${Date.now()}`, type: 'output',
-      content: `🎭 Personality "${personality.name}" ${isUpdating ? 'updated' : 'created'} successfully!`,
+      content: `Personality: "${personality.name}" ${isUpdating ? 'updated' : 'created'} successfully!`, // Emoji removed
       timestamp: new Date().toISOString(), user: 'claudia'
     }]);
     const allPs = await database.getAllPersonalities();
@@ -238,20 +238,20 @@ function App() {
   const deletePersonalityInModal = async (personalityId: string): Promise<void> => {
     const pToDelete = await database.getPersonality(personalityId);
     if (!pToDelete) {
-      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Personality ${personalityId} not found.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Error: Personality ${personalityId} not found.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
       return;
     }
     if (pToDelete.isDefault) {
-      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Cannot delete the default personality.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-err-${Date.now()}`, type: 'error', content: `Error: Cannot delete the default personality.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
       return;
     }
     const activeP = await database.getActivePersonality();
     if (activeP && activeP.id === personalityId) {
       await database.setActivePersonality(DEFAULT_PERSONALITY.id); 
-      addLinesToDisplay([{ id: `del-switch-${Date.now()}`, type: 'system', content: `Switched to default personality as active one was deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+      addLinesToDisplay([{ id: `del-switch-${Date.now()}`, type: 'system', content: `System: Switched to default personality as active one was deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
     }
     await database.deletePersonality(personalityId);
-    addLinesToDisplay([{ id: `del-succ-${Date.now()}`, type: 'output', content: `🗑️ Personality "${pToDelete.name}" deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]);
+    addLinesToDisplay([{ id: `del-succ-${Date.now()}`, type: 'output', content: `Deleted: Personality "${pToDelete.name}" deleted.`, timestamp: new Date().toISOString(), user: 'claudia' }]); // Emoji removed
     const allPs = await database.getAllPersonalities();
     const newActiveP = await database.getActivePersonality();
     setAllPersonalitiesInModal(allPs);
@@ -302,8 +302,6 @@ function App() {
           )
          )) {
         if (input.trim().toLowerCase().startsWith('/clear') || input.trim().toLowerCase() === '/conversation-clearhist') {
-            // For /clear and /conv clearhist, set a minimal boot-like message after clearing.
-            // setActiveConversationAndLoadMessages would have already cleared lines for /conv new and /conv load.
             setLines([ 
               { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
             ]);
@@ -315,7 +313,7 @@ function App() {
       console.error('Input handling error:', error);
       const errorLine: TerminalLine = {
         id: `error-${Date.now()}`, type: 'error',
-        content: `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`, // Emoji removed
         timestamp: new Date().toISOString(), user: 'claudia'
       };
       addLinesToDisplay([errorLine]);
