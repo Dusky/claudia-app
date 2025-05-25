@@ -1,12 +1,14 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
-// AI option constants
-const AI_OPTION_TEMPERATURE_KEY = 'ai.temperature';
-const AI_OPTION_CONTEXT_LENGTH_KEY = 'ai.contextLength';
-const AI_OPTION_MAX_TOKENS_KEY = 'ai.maxTokens';
-const DEFAULT_AI_TEMPERATURE = 0.7;
-const DEFAULT_AI_CONTEXT_LENGTH = 10;
-const DEFAULT_AI_MAX_TOKENS = 2048;
+import { generateSystemPrompt } from '../types/personality'; // Restoring this import
+import { 
+  AI_OPTION_TEMPERATURE_KEY, 
+  AI_OPTION_CONTEXT_LENGTH_KEY, 
+  AI_OPTION_MAX_TOKENS_KEY, 
+  DEFAULT_AI_TEMPERATURE, 
+  DEFAULT_AI_CONTEXT_LENGTH, 
+  DEFAULT_AI_MAX_TOKENS 
+} from '../components/AIOptionsModal'; // This is the import Vite is likely complaining about
 
 export class CommandRegistryImpl implements CommandRegistry {
   private commands = new Map<string, Command>();
