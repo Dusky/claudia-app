@@ -2,14 +2,14 @@ import type { TerminalLine } from '../terminal/TerminalDisplay';
 import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
-import type { MockDatabase } from '../storage/mockDatabase';
+import type { StorageService } from '../storage/types'; // Updated import
 import type { Personality } from '../types/personality';
 
 export interface CommandContext {
   llmManager: LLMProviderManager;
   imageManager: ImageProviderManager;
   avatarController: AvatarController;
-  storage: MockDatabase;
+  storage: StorageService; // Changed from MockDatabase to StorageService
   addLines: (lines: TerminalLine[]) => void;
   setLoading: (loading: boolean) => void;
   currentTheme: string;
