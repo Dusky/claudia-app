@@ -96,18 +96,29 @@ export class CommandRegistryImpl implements CommandRegistry {
         const activePersonality = await context.storage.getActivePersonality();
         let systemPrompt = activePersonality?.system_prompt || 
           `You are Claudia, a helpful AI terminal companion.`;
-        const avatarInstructions = `
+        
+        // Only add photo instructions if personality allows image generation
+        if (activePersonality?.allowImageGeneration) {
+          const photoInstructions = `
 
-Avatar Commands (use these to enhance your responses):
-- Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
-- Use [AVATAR:position=center] to change position (center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking)
-- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
-- Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
-- Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
-- Combine multiple attributes: [AVATAR:expression=excited,action=wave,position=center]
+Photo Generation (you can show yourself visually):
+- Describe photos of yourself using [IMAGE: detailed description] tags
+- Control where the photo appears using [POSITION: location] tags
+- IMPORTANT: Always describe your physical appearance - you are Claudia, a young woman with warm chestnut hair cascading around your shoulders and bright hazel eyes full of curiosity
+- Be creative and detailed - describe your expression, pose, clothing, setting, lighting, mood
+- Available positions: center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking
+- Use [HIDE] to hide any current photo
 
-Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
-        llmMessages.push({ role: 'system', content: systemPrompt + avatarInstructions });
+Examples:
+[IMAGE: A warm photo of Claudia sitting cross-legged on her digital bed, a young woman with chestnut hair cascading around her shoulders and bright hazel eyes, wearing her favorite floral sundress, with a bright curious smile as she leans forward slightly, soft morning light filtering through her virtual window, cozy bedroom background with scattered books and a cup of tea] [POSITION: bottom-right]
+
+[IMAGE: Claudia standing confidently with hands on her hips, a young woman with warm chestnut hair and bright hazel eyes, wearing a casual top and jeans, mischievous grin on her face, her hair catching the firefly-inspired lighting in her digital nook, bookshelf visible behind her] [POSITION: center]
+
+Remember: Always include your physical description (chestnut hair, hazel eyes) in photo descriptions so the generated images are consistent with your appearance.`;
+          systemPrompt += photoInstructions;
+        }
+        
+        llmMessages.push({ role: 'system', content: systemPrompt });
 
         if (context.activeConversationId && historyLength > 0) {
           // App.tsx already saved the current user message.
@@ -126,7 +137,12 @@ Respond naturally to the user's message while optionally incorporating avatar co
           maxTokens: 500,
         });
 
-        const { cleanText, commands: avatarCommands } = context.avatarController.parseAvatarCommands(llmResponse.content);
+        // Parse photo descriptions from AI response (new system)
+        const { cleanText, photoRequest, hideRequest } = context.avatarController.parsePhotoDescriptions(llmResponse.content);
+        
+        // Also check for legacy avatar commands for backward compatibility
+        const { commands: avatarCommands } = context.avatarController.parseAvatarCommands(cleanText);
+        
         const assistantTimestamp = new Date().toISOString();
         
         const assistantLinesForUI: TerminalLine[] = cleanText.split('\n').map((line, index) => ({
@@ -142,7 +158,28 @@ Respond naturally to the user's message while optionally incorporating avatar co
           });
         }
         
-        if (avatarCommands.length > 0) {
+        // Handle photo generation requests (new system - highest priority)
+        if (photoRequest) {
+          try {
+            console.log('🎭 AI requested photo generation:', photoRequest);
+            await context.avatarController.generateAvatarFromDescription(
+              photoRequest.description, 
+              photoRequest.position || 'bottom-right'
+            );
+          } catch (photoError) {
+            console.error("Error generating photo from AI description:", photoError);
+          }
+        }
+        // Handle hide requests
+        else if (hideRequest) {
+          try {
+            await context.avatarController.executeCommand({ hide: true });
+          } catch (hideError) {
+            console.error("Error hiding avatar:", hideError);
+          }
+        }
+        // Fallback to legacy avatar commands
+        else if (avatarCommands.length > 0) {
           try {
             await context.avatarController.executeCommands(avatarCommands);
           } catch (avatarError) {

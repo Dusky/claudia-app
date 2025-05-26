@@ -92,12 +92,23 @@ export class ClaudiaDatabase implements StorageService {
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         is_default INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
+        allow_image_generation INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
         system_prompt TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         usage_count INTEGER NOT NULL DEFAULT 0
       )
     `);
+
+    // Add allow_image_generation column if it doesn't exist (migration)
+    try {
+      this.db.exec(`
+        ALTER TABLE personalities 
+        ADD COLUMN allow_image_generation INTEGER NOT NULL DEFAULT 0
+      `);
+    } catch (error) {
+      // Column already exists, ignore error
+    }
 
     // Create indices for performance
     this.db.exec(`
@@ -461,12 +472,12 @@ export class ClaudiaDatabase implements StorageService {
     
     const stmt = this.db.prepare(`
       INSERT INTO personalities (
-        id, name, description, is_default, 
+        id, name, description, is_default, allow_image_generation,
         system_prompt, 
         usage_count, created_at, updated_at
       )
       VALUES (
-        ?, ?, ?, ?, 
+        ?, ?, ?, ?, ?,
         ?, 
         ?, ?, ?
       )
@@ -474,6 +485,7 @@ export class ClaudiaDatabase implements StorageService {
         name = excluded.name,
         description = excluded.description,
         is_default = excluded.is_default,
+        allow_image_generation = excluded.allow_image_generation,
         system_prompt = excluded.system_prompt,
         usage_count = excluded.usage_count,
         updated_at = excluded.updated_at -- For conflict, updated_at is taken from excluded (which will be 'now')
@@ -485,6 +497,7 @@ export class ClaudiaDatabase implements StorageService {
       personality.name,
       personality.description,
       personality.isDefault ? 1 : 0,
+      personality.allowImageGeneration ? 1 : 0,
       personality.system_prompt,
       personality.usage_count,
       now, // created_at for new inserts (excluded.created_at for updates, but not used)
@@ -510,6 +523,7 @@ export class ClaudiaDatabase implements StorageService {
         name: row.name,
         description: row.description,
         isDefault: !!row.is_default,
+        allowImageGeneration: !!row.allow_image_generation,
         system_prompt: row.system_prompt,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -563,6 +577,9 @@ export class ClaudiaDatabase implements StorageService {
         const value = (updates as any)[key];
         if (key === 'isDefault') {
           fields.push('is_default = ?');
+          values.push(value ? 1 : 0);
+        } else if (key === 'allowImageGeneration') {
+          fields.push('allow_image_generation = ?');
           values.push(value ? 1 : 0);
         } else if (false) { // Remove old trait handling
           // No longer handling traits, background, behavior, constraints

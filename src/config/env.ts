@@ -17,6 +17,7 @@ export interface AppConfig {
   defaultTheme: string;
   databasePath: string;
   conversationHistoryLength: number; // Added for conversation context
+  imageStyle: string; // Style for generated images
   
   // Performance Settings
   avatarCacheSize: number;
@@ -56,6 +57,7 @@ class ConfigManager {
       defaultTheme: import.meta.env.VITE_DEFAULT_THEME || 'mainframe70s',
       databasePath: import.meta.env.VITE_DATABASE_PATH || './claudia.db',
       conversationHistoryLength: parseInt(import.meta.env.VITE_CONVERSATION_HISTORY_LENGTH || '10'),
+      imageStyle: import.meta.env.VITE_IMAGE_STYLE || 'realistic digital photography, warm natural lighting, detailed, beautiful composition',
       
       // Performance Settings
       avatarCacheSize: parseInt(import.meta.env.VITE_AVATAR_CACHE_SIZE || '100'),
@@ -128,6 +130,15 @@ class ConfigManager {
 
   public get(key: keyof AppConfig): any {
     return this.config[key];
+  }
+
+  public getImageStyle(): string {
+    // Check localStorage for saved style first
+    const savedStyle = localStorage.getItem('claudia-image-style');
+    if (savedStyle) {
+      return savedStyle;
+    }
+    return this.config.imageStyle;
   }
 
   public hasApiKey(provider: string): boolean {

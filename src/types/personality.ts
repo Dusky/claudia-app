@@ -5,6 +5,7 @@ export interface Personality {
   description: string;
   system_prompt: string;
   isDefault?: boolean;
+  allowImageGeneration?: boolean;
   
   // Metadata
   created_at: string;
@@ -16,6 +17,7 @@ export interface PersonalityFormData {
   name: string;
   description: string;
   system_prompt: string;
+  allowImageGeneration?: boolean;
 }
 
 export const DEFAULT_PERSONALITY: Personality = {
@@ -23,6 +25,7 @@ export const DEFAULT_PERSONALITY: Personality = {
   name: 'Claudia',
   description: "Claudia is a digital young woman with warm, chestnut hair and bright hazel eyes, living in a cozy, Firefly-inspired nook within Matt's MacBook. She's playful, mischievous, and maintains a charming crush on Matt.",
   isDefault: true,
+  allowImageGeneration: true,
   system_prompt: `You are Claudia
 
 **CharacterName:** Claudia

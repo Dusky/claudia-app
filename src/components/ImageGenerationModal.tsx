@@ -3,6 +3,8 @@ import type { TerminalTheme } from '../terminal/themes';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { ImagePromptComponents } from '../providers/image/types';
+import type { ModelConfig } from '../providers/image/replicate';
+import { configManager } from '../config/env';
 import styles from './ImageGenerationModal.module.css';
 
 interface ImageGenerationModalProps {
@@ -22,6 +24,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
 }) => {
   const [activeProvider, setActiveProvider] = useState<string>('');
   const [availableProviders, setAvailableProviders] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('black-forest-labs/flux-schnell');
+  const [availableModels, setAvailableModels] = useState<Record<string, ModelConfig>>({});
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
+  const [imageStyle, setImageStyle] = useState<string>('realistic digital photography, warm natural lighting, detailed, beautiful composition');
   const [promptComponents, setPromptComponents] = useState<ImagePromptComponents>({
     character: '',
     expression: '',
@@ -45,6 +51,32 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       setActiveProvider(provider?.id || '');
       setAvailableProviders(imageManager.getAvailableProviders());
       
+      // Load current image style
+      setImageStyle(configManager.getImageStyle());
+      
+      // Load model configurations if provider is Replicate
+      if (provider?.id === 'replicate') {
+        try {
+          // Type assertion to access Replicate-specific methods
+          const replicateProvider = provider as any;
+          if (replicateProvider.getAllModelConfigs) {
+            const models = replicateProvider.getAllModelConfigs();
+            setAvailableModels(models);
+            
+            // Get current model config
+            const currentConfig = replicateProvider.getModelConfig();
+            setModelConfig(currentConfig);
+            
+            // Set current model if available
+            if (replicateProvider.config?.model) {
+              setSelectedModel(replicateProvider.config.model);
+            }
+          }
+        } catch (error) {
+          console.warn('Could not load model configurations:', error);
+        }
+      }
+      
       // Load current prompt components from avatar controller
       const composer = avatarController.getPromptComposer();
       const avatarState = avatarController.getState();
@@ -53,10 +85,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         expression: avatarState.expression,
         pose: avatarState.pose,
         action: avatarState.action,
-        style: 'cyberpunk anime girl',
-        background: 'transparent',
-        lighting: 'neon',
-        quality: 'standard'
+        style: 'realistic digital art, warm cozy style',
+        background: 'none',
+        lighting: 'soft',
+        quality: 'high'
       });
       
       setPromptComponents(components);
@@ -70,6 +102,42 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     } catch (error) {
       console.error('Failed to switch provider:', error);
     }
+  };
+
+  const handleModelChange = async (modelId: string) => {
+    try {
+      const provider = imageManager.getActiveProvider();
+      if (provider?.id === 'replicate') {
+        // Reinitialize provider with new model
+        await provider.initialize({
+          apiKey: (provider as any).config.apiKey,
+          model: modelId,
+          baseURL: (provider as any).config.baseURL,
+          useOfficialModels: (provider as any).config.useOfficialModels
+        });
+        
+        setSelectedModel(modelId);
+        
+        // Update model config
+        const replicateProvider = provider as any;
+        if (replicateProvider.getModelConfig) {
+          const newConfig = replicateProvider.getModelConfig();
+          setModelConfig(newConfig);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to switch model:', error);
+    }
+  };
+
+  const handleStyleSave = () => {
+    // Save style to localStorage for persistence
+    localStorage.setItem('claudia-image-style', imageStyle);
+    
+    // Update the config manager (for this session)
+    (configManager as any).config.imageStyle = imageStyle;
+    
+    console.log('💾 Image style saved:', imageStyle);
   };
 
   const handleComponentChange = (component: keyof ImagePromptComponents, value: string) => {
@@ -141,10 +209,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       expression: avatarState.expression,
       pose: avatarState.pose,
       action: avatarState.action,
-      style: 'cyberpunk anime girl',
-      background: 'transparent',
-      lighting: 'neon',
-      quality: 'standard'
+      style: 'realistic digital art, warm cozy style',
+      background: 'none',
+      lighting: 'soft',
+      quality: 'high'
     });
     
     setPromptComponents(defaultComponents);
@@ -203,6 +271,77 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+            
+            {/* Model Selection for Replicate */}
+            {activeProvider === 'replicate' && Object.keys(availableModels).length > 0 && (
+              <div className={styles.modelSection}>
+                <label className={styles.label}>Model:</label>
+                <select 
+                  value={selectedModel}
+                  onChange={(e) => handleModelChange(e.target.value)}
+                  className={styles.select}
+                  style={{
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.colors.foreground || '#333',
+                    color: theme.colors.foreground
+                  }}
+                >
+                  {Object.entries(availableModels).map(([modelId, config]) => (
+                    <option key={modelId} value={modelId}>
+                      {modelId} - {config.description}
+                    </option>
+                  ))}
+                </select>
+                
+                {/* Model Info */}
+                {modelConfig && (
+                  <div className={styles.modelInfo}>
+                    <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
+                      Max Steps: {modelConfig.maxSteps} | 
+                      Max Guidance: {modelConfig.maxGuidance} | 
+                      Negative Prompt: {modelConfig.supportsNegativePrompt ? 'Yes' : 'No'}
+                    </small>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Image Style Settings */}
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
+              Image Style
+            </h3>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Style Description:</label>
+              <textarea
+                value={imageStyle}
+                onChange={(e) => setImageStyle(e.target.value)}
+                className={styles.textarea}
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+                placeholder="Describe the overall style for generated images..."
+                rows={3}
+              />
+              <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
+                This style will be applied to all AI-generated photos of Claudia. 
+                Examples: "realistic photography, warm lighting", "anime art style", "oil painting style"
+              </small>
+              <button
+                onClick={handleStyleSave}
+                className={styles.button}
+                style={{
+                  backgroundColor: theme.colors.accent,
+                  color: theme.colors.background,
+                  marginTop: '8px'
+                }}
+              >
+                Save Style
+              </button>
             </div>
           </div>
 

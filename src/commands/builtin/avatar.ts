@@ -1,6 +1,7 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
 import type { AvatarAction, AvatarExpression, AvatarPosition, AvatarPose } from '../../avatar/types';
+import { imageStorage } from '../../utils/imageStorage';
 
 const availableExpressions: AvatarExpression[] = ['neutral', 'happy', 'curious', 'focused', 'thinking', 'surprised', 'confused', 'excited', 'confident', 'mischievous', 'sleepy', 'shocked'];
 const availablePositions: AvatarPosition[] = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'beside-text', 'overlay-left', 'overlay-right', 'floating', 'peeking'];
@@ -205,11 +206,50 @@ export const avatarCommand: Command = {
           }
           break;
           
+        case 'generate':
+          lines.push({
+            id: `avatar-generate-start-${timestamp}`,
+            type: 'output',
+            content: 'Info: Generating new avatar image based on current state...',
+            timestamp, user: 'claudia'
+          });
+          
+          await context.avatarController.generateAvatarWithContext('Manual generation requested');
+          
+          lines.push({
+            id: `avatar-generate-done-${timestamp}`,
+            type: 'output',
+            content: 'Info: Avatar generation complete!',
+            timestamp, user: 'claudia'
+          });
+          break;
+
+        case 'test':
+          // Test the new AI-controlled photo description system
+          const testDescription = value || 'me sitting comfortably with a warm smile, wearing my favorite sundress, cozy lighting in my digital nook';
+          
+          lines.push({
+            id: `avatar-test-start-${timestamp}`,
+            type: 'output',
+            content: `Info: Testing AI photo generation: "${testDescription}"`,
+            timestamp, user: 'claudia'
+          });
+          
+          await context.avatarController.generateAvatarFromDescription(testDescription, 'center');
+          
+          lines.push({
+            id: `avatar-test-done-${timestamp}`,
+            type: 'output',
+            content: 'Info: AI photo generation test complete!',
+            timestamp, user: 'claudia'
+          });
+          break;
+
         default:
           lines.push({
             id: `avatar-unknown-${timestamp}`,
             type: 'error',
-            content: `Error: Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose.`, // Emoji removed
+            content: `Error: Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose, generate, test.`, // Emoji removed
             timestamp, user: 'claudia'
           });
       }
@@ -284,10 +324,10 @@ export const imagineCommand: Command = {
         expression: avatarState.expression,
         pose: avatarState.pose,
         action: avatarState.action,
-        style: 'cyberpunk anime girl',
-        background: 'transparent',
-        lighting: 'neon',
-        quality: 'standard'
+        style: 'realistic digital art, warm cozy style',
+        background: 'none',
+        lighting: 'soft',
+        quality: 'high'
       });
       
       // Apply personality modifications
@@ -309,7 +349,7 @@ export const imagineCommand: Command = {
       }
       
       // Modify character component to include user's description
-      promptComponents.character = `cyberpunk anime girl avatar, ${description}, digital art character`;
+      promptComponents.character = `Claudia, young woman with chestnut hair and hazel eyes, ${description}, realistic digital art`;
       
       // Compile the enhanced prompt
       const finalPrompt = promptComposer.compilePrompt(promptComponents);
@@ -336,6 +376,25 @@ export const imagineCommand: Command = {
         imageUrl: response.imageUrl,
         visible: true
       });
+
+      // Save the image with proper file management
+      try {
+        const metadata = imageStorage.createImageMetadata(finalPrompt, response.imageUrl, {
+          description: description,
+          style: 'custom imagine command',
+          model: (provider as any).config?.model || 'unknown',
+          provider: provider.name,
+          dimensions: { width: 512, height: 512 },
+          tags: ['imagine', 'custom', 'claudia', 'manual']
+        });
+
+        // Save the image (downloads in browser)
+        await imageStorage.saveImage(response.imageUrl, metadata);
+        console.log('📸 Custom avatar image saved:', metadata.filename);
+
+      } catch (saveError) {
+        console.warn('Failed to save custom avatar image:', saveError);
+      }
       
       lines.push({
         id: `imagine-success-${timestamp}`,

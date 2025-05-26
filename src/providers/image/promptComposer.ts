@@ -25,15 +25,15 @@ export interface PromptModificationContext {
 export class ImagePromptComposer {
   // Base prompts that can be modified by personality
   private basePrompts: ImagePromptComponents = {
-    character: 'cyberpunk anime girl, digital art character',
-    expression: 'neutral calm expression',
-    pose: 'standing upright naturally',
-    action: 'idle relaxed pose',
-    style: 'anime art style, digital illustration, high quality',
-    lighting: 'soft neon lighting, cyberpunk atmosphere',
-    background: 'futuristic digital environment, transparent background',
-    quality: 'masterpiece, best quality, detailed, 4k resolution',
-    negativePrompt: 'blurry, low quality, distorted, ugly, malformed'
+    character: 'young woman named Claudia with warm chestnut hair cascading around shoulders, bright hazel eyes full of curiosity, wearing cute sundress with floral patterns or comfortable casual top',
+    expression: 'warm inviting smile with playful energy',
+    pose: 'relaxed approachable stance, naturally graceful',
+    action: 'casual welcoming gesture, effortlessly charming',
+    style: 'realistic digital art, warm illustration style, cozy atmosphere',
+    lighting: 'soft warm lighting, cozy ambient glow, firefly-inspired atmosphere',
+    background: 'cozy digital nook environment, warm comfortable space with bookshelves, soft furnishings, firefly-inspired ambiance',
+    quality: 'high quality, detailed, beautiful composition, inviting scene',
+    negativePrompt: 'blurry, low quality, distorted, harsh lighting, cold atmosphere, cyberpunk, neon'
   };
 
   // Expression-specific modifications
@@ -79,7 +79,7 @@ export class ImagePromptComposer {
   private posePrompts: Record<string, Partial<ImagePromptComponents>> = {
     sitting: {
       pose: 'sitting comfortably, relaxed posture',
-      background: 'futuristic chair or surface, digital workspace'
+      background: 'cozy chair or soft surface, warm digital nook with bookshelf'
     },
     leaning: {
       pose: 'leaning casually against surface, relaxed stance'

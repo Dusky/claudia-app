@@ -7,4 +7,16 @@ export default defineConfig({
   build: {
     outDir: 'build',
   },
+  server: {
+    proxy: {
+      '/api/replicate': {
+        target: 'https://api.replicate.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/replicate/, ''),
+        headers: {
+          'Origin': 'https://api.replicate.com'
+        }
+      }
+    }
+  }
 })

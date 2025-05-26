@@ -31,7 +31,8 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
   const [formData, setFormData] = useState<PersonalityFormData>({
     name: DEFAULT_PERSONALITY.name,
     description: DEFAULT_PERSONALITY.description,
-    system_prompt: DEFAULT_PERSONALITY.system_prompt
+    system_prompt: DEFAULT_PERSONALITY.system_prompt,
+    allowImageGeneration: DEFAULT_PERSONALITY.allowImageGeneration
   });
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isDefault, setIsDefault] = useState<boolean>(false);
@@ -74,7 +75,8 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
     setFormData({
       name: p.name,
       description: p.description,
-      system_prompt: p.system_prompt
+      system_prompt: p.system_prompt,
+      allowImageGeneration: p.allowImageGeneration
     });
     setCurrentId(p.id);
     setIsDefault(p.isDefault || false);
@@ -86,7 +88,8 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
     setFormData({
       name: 'New Personality',
       description: 'A custom personality for Claudia.',
-      system_prompt: 'You are a helpful AI assistant...'
+      system_prompt: 'You are a helpful AI assistant...',
+      allowImageGeneration: false
     });
     setCurrentId(null);
     setIsDefault(false);
@@ -107,6 +110,7 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       description: formData.description.trim(),
       system_prompt: formData.system_prompt.trim(),
       isDefault: isDefault,
+      allowImageGeneration: formData.allowImageGeneration,
       created_at: createdAt,
       updated_at: new Date().toISOString(),
       usage_count: usageCount
@@ -122,7 +126,7 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
     }
   };
 
-  const updateFormData = (field: keyof PersonalityFormData, value: string) => {
+  const updateFormData = (field: keyof PersonalityFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -223,6 +227,17 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
                   onChange={(e) => setIsDefault(e.target.checked)}
                 />
                 Set as default personality
+              </label>
+            </div>
+
+            <div className={styles.checkbox}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={formData.allowImageGeneration || false}
+                  onChange={(e) => updateFormData('allowImageGeneration', e.target.checked)}
+                />
+                Allow image generation
               </label>
             </div>
           </div>

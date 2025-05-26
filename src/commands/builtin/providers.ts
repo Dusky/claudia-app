@@ -1,193 +1,242 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
+import { ReplicateProvider } from '../../providers/image/replicate';
 
 export const providersCommand: Command = {
   name: 'providers',
-  description: 'Manage AI and image generation providers',
-  usage: '/providers [list|set|status] [provider] [type]',
-  aliases: ['provider', 'api'],
+  description: 'Show status of all providers',
+  usage: '/providers',
+  aliases: ['provider-status'],
   
-  async execute(args: string[], context: CommandContext): Promise<CommandResult> {
+  async execute(_args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
-    
-    if (args.length === 0 || args[0] === 'status') {
-      lines.push({
-        id: `providers-${timestamp}-1`,
-        type: 'system',
-        content: 'Provider Status:', // Emoji removed
-        timestamp, user: 'claudia'
-      });
-      lines.push({ id: `providers-${timestamp}-2`, type: 'output', content: '', timestamp, user: 'claudia' });
-      
-      const llmProviders = context.llmManager.getAvailableProviders();
-      const activeLLM = context.llmManager.getActiveProvider();
-      lines.push({
-        id: `providers-${timestamp}-3`, type: 'output',
-        content: 'AI Providers:', timestamp, user: 'claudia' // Emoji removed
-      });
-      llmProviders.forEach((provider, index) => {
-        const isActive = activeLLM?.id === provider.id;
-        const status = provider.configured ? 'OK  ' : 'FAIL';
-        const activeIndicator = isActive ? ' (active)' : '';
-        const providerId = provider.id.padEnd(15);
-        lines.push({
-          id: `providers-${timestamp}-llm-${index}`, type: 'output',
-          content: `  [${status}] ${providerId} ${provider.name}${activeIndicator}`,
-          timestamp, user: 'claudia'
-        });
-      });
-      lines.push({ id: `providers-${timestamp}-space1`, type: 'output', content: '', timestamp, user: 'claudia' });
-      
-      const imageProviders = context.imageManager.getAvailableProviders();
-      const activeImage = context.imageManager.getActiveProvider();
-      lines.push({
-        id: `providers-${timestamp}-4`, type: 'output',
-        content: 'Image Providers:', timestamp, user: 'claudia' // Emoji removed
-      });
-      imageProviders.forEach((provider, index) => {
-        const isActive = activeImage?.id === provider.id;
-        const status = provider.configured ? 'OK  ' : 'FAIL';
-        const activeIndicator = isActive ? ' (active)' : '';
-        const providerId = provider.id.padEnd(15);
-        lines.push({
-          id: `providers-${timestamp}-img-${index}`, type: 'output',
-          content: `  [${status}] ${providerId} ${provider.name}${activeIndicator}`,
-          timestamp, user: 'claudia'
-        });
-      });
-      lines.push({ id: `providers-${timestamp}-space2`, type: 'output', content: '', timestamp, user: 'claudia' });
-      lines.push({
-        id: `providers-${timestamp}-help`, type: 'output',
-        content: 'Info: Use /providers set <provider> <type> to change active provider',
-        timestamp, user: 'claudia'
-      });
-      lines.push({
-        id: `providers-${timestamp}-help2`, type: 'output',
-        content: 'Info: Example: /providers set anthropic ai',
-        timestamp, user: 'claudia'
-      });
-      return { success: true, lines };
-    }
-    
-    if (args[0] === 'list') {
-      lines.push({
-        id: `providers-${timestamp}-1`, type: 'system',
-        content: 'Available Providers:', timestamp, user: 'claudia' // Emoji removed
-      });
-      lines.push({ id: `providers-${timestamp}-2`, type: 'output', content: '', timestamp, user: 'claudia' });
-      lines.push({
-        id: `providers-${timestamp}-3`, type: 'output',
-        content: 'AI Providers:', timestamp, user: 'claudia'
-      });
-      const llmProviders = context.llmManager.getAvailableProviders();
-      llmProviders.forEach((provider, index) => {
-        lines.push({
-          id: `providers-${timestamp}-llm-${index}`, type: 'output',
-          content: `  - ${provider.id} - ${provider.name}`, timestamp, user: 'claudia'
-        });
-      });
-      lines.push({ id: `providers-${timestamp}-space`, type: 'output', content: '', timestamp, user: 'claudia' });
-      lines.push({
-        id: `providers-${timestamp}-4`, type: 'output',
-        content: 'Image Providers:', timestamp, user: 'claudia'
-      });
-      const imageProviders = context.imageManager.getAvailableProviders();
-      imageProviders.forEach((provider, index) => {
-        lines.push({
-          id: `providers-${timestamp}-img-${index}`, type: 'output',
-          content: `  - ${provider.id} - ${provider.name}`, timestamp, user: 'claudia'
-        });
-      });
-      return { success: true, lines };
-    }
-    
-    if (args[0] === 'set') {
-      if (args.length < 3) {
-        lines.push({
-          id: `providers-${timestamp}`, type: 'error',
-          content: 'Error: Usage: /providers set <provider> <type>', timestamp, user: 'claudia' // Emoji removed
-        });
-        lines.push({
-          id: `providers-${timestamp}-2`, type: 'output',
-          content: 'Info: Types: ai, image', timestamp, user: 'claudia'
-        });
-        lines.push({
-          id: `providers-${timestamp}-3`, type: 'output',
-          content: 'Info: Example: /providers set anthropic ai', timestamp, user: 'claudia'
-        });
-        return { success: false, lines };
-      }
-      
-      const providerId = args[1].toLowerCase();
-      const providerType = args[2].toLowerCase();
-      
-      try {
-        if (providerType === 'ai' || providerType === 'llm') {
-          const provider = context.llmManager.getProvider(providerId);
-          if (!provider) {
-            lines.push({
-              id: `providers-${timestamp}`, type: 'error',
-              content: `Error: AI provider '${providerId}' not found.`, timestamp, user: 'claudia' // Emoji removed
-            });
-            return { success: false, lines };
-          }
-          if (!provider.isConfigured()) {
-            lines.push({
-              id: `providers-${timestamp}`, type: 'error',
-              content: `Error: AI provider '${providerId}' is not configured (missing API key).`, timestamp, user: 'claudia' // Emoji removed
-            });
-            return { success: false, lines };
-          }
-          context.llmManager.setActiveProvider(providerId);
-          lines.push({
-            id: `providers-${timestamp}`, type: 'output',
-            content: `Status: Active AI provider set to: ${provider.name}`, timestamp, user: 'claudia' // Emoji removed
-          });
-        } else if (providerType === 'image' || providerType === 'img') {
-          const provider = context.imageManager.getProvider(providerId);
-          if (!provider) {
-            lines.push({
-              id: `providers-${timestamp}`, type: 'error',
-              content: `Error: Image provider '${providerId}' not found.`, timestamp, user: 'claudia' // Emoji removed
-            });
-            return { success: false, lines };
-          }
-          if (!provider.isConfigured()) {
-            lines.push({
-              id: `providers-${timestamp}`, type: 'error',
-              content: `Error: Image provider '${providerId}' is not configured (missing API key).`, timestamp, user: 'claudia' // Emoji removed
-            });
-            return { success: false, lines };
-          }
-          context.imageManager.setActiveProvider(providerId);
-          lines.push({
-            id: `providers-${timestamp}`, type: 'output',
-            content: `Status: Active image provider set to: ${provider.name}`, timestamp, user: 'claudia' // Emoji removed
-          });
-        } else {
-          lines.push({
-            id: `providers-${timestamp}`, type: 'error',
-            content: `Error: Unknown provider type: ${providerType}. Use 'ai' or 'image'.`, timestamp, user: 'claudia' // Emoji removed
-          });
-          return { success: false, lines };
-        }
-        return { success: true, lines };
-      } catch (error) {
-        lines.push({
-          id: `providers-${timestamp}`, type: 'error',
-          content: `Error: Error setting provider: ${error instanceof Error ? error.message : 'Unknown error'}`, // Emoji removed
-          timestamp, user: 'claudia'
-        });
-        return { success: false, lines };
-      }
-    }
-    
+
+    // Header
     lines.push({
-      id: `providers-${timestamp}`, type: 'error',
-      content: `Error: Unknown command: ${args[0]}. Use 'list', 'set', or 'status'.`, // Emoji removed
-      timestamp, user: 'claudia'
+      id: `providers-header-${timestamp}`,
+      type: 'system',
+      content: '**=== PROVIDER STATUS ===**',
+      timestamp,
+      user: 'claudia'
     });
-    return { success: false, lines };
+
+    lines.push({
+      id: `providers-spacer1-${timestamp}`,
+      type: 'output',
+      content: '',
+      timestamp,
+      user: 'claudia'
+    });
+
+    // Image Providers
+    lines.push({
+      id: `providers-image-header-${timestamp}`,
+      type: 'output',
+      content: '**Image Providers:**',
+      timestamp,
+      user: 'claudia'
+    });
+
+    const activeImage = context.imageManager.getActiveProvider();
+    lines.push({
+      id: `providers-image-active-${timestamp}`,
+      type: 'output',
+      content: `  Active: ${activeImage ? activeImage.name : 'None'}`,
+      timestamp,
+      user: 'claudia'
+    });
+
+    const availableImages = context.imageManager.getAvailableProviders();
+    availableImages.forEach(provider => {
+      const status = provider.configured ? '<span class="color-green">✅ Configured</span>' : '<span class="color-red">❌ Not Configured</span>';
+      const models = provider.models ? ` (${provider.models.length} models)` : '';
+      lines.push({
+        id: `providers-image-${provider.id}-${timestamp}`,
+        type: 'output',
+        content: `    ${provider.name} (${provider.id}): ${status}${models}`,
+        timestamp,
+        user: 'claudia'
+      });
+    });
+
+    lines.push({
+      id: `providers-spacer3-${timestamp}`,
+      type: 'output',
+      content: '',
+      timestamp,
+      user: 'claudia'
+    });
+
+    // Environment info
+    lines.push({
+      id: `providers-env-header-${timestamp}`,
+      type: 'output',
+      content: '**Environment:**',
+      timestamp,
+      user: 'claudia'
+    });
+
+    // Check for environment variables (without exposing values)
+    const hasReplicateKey = !!import.meta.env.VITE_REPLICATE_API_TOKEN;
+
+    lines.push({
+      id: `providers-env-replicate-${timestamp}`,
+      type: 'output',
+      content: `  VITE_REPLICATE_API_TOKEN: ${hasReplicateKey ? '<span class="color-green">Set</span>' : '<span class="color-red">Not Set</span>'}`,
+      timestamp,
+      user: 'claudia'
+    });
+
+    lines.push({
+      id: `providers-spacer4-${timestamp}`,
+      type: 'output',
+      content: '',
+      timestamp,
+      user: 'claudia'
+    });
+
+    // Tips
+    lines.push({
+      id: `providers-tips-${timestamp}`,
+      type: 'system',
+      content: '<span class="color-yellow">💡 Tip:</span> If providers show as "Not Configured", check your `.env` file and restart the dev server.',
+      timestamp,
+      user: 'claudia'
+    });
+
+    return { success: true, lines };
+  }
+};
+
+export const testReplicateCommand: Command = {
+  name: 'test-replicate',
+  description: 'Test Replicate API connection and configuration',
+  usage: '/test-replicate',
+  aliases: ['test-rep', 'debug-replicate'],
+  
+  async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
+    const lines: TerminalLine[] = [];
+    const timestamp = new Date().toISOString();
+
+    lines.push({
+      id: `test-replicate-header-${timestamp}`,
+      type: 'system',
+      content: '**=== REPLICATE API TEST ===**',
+      timestamp,
+      user: 'claudia'
+    });
+
+    // Check environment
+    const apiToken = import.meta.env.VITE_REPLICATE_API_TOKEN;
+    lines.push({
+      id: `test-replicate-env-${timestamp}`,
+      type: 'output',
+      content: `API Token: ${apiToken ? '<span class="color-green">✅ Present (length: ' + apiToken.length + ')</span>' : '<span class="color-red">❌ Missing</span>'}`,
+      timestamp,
+      user: 'claudia'
+    });
+
+    if (!apiToken) {
+      lines.push({
+        id: `test-replicate-error-${timestamp}`,
+        type: 'error',
+        content: 'Cannot test API - no token found. Check your .env file.',
+        timestamp,
+        user: 'claudia'
+      });
+      return { success: false, lines };
+    }
+
+    // Test provider creation
+    try {
+      lines.push({
+        id: `test-replicate-creating-${timestamp}`,
+        type: 'output',
+        content: 'Creating Replicate provider...',
+        timestamp,
+        user: 'claudia'
+      });
+
+      const provider = new ReplicateProvider();
+      const config = {
+        apiKey: apiToken,
+        baseURL: 'https://api.replicate.com',
+        model: 'black-forest-labs/flux-schnell'
+      };
+      
+      await provider.initialize(config);
+      
+      lines.push({
+        id: `test-replicate-configured-${timestamp}`,
+        type: 'output',
+        content: '<span class="color-green">✅ Provider configured successfully</span>',
+        timestamp,
+        user: 'claudia'
+      });
+
+      // Test simple API call
+      lines.push({
+        id: `test-replicate-testing-${timestamp}`,
+        type: 'output',
+        content: 'Testing API connection...',
+        timestamp,
+        user: 'claudia'
+      });
+
+      if (provider.testConnection) {
+        await provider.testConnection();
+      } else {
+        throw new Error('Test connection method not available for this provider');
+      }
+      
+      lines.push({
+        id: `test-replicate-success-${timestamp}`,
+        type: 'output',
+        content: `<span class="color-green">✅ API connection test successful</span>`,
+        timestamp,
+        user: 'claudia'
+      });
+
+    } catch (error) {
+      lines.push({
+        id: `test-replicate-failed-${timestamp}`,
+        type: 'error',
+        content: `<span class="color-red">❌ API test failed</span>`,
+        timestamp,
+        user: 'claudia'
+      });
+
+      if (error instanceof Error) {
+        lines.push({
+          id: `test-replicate-error-details-${timestamp}`,
+          type: 'error',
+          content: `Error: ${error.message}`,
+          timestamp,
+          user: 'claudia'
+        });
+
+        // Add debug info for network errors
+        if (error.message.includes('Network Error') || error.message.includes('fetch')) {
+          lines.push({
+            id: `test-replicate-network-debug-${timestamp}`,
+            type: 'output',
+            content: '<span class="color-yellow">💡 Network Error Debug:</span>',
+            timestamp,
+            user: 'claudia'
+          });
+          
+          lines.push({
+            id: `test-replicate-network-tips-${timestamp}`,
+            type: 'output',
+            content: '- Check internet connection\n- Verify API token is valid\n- Check for firewall/proxy issues\n- Try refreshing the page',
+            timestamp,
+            user: 'claudia'
+          });
+        }
+      }
+    }
+
+    return { success: true, lines };
   }
 };

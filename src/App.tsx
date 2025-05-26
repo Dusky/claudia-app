@@ -8,7 +8,7 @@ import { ImageGenerationModal } from './components/ImageGenerationModal';
 import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { getTheme, type TerminalTheme } from './terminal/themes';
-import { config as envConfig } from './config/env';
+import { config as envConfig, configManager } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
 import { AvatarController } from './avatar/AvatarController';
@@ -99,16 +99,22 @@ function App() {
           await database.setActivePersonality('default');
         }
 
+        // Migration: Ensure Claudia has image generation enabled
+        const claudiaPersonality = await database.getPersonality('default');
+        if (claudiaPersonality && claudiaPersonality.name === 'Claudia' && !claudiaPersonality.allowImageGeneration) {
+          await database.updatePersonality('default', { allowImageGeneration: true });
+        }
+
         // initializeActiveConversation is a stable action reference
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
         
         try {
-          const imageProvider = imageManager.getProvider(envConfig.defaultImageProvider);
-          if (imageProvider && imageProvider.isConfigured()) {
-            await imageManager.initializeProvider(envConfig.defaultImageProvider, {});
-          }
+          // Always try to initialize the image provider with config
+          const imageProviderConfig = configManager.getProviderConfig(envConfig.defaultImageProvider);
+          await imageManager.initializeProvider(envConfig.defaultImageProvider, imageProviderConfig);
+          console.log('✅ Image provider initialized:', envConfig.defaultImageProvider);
         } catch (error) {
-          console.warn('Image provider initialization failed:', error);
+          console.warn('⚠️ Image provider initialization failed:', error);
         }
 
         if (playBootAnimation) {

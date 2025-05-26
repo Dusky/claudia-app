@@ -20,6 +20,9 @@ export interface ImageGenerationResponse {
     model: string;
     provider: string;
     generatedAt: string;
+    predictionId?: string;
+    duration?: number;
+    [key: string]: any;
   };
 }
 
@@ -30,6 +33,7 @@ export interface ImageProvider {
   generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
   isConfigured(): boolean;
   getSupportedModels?(): string[];
+  testConnection?(): Promise<boolean>;
 }
 
 export interface ImageProviderConfig {
@@ -49,6 +53,12 @@ export interface PredictionStatus {
     get: string;
     cancel: string;
   };
+  metrics?: {
+    predict_time?: number;
+  };
+  created_at?: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface ImagePromptComponents {

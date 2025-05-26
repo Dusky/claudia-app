@@ -27,7 +27,7 @@ interface TerminalDisplayProps {
 
 // Define a constant for the padding to be applied at the bottom of each line item.
 // This ensures consistent spacing and is used in both height calculation and rendering.
-const INTER_MESSAGE_PADDING_BOTTOM = 2; // pixels
+const INTER_MESSAGE_PADDING_BOTTOM = 8; // pixels
 
 const calculateLineHeight = (theme: TerminalTheme): number => {
   const fontSize = parseFloat(theme.font.size) || 16;
@@ -37,8 +37,8 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
   const singleVisualLineHeight = fontSize * lineHeightMultiplier;
   
   // Estimate how many lines of text we want to accommodate comfortably within one item.
-  // Let's aim for 1.2 lines, which should handle single line content with some buffer.
-  const estimatedContentLines = 1.2;
+  // Let's aim for 1.5 lines, which should handle single line content with proper buffer.
+  const estimatedContentLines = 1.5;
   
   // The total height for an item will be the space for the estimated content lines
   // plus the explicit padding we want between messages.

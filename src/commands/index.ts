@@ -6,7 +6,8 @@ import { helpCommand } from './builtin/help';
 import { themeCommand, themesCommand, clearCommand } from './builtin/theme';
 import { askCommand } from './builtin/ai'; 
 import { avatarCommand, imagineCommand } from './builtin/avatar';
-import { providersCommand } from './builtin/providers';
+import { providersCommand, testReplicateCommand } from './builtin/providers';
+import { imagesCommand } from './builtin/images';
 import { testCommand } from './builtin/test';
 import { configCommand } from './builtin/config';
 import { debugCommand } from './builtin/debug';
@@ -51,6 +52,8 @@ export function createCommandRegistry(): CommandRegistryImpl {
     avatarCommand,
     imagineCommand,
     providersCommand,
+    testReplicateCommand,
+    imagesCommand,
     testCommand,
     configCommand,
     debugCommand,

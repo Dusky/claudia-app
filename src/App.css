@@ -193,6 +193,7 @@ html, body, #root {
 /* Terminal text enhancements */
 .terminal-line {
   position: relative;
+  margin-bottom: 4px; /* Additional spacing between messages */
 }
 
 /* Glow effect for important lines */
