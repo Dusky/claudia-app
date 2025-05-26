@@ -1,15 +1,75 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
+import { estimateTokens, formatTokenCount } from '../../utils/tokenCounter';
 
 export const testCommand: Command = {
   name: 'test',
-  description: 'Test API provider connections and configurations',
-  usage: '/test [provider] [type]',
+  description: 'Test API provider connections and configurations, or token counting',
+  usage: '/test [provider] [type] | /test tokens',
   aliases: ['check'],
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
+    
+    // Test token counting functionality
+    if (args.length === 1 && args[0].toLowerCase() === 'tokens') {
+      lines.push({
+        id: `test-${timestamp}-tokens-header`, type: 'system',
+        content: 'Token Counting Test Results:', timestamp, user: 'claudia'
+      });
+      lines.push({ id: `test-${timestamp}-tokens-space1`, type: 'output', content: '', timestamp, user: 'claudia' });
+      
+      // Test cases
+      const testCases = [
+        { name: 'Empty string', text: '' },
+        { name: 'Simple greeting', text: 'Hello world' },
+        { name: 'Medium text', text: 'This is a longer sentence with multiple words, punctuation, and various elements that should help test the token estimation algorithm.' },
+        { name: 'Long paragraph', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.' }
+      ];
+      
+      for (const testCase of testCases) {
+        const tokens = estimateTokens(testCase.text);
+        const formatted = formatTokenCount(tokens);
+        const charCount = testCase.text.length;
+        const wordCount = testCase.text.split(/\s+/).filter(w => w.length > 0).length;
+        
+        lines.push({
+          id: `test-${timestamp}-token-${testCase.name.replace(/\s+/g, '-')}`, type: 'output',
+          content: `${testCase.name}:`, timestamp, user: 'claudia'
+        });
+        lines.push({
+          id: `test-${timestamp}-token-${testCase.name.replace(/\s+/g, '-')}-details`, type: 'output',
+          content: `  Text: "${testCase.text.substring(0, 50)}${testCase.text.length > 50 ? '...' : ''}"`, timestamp, user: 'claudia'
+        });
+        lines.push({
+          id: `test-${timestamp}-token-${testCase.name.replace(/\s+/g, '-')}-stats`, type: 'output',
+          content: `  Characters: ${charCount} | Words: ${wordCount} | Estimated tokens: ${tokens}`, timestamp, user: 'claudia'
+        });
+        lines.push({
+          id: `test-${timestamp}-token-${testCase.name.replace(/\s+/g, '-')}-formatted`, type: 'output',
+          content: `  Formatted: ${formatted}`, timestamp, user: 'claudia'
+        });
+        lines.push({ id: `test-${timestamp}-token-${testCase.name.replace(/\s+/g, '-')}-space`, type: 'output', content: '', timestamp, user: 'claudia' });
+      }
+      
+      // Test formatTokenCount with different ranges
+      lines.push({
+        id: `test-${timestamp}-format-header`, type: 'output',
+        content: 'Format Testing (various token counts):', timestamp, user: 'claudia'
+      });
+      
+      const formatTests = [0, 1, 50, 500, 5000, 50000, 500000, 5000000];
+      for (const tokenCount of formatTests) {
+        const formatted = formatTokenCount(tokenCount);
+        lines.push({
+          id: `test-${timestamp}-format-${tokenCount}`, type: 'output',
+          content: `  ${tokenCount} tokens → ${formatted}`, timestamp, user: 'claudia'
+        });
+      }
+      
+      return { success: true, lines };
+    }
     
     if (args.length === 0) {
       lines.push({

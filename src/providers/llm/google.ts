@@ -67,8 +67,8 @@ export class GoogleProvider implements LLMProvider {
       );
 
       const candidate = response.data.candidates?.[0];
-      if (!candidate) {
-        throw new Error('No response from Google Gemini');
+      if (!candidate || !candidate.content?.parts?.[0]?.text) {
+        throw new Error('No valid response from Google Gemini');
       }
 
       return {

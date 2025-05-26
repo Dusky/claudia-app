@@ -1,5 +1,6 @@
 import type { ImageProvider, ImageProviderConfig } from './types';
 import { ReplicateProvider } from './replicate';
+import { GoogleImageProvider } from './google';
 
 export class ImageProviderManager {
   private providers = new Map<string, ImageProvider>();
@@ -8,6 +9,7 @@ export class ImageProviderManager {
   constructor() {
     // Register default providers
     this.registerProvider(new ReplicateProvider());
+    this.registerProvider(new GoogleImageProvider());
   }
 
   registerProvider(provider: ImageProvider): void {

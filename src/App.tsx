@@ -20,6 +20,7 @@ import { ClaudiaDatabase } from './storage';
 import { createCommandRegistry, type CommandContext } from './commands';
 import { DEFAULT_PERSONALITY } from './types/personality';
 import { useAppStore } from './store/appStore';
+// import { estimateTokens } from './utils/tokenCounter';
 import './App.css';
 import './styles/overlays.css';
 
@@ -319,18 +320,6 @@ function App() {
     };
     addLines(userLine);
 
-    if (activeConversationId && !input.startsWith('/')) {
-      await database.addMessage({
-        conversationId: activeConversationId, role: 'user',
-        content: userLine.content, timestamp: userLine.timestamp,
-      });
-    } else if (activeConversationId && input.startsWith('/ask')) {
-      await database.addMessage({
-        conversationId: activeConversationId, role: 'user',
-        content: input.substring(input.indexOf(' ') + 1),
-        timestamp: userLine.timestamp,
-      });
-    }
 
     // Function to update a specific line during streaming
     const updateStreamingLine = (lineId: string, content: string) => {
@@ -451,6 +440,7 @@ function App() {
           <StatusBar
             theme={themeObject} currentTheme={currentTheme}
             llmManager={llmManager} imageManager={imageManager} storage={database}
+            activeConversationId={activeConversationId}
             onThemeClick={handleThemeStatusClick}
             onPersonalityClick={() => openPersonalityEditorModal(database)}
             onImageProviderClick={() => setImageModalOpen(true)}

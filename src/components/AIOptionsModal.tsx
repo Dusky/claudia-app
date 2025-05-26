@@ -18,8 +18,8 @@ export const AI_OPTION_PROVIDER_KEY = 'ai.activeProvider';
 export const AI_OPTION_MODEL_KEY = 'ai.activeModel';
 
 export const DEFAULT_AI_TEMPERATURE = 0.7;
-export const DEFAULT_AI_CONTEXT_LENGTH = 10;
-export const DEFAULT_AI_MAX_TOKENS = 500;
+export const DEFAULT_AI_CONTEXT_LENGTH = 8000; // tokens instead of message count
+export const DEFAULT_AI_MAX_TOKENS = 1000;
 
 interface ModelInfo {
   id: string;
@@ -240,34 +240,38 @@ export const AIOptionsModal: React.FC<AIOptionsModalProps> = ({ isOpen, onClose,
 
             <div className="form-group">
               <label htmlFor="contextLength">
-                Context Length: <span>{contextLength}</span>
+                Context Length (tokens)
               </label>
-              <p className="description">Number of past messages sent to the AI for context.</p>
+              <p className="description">Maximum tokens from conversation history to include as context. Higher values = more context but slower/costlier.</p>
               <input
-                type="range"
+                type="number"
                 id="contextLength"
                 min="0"
-                max="50"
-                step="1"
+                max="200000"
+                step="100"
                 value={contextLength}
-                onChange={(e) => setContextLength(parseInt(e.target.value, 10))}
+                onChange={(e) => setContextLength(parseInt(e.target.value, 10) || 0)}
+                placeholder="e.g., 8000"
               />
+              <p className="description"><small>Common values: 4000 (short), 8000 (medium), 16000 (long), 32000+ (extensive)</small></p>
             </div>
 
             <div className="form-group">
               <label htmlFor="maxTokens">
-                Max Tokens: <span>{maxTokens}</span>
+                Max Response Tokens
               </label>
-              <p className="description">Maximum length of the AI's response.</p>
+              <p className="description">Maximum tokens in the AI's response. Higher values allow longer responses but cost more.</p>
               <input
-                type="range"
+                type="number"
                 id="maxTokens"
-                min="50"
-                max="4000"
-                step="10"
+                min="1"
+                max="100000"
+                step="50"
                 value={maxTokens}
-                onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
+                onChange={(e) => setMaxTokens(parseInt(e.target.value, 10) || 1)}
+                placeholder="e.g., 1000"
               />
+              <p className="description"><small>Common values: 500 (brief), 1000 (normal), 2000 (detailed), 4000+ (extensive)</small></p>
             </div>
 
             <div className="modal-actions">

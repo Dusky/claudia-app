@@ -4,6 +4,7 @@ export interface AppConfig {
   // API Keys
   anthropicApiKey?: string;
   googleApiKey?: string;
+  googleImageApiKey?: string;
   openaiApiKey?: string;
   replicateApiToken?: string;
   
@@ -44,6 +45,7 @@ class ConfigManager {
       // API Keys
       anthropicApiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
       googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY,
+      googleImageApiKey: import.meta.env.VITE_GOOGLE_IMAGE_API_KEY,
       openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY,
       replicateApiToken: import.meta.env.VITE_REPLICATE_API_TOKEN,
       
@@ -106,7 +108,7 @@ class ConfigManager {
       errors.push(`Invalid LLM provider: ${this.config.defaultLLMProvider}`);
     }
 
-    const validImageProviders = ['replicate'];
+    const validImageProviders = ['replicate', 'google-image'];
     if (!validImageProviders.includes(this.config.defaultImageProvider)) {
       errors.push(`Invalid image provider: ${this.config.defaultImageProvider}`);
     }
@@ -147,6 +149,8 @@ class ConfigManager {
         return !!this.config.anthropicApiKey;
       case 'google':
         return !!this.config.googleApiKey;
+      case 'google-image':
+        return !!this.config.googleImageApiKey;
       case 'openai':
         return !!this.config.openaiApiKey;
       case 'replicate':
@@ -167,6 +171,11 @@ class ConfigManager {
         return {
           apiKey: this.config.googleApiKey,
           timeout: this.config.llmTimeout
+        };
+      case 'google-image':
+        return {
+          apiKey: this.config.googleImageApiKey,
+          timeout: this.config.imageTimeout
         };
       case 'local':
         return {
@@ -199,7 +208,8 @@ class ConfigManager {
     
     console.group('🔑 API Key Status');
     console.log('Anthropic:', this.hasApiKey('anthropic') ? '✅ Configured' : '❌ Missing');
-    console.log('Google:', this.hasApiKey('google') ? '✅ Configured' : '❌ Missing');
+    console.log('Google LLM:', this.hasApiKey('google') ? '✅ Configured' : '❌ Missing');
+    console.log('Google Image:', this.hasApiKey('google-image') ? '✅ Configured' : '❌ Missing');
     console.log('OpenAI:', this.hasApiKey('openai') ? '✅ Configured' : '❌ Missing');
     console.log('Replicate:', this.hasApiKey('replicate') ? '✅ Configured' : '❌ Missing');
     console.groupEnd();
@@ -227,6 +237,8 @@ export const getApiKey = (provider: string): string | undefined => {
       return config.anthropicApiKey;
     case 'google':
       return config.googleApiKey;
+    case 'google-image':
+      return config.googleImageApiKey;
     case 'openai':
       return config.openaiApiKey;
     case 'replicate':

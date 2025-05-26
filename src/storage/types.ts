@@ -6,6 +6,7 @@ export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
+  tokens?: number; // Token count for this message
   metadata?: string; // JSON string
 }
 
@@ -14,6 +15,7 @@ export interface Conversation {
   title: string;
   createdAt: string;
   updatedAt: string;
+  totalTokens?: number; // Running total of tokens used in this conversation
   metadata?: string; // JSON string
 }
 

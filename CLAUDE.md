@@ -77,7 +77,7 @@ This is a React TypeScript application for an AI terminal companion called "Clau
 - ✅ Enhanced styling with backgrounds and shader effects
 - ✅ Browser-compatible storage system
 - ✅ Multi-provider LLM support (Anthropic, Google, Local)
-- ✅ Image generation integration (Replicate)
+- ✅ Image generation integration (Replicate, Google AI)
 - ✅ Multi-theme terminal interface
 
 ### Environment Variables Required
@@ -85,8 +85,9 @@ This is a React TypeScript application for an AI terminal companion called "Clau
 ```bash
 VITE_ANTHROPIC_API_KEY=sk-ant-api03-...
 VITE_REPLICATE_API_TOKEN=r8_...
-VITE_GOOGLE_API_KEY=...  # Optional
-VITE_DEBUG_MODE=true     # Optional
+VITE_GOOGLE_API_KEY=...        # Optional - for Google LLM provider
+VITE_GOOGLE_IMAGE_API_KEY=...  # Optional - for Google Image provider (separate from LLM)
+VITE_DEBUG_MODE=true           # Optional
 ```
 
 ### Key Integration Points

@@ -1,7 +1,8 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
 import type { LLMMessage, LLMResponse } from '../providers/llm/types';
-import { config } from '../config/env'; // Import global config
+import { estimateTokens } from '../utils/tokenCounter';
+import { MCPToolExecutor } from '../providers/mcp/toolExecutor';
 
 // AI option constants (kept for now, but global config.conversationHistoryLength is preferred)
 // const AI_OPTION_TEMPERATURE_KEY = 'ai.temperature';
@@ -113,13 +114,37 @@ export class CommandRegistryImpl implements CommandRegistry {
       }
 
       context.setLoading(true);
-      // User input line is already added to UI and DB by App.tsx's handleInput
+      
+      // Store user message in database for non-command input
+      if (context.activeConversationId) {
+        const userTokens = estimateTokens(userInput);
+        await context.storage.addMessage({
+          conversationId: context.activeConversationId, 
+          role: 'user',
+          content: userInput, 
+          timestamp: new Date().toISOString(),
+          tokens: userTokens
+        });
+        
+        // Update conversation token count
+        await this.updateConversationTokenCount(context.storage, context.activeConversationId, userTokens);
+      }
 
       try {
-        // const optedTemperature = await context.storage.getSetting<number>(AI_OPTION_TEMPERATURE_KEY, DEFAULT_AI_TEMPERATURE);
-        // const optedMaxTokens = await context.storage.getSetting<number>(AI_OPTION_MAX_TOKENS_KEY, DEFAULT_AI_MAX_TOKENS);
-        // Using global config for history length
-        const historyLength = config.conversationHistoryLength;
+        // Load AI options from storage
+        const contextTokenLimit = (await context.storage.getSetting<number>('ai.contextLength')) ?? 8000;
+        let maxTokens = (await context.storage.getSetting<number>('ai.maxTokens')) ?? 1000;
+        let temperature = (await context.storage.getSetting<number>('ai.temperature')) ?? 0.8;
+        
+        // Validate AI settings to prevent API errors
+        if (maxTokens <= 0 || maxTokens > 100000) {
+          console.warn('Invalid maxTokens value:', maxTokens, 'using default 1000');
+          maxTokens = 1000;
+        }
+        if (temperature < 0 || temperature > 2) {
+          console.warn('Invalid temperature value:', temperature, 'using default 0.8');
+          temperature = 0.8;
+        }
 
         const llmMessages: LLMMessage[] = [];
         
@@ -179,15 +204,19 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
         
         llmMessages.push({ role: 'system', content: systemPrompt });
 
-        if (context.activeConversationId && historyLength > 0) {
-          // App.tsx already saved the current user message.
-          // getMessages will fetch the last `historyLength` messages, which includes the current one.
-          const dbMessages = await context.storage.getMessages(context.activeConversationId, historyLength);
+        if (context.activeConversationId && contextTokenLimit > 0) {
+          // Load conversation history with token-based limiting
+          const dbMessages = await this.loadContextWithTokenLimit(
+            context.storage, 
+            context.activeConversationId, 
+            contextTokenLimit,
+            systemPrompt.length // Account for system prompt tokens
+          );
           dbMessages.forEach(msg => {
             llmMessages.push({ role: msg.role, content: msg.content });
           });
         } else {
-          // Fallback if no active conversation or history length is 0
+          // Fallback if no active conversation or context limit is 0
           llmMessages.push({ role: 'user', content: userInput });
         }
         
@@ -211,29 +240,40 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
             isChatResponse: true
           };
           
-          // Add the initial empty streaming line
-          context.setLoading(false); // Stop the loading indicator
-          const tempLines = [streamingLine];
-          context.addLines(tempLines);
-          
-          llmResponse = await llmProvider.generateStreamingResponse(llmMessages, {
-            temperature: 0.8,
-            maxTokens: 500,
-            onChunk: (chunk: string) => {
-              accumulatedContent += chunk;
-              
-              // Update the line in place using a custom update mechanism
-              context.updateStreamingLine?.(streamingLineId!, accumulatedContent);
-            }
-          });
-          
-          // Final update with complete content
-          context.updateStreamingLine?.(streamingLineId, llmResponse.content);
+          try {
+            // Add the initial empty streaming line
+            context.setLoading(false); // Stop the loading indicator
+            const tempLines = [streamingLine];
+            context.addLines(tempLines);
+            
+            llmResponse = await llmProvider.generateStreamingResponse(llmMessages, {
+              temperature,
+              maxTokens,
+              onChunk: (chunk: string) => {
+                accumulatedContent += chunk;
+                
+                // Update the line in place using a custom update mechanism
+                context.updateStreamingLine?.(streamingLineId!, accumulatedContent);
+              }
+            });
+            
+            // Final update with complete content
+            context.updateStreamingLine?.(streamingLineId, llmResponse.content);
+          } catch (streamError) {
+            // Remove the empty streaming line if streaming fails
+            context.setLoading(true); // Restore loading state
+            // Fall back to non-streaming
+            llmResponse = await llmProvider.generateResponse(llmMessages, {
+              temperature,
+              maxTokens,
+            });
+            streamingLineId = null; // Reset so the response is added normally
+          }
         } else {
           // Fallback to non-streaming
           llmResponse = await llmProvider.generateResponse(llmMessages, {
-            temperature: 0.8,
-            maxTokens: 500,
+            temperature,
+            maxTokens,
           });
         }
 
@@ -242,8 +282,6 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
         
         // If there are tool calls, execute them and generate a new response with the results
         if (toolCalls.length > 0) {
-          const toolExecutorModule = await import('../providers/mcp/toolExecutor');
-          const MCPToolExecutor = toolExecutorModule.MCPToolExecutor;
           const toolExecutor = new MCPToolExecutor(context.mcpManager);
           
           const toolResults: string[] = [];
@@ -267,8 +305,8 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
           
           // Generate final response with tool results integrated
           const finalResponse = await llmProvider.generateResponse(llmMessages, {
-            temperature: 0.8,
-            maxTokens: 500,
+            temperature,
+            maxTokens,
           });
           
           responseWithoutTools = finalResponse.content;
@@ -300,10 +338,19 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
         }
 
         if (context.activeConversationId) {
+          // Calculate token count for the assistant response
+          const responseTokens = estimateTokens(cleanerText);
+          
           await context.storage.addMessage({
-            conversationId: context.activeConversationId, role: 'assistant',
-            content: cleanerText, timestamp: assistantTimestamp,
+            conversationId: context.activeConversationId, 
+            role: 'assistant',
+            content: cleanerText, 
+            timestamp: assistantTimestamp,
+            tokens: responseTokens
           });
+          
+          // Update conversation's total token count
+          await this.updateConversationTokenCount(context.storage, context.activeConversationId, responseTokens);
         }
         
         // Handle photo generation requests (new system - highest priority)
@@ -495,6 +542,60 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
     }
 
     return null;
+  }
+
+  // Update conversation's total token count
+  private async updateConversationTokenCount(storage: any, conversationId: string, additionalTokens: number): Promise<void> {
+    try {
+      const conversation = await storage.getConversation(conversationId);
+      if (conversation) {
+        const newTotal = (conversation.totalTokens || 0) + additionalTokens;
+        await storage.updateConversation(conversationId, { totalTokens: newTotal });
+      }
+    } catch (error) {
+      console.error('Error updating conversation token count:', error);
+    }
+  }
+
+  // Load conversation history with token-based limiting
+  private async loadContextWithTokenLimit(
+    storage: any, 
+    conversationId: string, 
+    tokenLimit: number,
+    systemPromptTokens: number
+  ): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+    try {
+      // Get recent messages (generous initial fetch)
+      const recentMessages = await storage.getMessages(conversationId, 100);
+      
+      const contextMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      let currentTokenCount = systemPromptTokens;
+      
+      // Rough token estimation (4 chars ≈ 1 token for most models)
+      const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
+      
+      // Add messages from newest to oldest until we hit token limit
+      for (let i = recentMessages.length - 1; i >= 0; i--) {
+        const message = recentMessages[i];
+        const messageTokens = estimateTokens(message.content);
+        
+        if (currentTokenCount + messageTokens > tokenLimit) {
+          break; // Would exceed limit
+        }
+        
+        contextMessages.unshift({
+          role: message.role as 'user' | 'assistant',
+          content: message.content
+        });
+        
+        currentTokenCount += messageTokens;
+      }
+      
+      return contextMessages;
+    } catch (error) {
+      console.error('Error loading context with token limit:', error);
+      return [];
+    }
   }
 
   private parseToolArguments(argsString: string): Record<string, unknown> {

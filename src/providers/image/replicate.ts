@@ -43,6 +43,42 @@ export class ReplicateProvider implements ImageProvider {
   private supportedModels: Record<string, ReplicateModel> = {};
   
   private modelConfigs: Record<string, ModelConfig> = {
+    'google/imagen-4': {
+      maxSteps: 1,
+      defaultSteps: 1,
+      maxGuidance: 1.0,
+      defaultGuidance: 1.0,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1152, height: 896 },
+        { width: 896, height: 1152 },
+        { width: 1536, height: 1024 },
+        { width: 1024, height: 1536 }
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: true,
+      description: 'Google Imagen 4 - State-of-the-art image generation'
+    },
+    'black-forest-labs/flux-1.1-pro': {
+      maxSteps: 1,
+      defaultSteps: 1,
+      maxGuidance: 10.0,
+      defaultGuidance: 3.5,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1152, height: 896 },
+        { width: 896, height: 1152 },
+        { width: 1536, height: 1024 },
+        { width: 1024, height: 1536 }
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: false,
+      description: 'FLUX.1.1 Pro - Professional quality, single-step generation'
+    },
     'black-forest-labs/flux-schnell': {
       maxSteps: 4,
       defaultSteps: 4,
@@ -75,6 +111,22 @@ export class ReplicateProvider implements ImageProvider {
       supportsNegativePrompt: false,
       description: 'Higher quality model with more steps'
     },
+    'stability-ai/stable-diffusion-3.5-large': {
+      maxSteps: 50,
+      defaultSteps: 28,
+      maxGuidance: 10.0,
+      defaultGuidance: 7.0,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1152, height: 896 },
+        { width: 896, height: 1152 }
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: true,
+      description: 'Stable Diffusion 3.5 Large - Latest SD model'
+    },
     'stability-ai/stable-diffusion-3': {
       maxSteps: 50,
       defaultSteps: 28,
@@ -88,6 +140,38 @@ export class ReplicateProvider implements ImageProvider {
       defaultDimensions: { width: 1024, height: 1024 },
       supportsNegativePrompt: true,
       description: 'Stable Diffusion 3 with negative prompts'
+    },
+    'ideogram-ai/ideogram-v2': {
+      maxSteps: 1,
+      defaultSteps: 1,
+      maxGuidance: 10.0,
+      defaultGuidance: 5.0,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1152, height: 896 },
+        { width: 896, height: 1152 }
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: true,
+      description: 'Ideogram v2 - Excellent for text in images'
+    },
+    'recraft-ai/recraft-v3': {
+      maxSteps: 1,
+      defaultSteps: 1,
+      maxGuidance: 10.0,
+      defaultGuidance: 7.5,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1152, height: 896 },
+        { width: 896, height: 1152 }
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: false,
+      description: 'Recraft v3 - Professional design and illustrations'
     },
     'stability-ai/sdxl': {
       maxSteps: 50,
@@ -116,7 +200,7 @@ export class ReplicateProvider implements ImageProvider {
       ? '/api/replicate'  // This will be proxied to api.replicate.com
       : (providerConfig?.baseURL || 'https://api.replicate.com');
     
-    const selectedModel = providerConfig?.model || 'black-forest-labs/flux-schnell';
+    const selectedModel = providerConfig?.model || 'google/imagen-4';
     const modelConfig = this.modelConfigs[selectedModel];
     
     this.config = {
@@ -145,9 +229,14 @@ export class ReplicateProvider implements ImageProvider {
 
   getSupportedModels(): string[] {
     const baseModels = [
+      'google/imagen-4',
+      'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-schnell',
       'black-forest-labs/flux-dev',
+      'stability-ai/stable-diffusion-3.5-large',
       'stability-ai/stable-diffusion-3',
+      'ideogram-ai/ideogram-v2',
+      'recraft-ai/recraft-v3',
       'stability-ai/sdxl',
       'bytedance/sdxl-lightning-4step',
       'prompthero/openjourney',
@@ -176,9 +265,12 @@ export class ReplicateProvider implements ImageProvider {
     try {
       // Load some popular image generation models
       const popularModels = [
+        'google/imagen-4',
+        'black-forest-labs/flux-1.1-pro',
         'black-forest-labs/flux-schnell',
-        'stability-ai/sdxl',
-        'prompthero/openjourney'
+        'stability-ai/stable-diffusion-3.5-large',
+        'ideogram-ai/ideogram-v2',
+        'recraft-ai/recraft-v3'
       ];
 
       for (const modelPath of popularModels) {
@@ -460,7 +552,7 @@ export class ReplicateProvider implements ImageProvider {
   }
 
   getModelConfig(): ModelConfig | undefined {
-    return this.modelConfigs[this.config.model || 'black-forest-labs/flux-schnell'];
+    return this.modelConfigs[this.config.model || 'google/imagen-4'];
   }
 
   getAllModelConfigs(): Record<string, ModelConfig> {

@@ -33,7 +33,8 @@ export class ClaudiaDatabase implements StorageService {
         title TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        metadata TEXT
+        metadata TEXT,
+        total_tokens INTEGER DEFAULT 0
       )
     `);
 
@@ -46,6 +47,7 @@ export class ClaudiaDatabase implements StorageService {
         content TEXT NOT NULL,
         timestamp TEXT NOT NULL,
         metadata TEXT,
+        tokens INTEGER DEFAULT 0,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
     `);
@@ -110,6 +112,25 @@ export class ClaudiaDatabase implements StorageService {
       // Column already exists, ignore error
     }
 
+    // Add token tracking columns if they don't exist (migration)
+    try {
+      this.db.exec(`
+        ALTER TABLE conversations 
+        ADD COLUMN total_tokens INTEGER DEFAULT 0
+      `);
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+    
+    try {
+      this.db.exec(`
+        ALTER TABLE messages 
+        ADD COLUMN tokens INTEGER DEFAULT 0
+      `);
+    } catch (error) {
+      // Column already exists, ignore error
+    }
+
     // Create indices for performance
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
@@ -134,13 +155,14 @@ export class ClaudiaDatabase implements StorageService {
       createdAt: conversationInput.createdAt || now,
       updatedAt: conversationInput.updatedAt || now,
       metadata: conversationInput.metadata,
+      totalTokens: conversationInput.totalTokens || 0,
     };
     const stmt = this.db.prepare(`
-      INSERT INTO conversations (id, title, created_at, updated_at, metadata)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO conversations (id, title, created_at, updated_at, metadata, total_tokens)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     
-    stmt.run(newConversation.id, newConversation.title, newConversation.createdAt, newConversation.updatedAt, newConversation.metadata);
+    stmt.run(newConversation.id, newConversation.title, newConversation.createdAt, newConversation.updatedAt, newConversation.metadata, newConversation.totalTokens);
     return newConversation;
   }
 
@@ -156,6 +178,7 @@ export class ClaudiaDatabase implements StorageService {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       metadata: row.metadata,
+      totalTokens: row.total_tokens || 0,
     };
   }
 
@@ -169,6 +192,7 @@ export class ClaudiaDatabase implements StorageService {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       metadata: row.metadata,
+      totalTokens: row.total_tokens || 0,
     }));
   }
 
@@ -195,6 +219,11 @@ export class ClaudiaDatabase implements StorageService {
       values.push(updates.metadata);
     }
     
+    if (updates.totalTokens !== undefined) {
+      fields.push('total_tokens = ?');
+      values.push(updates.totalTokens);
+    }
+    
     if (fields.length === 0) {
       return false; 
     }
@@ -213,8 +242,8 @@ export class ClaudiaDatabase implements StorageService {
   // Message methods
   async addMessage(messageInput: Omit<ConversationMessage, 'id'>): Promise<ConversationMessage> {
     const stmt = this.db.prepare(`
-      INSERT INTO messages (conversation_id, role, content, timestamp, metadata)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO messages (conversation_id, role, content, timestamp, metadata, tokens)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     
     const result = stmt.run(
@@ -222,7 +251,8 @@ export class ClaudiaDatabase implements StorageService {
       messageInput.role,
       messageInput.content,
       messageInput.timestamp,
-      messageInput.metadata
+      messageInput.metadata,
+      messageInput.tokens || 0
     );
     
     this.updateConversation(messageInput.conversationId, { updatedAt: new Date().toISOString() });
@@ -260,7 +290,8 @@ export class ClaudiaDatabase implements StorageService {
       role: row.role,
       content: row.content,
       timestamp: row.timestamp,
-      metadata: row.metadata
+      metadata: row.metadata,
+      tokens: row.tokens || 0
     }));
   }
 

@@ -131,6 +131,7 @@ export class MockDatabase implements StorageService {
       createdAt: conversationInput.createdAt || now,
       updatedAt: conversationInput.updatedAt || now,
       metadata: conversationInput.metadata,
+      totalTokens: conversationInput.totalTokens || 0,
     };
     this.conversations.set(id, newConversation);
     this.saveToLocalStorage();
