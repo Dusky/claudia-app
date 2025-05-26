@@ -7,20 +7,94 @@ import { type ClaudiaDatabase } from '../storage';
 import { type StorageService } from '../storage/types';
 import { DEFAULT_PERSONALITY } from '../types/personality';
 
+// ConfigSettings type - will be imported from components
+export interface ConfigSettings {
+  // Boot Sequence
+  enhancedBoot: boolean;
+  bootSpeed: 'slow' | 'normal' | 'fast' | 'instant';
+  glitchIntensity: 'off' | 'subtle' | 'medium' | 'heavy';
+  asciiLogo: boolean;
+  strangeMessages: boolean;
+  
+  // Visual Effects
+  screenFlicker: boolean;
+  flickerIntensity: number;
+  scanLines: 'off' | 'subtle' | 'heavy';
+  terminalBreathing: boolean;
+  visualArtifacts: boolean;
+  progressiveClarity: boolean;
+  
+  // Atmosphere
+  crtGlow: boolean;
+  backgroundAnimation: boolean;
+  colorShifts: boolean;
+  staticOverlay: boolean;
+  
+  // Performance
+  reducedAnimations: boolean;
+  highContrast: boolean;
+}
+
+export const defaultConfig: ConfigSettings = {
+  // Boot Sequence
+  enhancedBoot: true,
+  bootSpeed: 'normal',
+  glitchIntensity: 'subtle',
+  asciiLogo: true,
+  strangeMessages: true,
+  
+  // Visual Effects
+  screenFlicker: true,
+  flickerIntensity: 0.3,
+  scanLines: 'subtle',
+  terminalBreathing: true,
+  visualArtifacts: true,
+  progressiveClarity: true,
+  
+  // Atmosphere
+  crtGlow: true,
+  backgroundAnimation: true,
+  colorShifts: true,
+  staticOverlay: false,
+  
+  // Performance
+  reducedAnimations: false,
+  highContrast: false,
+};
+
 const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
 
 export interface AppState {
+  // Core application state
   currentTheme: string;
   lines: TerminalLine[];
   isLoading: boolean;
   avatarState: AvatarState;
+  activeConversationId: string | null;
+  
+  // Application configuration
+  config: ConfigSettings;
+  configLoaded: boolean;
+  
+  // Modal states
   personalityModalOpen: boolean;
+  configModalOpen: boolean;
+  helpModalOpen: boolean;
+  helpModalCommandName: string | null;
+  imageModalOpen: boolean;
+  aiOptionsModalOpen: boolean;
+  appSettingsModalOpen: boolean;
+  showBootSequence: boolean;
+  
+  // Personality modal state
   editingPersonalityInModal: Personality | null;
   allPersonalitiesInModal: Personality[];
   activePersonalityIdInModal: string | null;
-  activeConversationId: string | null;
   
-  // Actions
+  // Initialization state
+  isInitialized: boolean;
+  
+  // Core actions
   setTheme: (theme: string) => void;
   addLines: (newLines: TerminalLine | TerminalLine[]) => void;
   setLines: (lines: TerminalLine[]) => void;
@@ -28,6 +102,21 @@ export interface AppState {
   setAvatarState: (partialState: Partial<AvatarState> | ((prevState: AvatarState) => Partial<AvatarState>)) => void;
   saveAvatarState: () => void;
   restoreAvatarState: () => Promise<void>;
+  
+  // Config actions
+  setConfig: (config: ConfigSettings) => void;
+  loadConfig: () => void;
+  
+  // Modal actions
+  setConfigModalOpen: (open: boolean) => void;
+  setHelpModalOpen: (open: boolean, commandName?: string | null) => void;
+  setImageModalOpen: (open: boolean) => void;
+  setAiOptionsModalOpen: (open: boolean) => void;
+  setAppSettingsModalOpen: (open: boolean) => void;
+  setShowBootSequence: (show: boolean) => void;
+  
+  // Initialization actions
+  setIsInitialized: (initialized: boolean) => void;
   
   openPersonalityEditorModal: (db: ClaudiaDatabase, personalityToEdit?: Personality | null) => Promise<void>;
   closePersonalityModal: () => void;
@@ -44,6 +133,7 @@ export interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  // Core application state
   currentTheme: config.defaultTheme,
   lines: [],
   isLoading: false,
@@ -59,12 +149,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     hasError: false,
     lastUpdate: new Date().toISOString(),
   },
+  activeConversationId: null,
+  
+  // Application configuration
+  config: defaultConfig,
+  configLoaded: false,
+  
+  // Modal states
   personalityModalOpen: false,
+  configModalOpen: false,
+  helpModalOpen: false,
+  helpModalCommandName: null,
+  imageModalOpen: false,
+  aiOptionsModalOpen: false,
+  appSettingsModalOpen: false,
+  showBootSequence: false,
+  
+  // Personality modal state
   editingPersonalityInModal: null,
   allPersonalitiesInModal: [],
   activePersonalityIdInModal: null,
-  activeConversationId: null,
+  
+  // Initialization state
+  isInitialized: false,
 
+  // Core actions
   setTheme: (theme) => set({ currentTheme: theme }),
   addLines: (newLines) => {
     const linesToAdd = Array.isArray(newLines) ? newLines : [newLines];
@@ -72,6 +181,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setLines: (lines) => set({ lines }),
   setLoading: (loading) => set({ isLoading: loading }),
+  
+  // Config actions
+  setConfig: (config) => {
+    set({ config });
+    // Save config to localStorage for persistence
+    localStorage.setItem('claudia-config', JSON.stringify(config));
+  },
+  loadConfig: () => {
+    try {
+      const savedConfig = localStorage.getItem('claudia-config');
+      if (savedConfig) {
+        set({ config: JSON.parse(savedConfig) });
+      }
+    } catch (error) {
+      console.warn('Failed to load saved config:', error);
+    }
+    set({ configLoaded: true });
+  },
+  
+  // Modal actions
+  setConfigModalOpen: (open) => set({ configModalOpen: open }),
+  setHelpModalOpen: (open, commandName = null) => set({ 
+    helpModalOpen: open, 
+    helpModalCommandName: commandName 
+  }),
+  setImageModalOpen: (open) => set({ imageModalOpen: open }),
+  setAiOptionsModalOpen: (open) => set({ aiOptionsModalOpen: open }),
+  setAppSettingsModalOpen: (open) => set({ appSettingsModalOpen: open }),
+  setShowBootSequence: (show) => set({ showBootSequence: show }),
+  
+  // Initialization actions
+  setIsInitialized: (initialized) => set({ isInitialized: initialized }),
   setAvatarState: (partialState) => {
     const newState = typeof partialState === 'function' 
       ? (state: AppState) => {

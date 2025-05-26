@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarPanel } from './components/AvatarPanel';
 import { PersonalityModal } from './components/PersonalityModal';
-import { ConfigModal, defaultConfig, type ConfigSettings } from './components/ConfigModal';
+import { ConfigModal } from './components/ConfigModal';
+import type { ConfigSettings } from './store/appStore';
 import { HelpModal } from './components/HelpModal';
 import { ImageGenerationModal } from './components/ImageGenerationModal';
 import { AIOptionsModal } from './components/AIOptionsModal';
@@ -11,74 +12,75 @@ import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { TopBar } from './components/TopBar';
 import { getTheme, type TerminalTheme } from './terminal/themes';
-import { config as envConfig, configManager } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
 import { MCPProviderManager } from './providers/mcp/manager';
 import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
 import { createCommandRegistry, type CommandContext } from './commands';
-import { DEFAULT_PERSONALITY } from './types/personality';
 import { useAppStore } from './store/appStore';
+import { useAppInitialization } from './hooks/useAppInitialization';
+import { useEventListeners } from './hooks/useEventListeners';
 // import { estimateTokens } from './utils/tokenCounter';
 import './App.css';
 import './styles/overlays.css';
 
-const addLineWithDelay = (
-  storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
-  line: TerminalLine,
-  delay: number
-): Promise<void> => {
-  return new Promise(resolve => {
-    setTimeout(() => {
-      storeAddLinesFunc(line);
-      resolve();
-    }, delay);
-  });
-};
-
 
 function App() {
-  const [isInitialized, setIsInitialized] = useState(false); // Initialization flag
-  const [configModalOpen, setConfigModalOpen] = useState(false);
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
-  const [helpModalCommandName, setHelpModalCommandName] = useState<string | null>(null);
-  const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [aiOptionsModalOpen, setAiOptionsModalOpen] = useState(false);
-  const [appSettingsModalOpen, setAppSettingsModalOpen] = useState(false);
-  const [config, setConfig] = useState<ConfigSettings>(defaultConfig);
-  const [configLoaded, setConfigLoaded] = useState(false); // Track if config has been loaded from localStorage
-  const [showBootSequence, setShowBootSequence] = useState(false);
 
   // Zustand store selectors for state
   const currentTheme = useAppStore(state => state.currentTheme);
   const lines = useAppStore(state => state.lines);
   const isLoading = useAppStore(state => state.isLoading);
   const avatarState = useAppStore(state => state.avatarState);
+  const activeConversationId = useAppStore(state => state.activeConversationId);
+  
+  // Configuration state
+  const config = useAppStore(state => state.config);
+  
+  // Modal states
   const personalityModalOpen = useAppStore(state => state.personalityModalOpen);
+  const configModalOpen = useAppStore(state => state.configModalOpen);
+  const helpModalOpen = useAppStore(state => state.helpModalOpen);
+  const helpModalCommandName = useAppStore(state => state.helpModalCommandName);
+  const imageModalOpen = useAppStore(state => state.imageModalOpen);
+  const aiOptionsModalOpen = useAppStore(state => state.aiOptionsModalOpen);
+  const appSettingsModalOpen = useAppStore(state => state.appSettingsModalOpen);
+  const showBootSequence = useAppStore(state => state.showBootSequence);
+  
+  // Personality modal state
   const editingPersonalityInModal = useAppStore(state => state.editingPersonalityInModal);
   const allPersonalitiesInModal = useAppStore(state => state.allPersonalitiesInModal);
   const activePersonalityIdInModal = useAppStore(state => state.activePersonalityIdInModal);
-  const activeConversationId = useAppStore(state => state.activeConversationId);
+  
 
-  // Select actions individually - their references are stable from Zustand
+  // Core actions
   const setTheme = useAppStore(state => state.setTheme);
   const addLines = useAppStore(state => state.addLines);
   const setLines = useAppStore(state => state.setLines);
   const setLoading = useAppStore(state => state.setLoading);
   const setAvatarState = useAppStore(state => state.setAvatarState);
+  // Config actions
+  const setConfig = useAppStore(state => state.setConfig);
+  
+  // Modal actions
+  const setConfigModalOpen = useAppStore(state => state.setConfigModalOpen);
+  const setHelpModalOpen = useAppStore(state => state.setHelpModalOpen);
+  const setImageModalOpen = useAppStore(state => state.setImageModalOpen);
+  const setAiOptionsModalOpen = useAppStore(state => state.setAiOptionsModalOpen);
+  const setAppSettingsModalOpen = useAppStore(state => state.setAppSettingsModalOpen);
+  const setShowBootSequence = useAppStore(state => state.setShowBootSequence);
+  
+  // Personality actions
   const openPersonalityEditorModal = useAppStore(state => state.openPersonalityEditorModal);
   const closePersonalityModal = useAppStore(state => state.closePersonalityModal);
   const savePersonalityInModal = useAppStore(state => state.savePersonalityInModal);
   const deletePersonalityInModal = useAppStore(state => state.deletePersonalityInModal);
-  const setActiveConversationAndLoadMessages = useAppStore(state => state.setActiveConversationAndLoadMessages);
-  const loadConversationMessages = useAppStore(state => state.loadConversationMessages);
-  const initializeActiveConversation = useAppStore(state => state.initializeActiveConversation);
-  const clearTerminalForNewSession = useAppStore(state => state.clearTerminalForNewSession);
-  const resetConversationAndTerminal = useAppStore(state => state.resetConversationAndTerminal); // Get new action
-  const restoreAvatarState = useAppStore(state => state.restoreAvatarState);
   
-  const effectRan = useRef(false);
+  // Conversation actions
+  const setActiveConversationAndLoadMessages = useAppStore(state => state.setActiveConversationAndLoadMessages);
+  const clearTerminalForNewSession = useAppStore(state => state.clearTerminalForNewSession);
+  const resetConversationAndTerminal = useAppStore(state => state.resetConversationAndTerminal);
 
   const llmManager = useMemo(() => new LLMProviderManager(), []);
   const imageManager = useMemo(() => new ImageProviderManager(), []);
@@ -86,108 +88,37 @@ function App() {
   const database = useMemo(() => new ClaudiaDatabase(), []);
   
   const avatarController = useMemo(() =>
-    new AvatarController(imageManager, database, setAvatarState), // setAvatarState is now stable
+    new AvatarController(imageManager, database, setAvatarState),
     [imageManager, database, setAvatarState] 
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
+  
+  // Custom hooks for complex logic
+  useAppInitialization({
+    llmManager,
+    imageManager,
+    mcpManager,
+    database,
+    avatarController
+  });
+  
+  useEventListeners();
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
-
-  useEffect(() => {
-    if (isInitialized || !configLoaded || (import.meta.env.DEV && effectRan.current)) {
-      return;
-    }
-
-    const initializeSystem = async () => {
-      try {
-        const activeP = await database.getActivePersonality();
-        if (!activeP) {
-          const existingDefault = await database.getPersonality('default');
-          if (!existingDefault) {
-            await database.savePersonality(DEFAULT_PERSONALITY);
-          }
-          await database.setActivePersonality('default');
-        }
-
-        // Migration: Ensure Claudia has image generation enabled
-        const claudiaPersonality = await database.getPersonality('default');
-        if (claudiaPersonality && claudiaPersonality.name === 'Claudia' && !claudiaPersonality.allowImageGeneration) {
-          await database.updatePersonality('default', { allowImageGeneration: true });
-        }
-
-        // Restore avatar state from previous session
-        await restoreAvatarState();
-
-        // initializeActiveConversation is a stable action reference
-        const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
-        
-        try {
-          // Always try to initialize the image provider with config
-          const imageProviderConfig = configManager.getProviderConfig(envConfig.defaultImageProvider);
-          await imageManager.initializeProvider(envConfig.defaultImageProvider, imageProviderConfig);
-          console.log('✅ Image provider initialized:', envConfig.defaultImageProvider);
-        } catch (error) {
-          console.warn('⚠️ Image provider initialization failed:', error);
-        }
-
-        try {
-          // Initialize MCP provider with default configuration
-          await mcpManager.initialize();
-          console.log('✅ MCP provider initialized');
-        } catch (error) {
-          console.warn('⚠️ MCP provider initialization failed:', error);
-        }
-
-        if (playBootAnimation) {
-          if (config.enhancedBoot) {
-            setShowBootSequence(true);
-            return; // Return early, boot sequence will handle completion
-          } else {
-            // Fallback to simple boot lines
-            const bootLines: TerminalLine[] = [
-              { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-              { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-            ];
-            for (const line of bootLines) {
-              await addLineWithDelay(addLines, line, 500);
-            }
-          }
-        } else if (activeConvIdToUse) {
-          await loadConversationMessages(database, activeConvIdToUse); // loadConversationMessages is stable
-        }
-
-        // Only initialize avatar if no saved state exists
-        if (imageManager.getActiveProvider() && avatarController && !avatarState.imageUrl) {
-          await avatarController.executeCommands([{
-            show: true, expression: 'happy', action: 'wave', pose: 'standing'
-          }]);
-        }
-
-      } catch (error) {
-        console.error('System initialization error:', error);
-        const errorLine: TerminalLine = {
-          id: 'init-error', type: 'error',
-          content: `Warning: System Warning: ${error instanceof Error ? error.message : 'Unknown error during initialization.'}`,
-          timestamp: new Date().toISOString()
-        };
-        addLines(errorLine); // addLines is stable
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-
-    initializeSystem();
-
-    return () => {
-      if (import.meta.env.DEV) {
-        effectRan.current = true;
-      }
-    };
-  // Add specific actions used inside this useEffect to the dependency array if they were not stable
-  // However, Zustand actions are typically stable by reference.
-  // Managers and DB are memoized. isInitialized controls the single run.
-  }, [isInitialized, configLoaded, config.enhancedBoot, llmManager, imageManager, mcpManager, database, avatarController, 
-      initializeActiveConversation, addLines, loadConversationMessages, restoreAvatarState, avatarState.imageUrl]);
+  
+  // Helper function for delayed line addition
+  const addLineWithDelay = (
+    storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
+    line: TerminalLine,
+    delay: number
+  ): Promise<void> => {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        storeAddLinesFunc(line);
+        resolve();
+      }, delay);
+    });
+  };
 
 
   const handleThemeStatusClick = () => handleInput("/themes");
@@ -288,30 +219,6 @@ function App() {
     localStorage.setItem('claudia-config', JSON.stringify(newConfig));
   };
 
-  // Load config from localStorage on startup
-  useEffect(() => {
-    const savedConfig = localStorage.getItem('claudia-config');
-    if (savedConfig) {
-      try {
-        setConfig(JSON.parse(savedConfig));
-      } catch (error) {
-        console.warn('Failed to load saved config:', error);
-      }
-    }
-    setConfigLoaded(true);
-  }, []);
-
-  // Listen for help modal events
-  useEffect(() => {
-    const handleShowHelpModal = (event: Event) => {
-      const customEvent = event as CustomEvent<{ commandName?: string }>;
-      setHelpModalCommandName(customEvent.detail?.commandName || null);
-      setHelpModalOpen(true);
-    };
-
-    window.addEventListener('showHelpModal', handleShowHelpModal);
-    return () => window.removeEventListener('showHelpModal', handleShowHelpModal);
-  }, []);
 
   const handleInput = async (input: string) => {
     const userLine: TerminalLine = {

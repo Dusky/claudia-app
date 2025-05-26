@@ -1,52 +1,6 @@
 import React, { useState } from 'react';
+import { type ConfigSettings, defaultConfig } from '../store/appStore';
 import './ConfigModal.css';
-
-export interface ConfigSettings {
-  // Boot Sequence
-  enhancedBoot: boolean;
-  bootSpeed: 'slow' | 'normal' | 'fast' | 'instant';
-  glitchIntensity: 'off' | 'subtle' | 'medium' | 'heavy';
-  asciiLogo: boolean;
-  strangeMessages: boolean;
-  
-  // Visual Effects
-  screenFlicker: boolean;
-  flickerIntensity: number;
-  scanLines: 'off' | 'subtle' | 'heavy';
-  terminalBreathing: boolean;
-  visualArtifacts: boolean;
-  progressiveClarity: boolean;
-  
-  // Atmosphere
-  crtGlow: boolean;
-  backgroundAnimation: boolean;
-  colorShifts: boolean;
-  staticOverlay: boolean;
-  
-  // Performance
-  reducedAnimations: boolean;
-  highContrast: boolean;
-}
-
-export const defaultConfig: ConfigSettings = {
-  enhancedBoot: true,
-  bootSpeed: 'normal',
-  glitchIntensity: 'subtle',
-  asciiLogo: true,
-  strangeMessages: true,
-  screenFlicker: false,
-  flickerIntensity: 0.3,
-  scanLines: 'subtle',
-  terminalBreathing: true,
-  visualArtifacts: true,
-  progressiveClarity: true,
-  crtGlow: true,
-  backgroundAnimation: true,
-  colorShifts: false,
-  staticOverlay: false,
-  reducedAnimations: false,
-  highContrast: false,
-};
 
 interface ConfigModalProps {
   isOpen: boolean;

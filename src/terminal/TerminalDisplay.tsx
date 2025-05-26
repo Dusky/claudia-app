@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { TerminalTheme } from './themes';
 import type { CommandRegistry } from '../commands/types';
-import type { ConfigSettings } from '../components/ConfigModal';
+import type { ConfigSettings } from '../store/appStore';
 import { ContentRenderer } from './ContentRenderer';
 
 export interface TerminalLine {

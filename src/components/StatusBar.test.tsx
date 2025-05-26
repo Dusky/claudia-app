@@ -78,6 +78,7 @@ describe('StatusBar Component', () => {
         llmManager={mockLLMManager}
         imageManager={mockImageManager}
         storage={mockStorageService}
+        activeConversationId={null}
         onThemeClick={vi.fn()}
         onPersonalityClick={vi.fn()}
       />
@@ -106,6 +107,7 @@ describe('StatusBar Component', () => {
         llmManager={mockLLMManager} 
         imageManager={mockImageManager} 
         storage={mockStorageService}
+        activeConversationId={null}
       />
     );
     
@@ -138,6 +140,7 @@ describe('StatusBar Component', () => {
         llmManager={notConfiguredLLMManager}
         imageManager={notConfiguredImageManager}
         storage={mockStorageService}
+        activeConversationId={null}
       />
     );
 
