@@ -20,13 +20,13 @@ export interface TerminalTheme {
     lineHeight: string;
   };
   effects: {
-    scanlines: boolean;
-    glow: boolean;
-    flicker: boolean;
-    crt: boolean;
-    noise: boolean;
+    scanlines: boolean; // CSS-based scanlines (fallback)
+    glow: boolean; // Text-shadow glow
+    flicker: boolean; // Text opacity flicker
+    crt: boolean; // CSS-based CRT bezel and vignette (bezel always applies, vignette is fallback)
+    noise: boolean; // CSS-based noise (fallback)
     noiseIntensity?: number;
-    screenCurvature?: boolean; // Added for barrel distortion effect
+    screenCurvature?: boolean; // CSS-based curvature (fallback)
     appBackground?: string; // For the background behind the terminal
   };
   spacing: {
@@ -43,35 +43,36 @@ export const themes: Record<string, TerminalTheme> = {
     name: '70s Mainframe',
     era: '1970s',
     colors: {
-      background: '#000000',
-      foreground: '#00ff00',
-      cursor: '#00ff00',
-      selection: '#004400',
-      accent: '#00aa00',
-      secondary: '#008800',
-      success: '#00ff00',
-      warning: '#ffff00',
-      error: '#ff0000'
+      background: '#0A0A0A', // Slightly off-black
+      foreground: '#33FF33', // Classic green
+      cursor: '#66FF66',
+      selection: '#003300',
+      accent: '#44DD44',
+      secondary: '#22AA22',
+      success: '#33FF33',
+      warning: '#FFFF33',
+      error: '#FF3333'
     },
     font: {
-      family: '"IBM Plex Mono", "Courier New", monospace',
-      size: '14px',
-      weight: '400',
-      lineHeight: '1.4'
+      family: '"IBM Plex Mono", "VT323", "Courier New", monospace', // Added VT323 for more pixelated option
+      size: '15px', // Slightly larger for older feel
+      weight: '500',
+      lineHeight: '1.5'
     },
     effects: {
       scanlines: true,
       glow: true,
       flicker: false,
       crt: true,
-      noise: false,
-      screenCurvature: true, // Enabled for this theme
-      appBackground: '#080808 url("data:image/svg+xml,%3Csvg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L12 12ZM12 0L0 12Z\' stroke=\'%23181818\' stroke-width=\'0.8\'/%3E%3C/svg%3E") repeat',
+      noise: true,
+      noiseIntensity: 0.1,
+      screenCurvature: true,
+      appBackground: '#050505 url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23151515\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
-      padding: '20px',
-      lineSpacing: '2px',
-      characterSpacing: '0.5px'
+      padding: '25px', // More padding
+      lineSpacing: '3px',
+      characterSpacing: '0.75px'
     },
     overlayClassName: 'mainframe-70s-overlay'
   },
@@ -81,30 +82,31 @@ export const themes: Record<string, TerminalTheme> = {
     name: '80s Personal Computer',
     era: '1980s',
     colors: {
-      background: '#000080',
-      foreground: '#ffffff',
-      cursor: '#ffff00',
-      selection: '#000040',
-      accent: '#00ffff',
-      secondary: '#c0c0c0',
-      success: '#00ff00',
-      warning: '#ffff00',
-      error: '#ff4040'
+      background: '#0000AA', // Classic blue
+      foreground: '#FFFFFF',
+      cursor: '#FFFF00',
+      selection: '#000055',
+      accent: '#55FFFF',
+      secondary: '#AAAAAA',
+      success: '#55FF55',
+      warning: '#FFFF55',
+      error: '#FF5555'
     },
     font: {
-      family: '"Perfect DOS VGA 437", "Monaco", monospace',
+      family: '"Perfect DOS VGA 437", "Fixedsys Excelsior", "Monaco", monospace', // Added Fixedsys
       size: '16px',
       weight: '400',
-      lineHeight: '1.2'
+      lineHeight: '1.3'
     },
     effects: {
-      scanlines: false,
-      glow: false,
+      scanlines: true, // More subtle scanlines for 80s monitors
+      glow: false, // Less glow typically
       flicker: false,
       crt: true,
       noise: false,
-      screenCurvature: true, // Enabled for this theme
-      appBackground: '#000020 url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect x=\'0\' y=\'0\' width=\'100%25\' height=\'100%25\' fill=\'none\' stroke=\'%23000040\' stroke-width=\'1\'/%3E%3C/svg%3E") repeat',
+      noiseIntensity: 0.05,
+      screenCurvature: true,
+      appBackground: '#000033 url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect x=\'0\' y=\'0\' width=\'100%25\' height=\'100%25\' fill=\'none\' stroke=\'%23000050\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
       padding: '16px',
@@ -120,35 +122,35 @@ export const themes: Record<string, TerminalTheme> = {
     era: '1990s',
     colors: {
       background: '#000000',
-      foreground: '#ffffff',
-      cursor: '#ff00ff',
-      selection: '#404040',
-      accent: '#ff00ff',
-      secondary: '#00ffff',
-      success: '#00ff00',
-      warning: '#ffff00',
-      error: '#ff0000'
+      foreground: '#CCCCCC', // Often slightly off-white
+      cursor: '#FF00FF',
+      selection: '#333333',
+      accent: '#00AAAA', // Cyan was common
+      secondary: '#AAAA00', // Yellow/Amber
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
     },
     font: {
-      family: '"MS-DOS", "Terminal", monospace',
+      family: '"MS-DOS", "Terminal", "Consolas", monospace',
       size: '15px',
       weight: '400',
-      lineHeight: '1.3'
+      lineHeight: '1.35'
     },
     effects: {
       scanlines: true,
-      glow: true,
-      flicker: true,
-      crt: false,
+      glow: true, // Some glow for effect
+      flicker: true, // BBS often had some flicker
+      crt: true, // Still CRT era
       noise: true,
-      noiseIntensity: 0.6, // Slightly increased noise intensity
-      screenCurvature: false,
-      appBackground: 'radial-gradient(ellipse at center, #200020 0%, #000000 70%)',
+      noiseIntensity: 0.25, // More noticeable noise/artifacts
+      screenCurvature: true,
+      appBackground: 'radial-gradient(ellipse at center, #101020 0%, #000000 80%)',
     },
     spacing: {
       padding: '12px',
-      lineSpacing: '1px',
-      characterSpacing: '0.2px'
+      lineSpacing: '1.5px',
+      characterSpacing: '0.1px'
     },
     overlayClassName: 'bbs-90s-overlay'
   },
@@ -158,30 +160,31 @@ export const themes: Record<string, TerminalTheme> = {
     name: 'Modern Terminal',
     era: '2020s',
     colors: {
-      background: '#1a1a1a',
-      foreground: '#ffffff',
-      cursor: '#00d4aa',
-      selection: '#264f78',
-      accent: '#00d4aa',
-      secondary: '#569cd6',
-      success: '#4ec9b0',
-      warning: '#dcdcaa',
-      error: '#f44747'
+      background: '#1E1E1E', // Common modern dark theme
+      foreground: '#D4D4D4',
+      cursor: '#00AACC',
+      selection: '#264F78',
+      accent: '#00AACC',
+      secondary: '#569CD6',
+      success: '#4EC9B0',
+      warning: '#DCDCAA',
+      error: '#F44747'
     },
     font: {
-      family: '"JetBrains Mono", "Fira Code", monospace',
+      family: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
       size: '14px',
       weight: '400',
-      lineHeight: '1.5'
+      lineHeight: '1.6' // More spacious
     },
     effects: {
-      scanlines: false,
+      scanlines: false, // Off by default for modern
       glow: false,
       flicker: false,
-      crt: false,
+      crt: false, // No CRT bezel by default
       noise: false,
+      noiseIntensity: 0,
       screenCurvature: false,
-      appBackground: '#101010',
+      appBackground: '#121212', // Dark, clean background
     },
     spacing: {
       padding: '20px',

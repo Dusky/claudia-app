@@ -20,7 +20,7 @@ interface TerminalDisplayProps {
   prompt?: string;
   isLoading?: boolean;
   commandRegistry: CommandRegistry;
-  config?: ConfigSettings;
+  config?: ConfigSettings; // Global config from appStore
 }
 
 const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix }: {
@@ -39,8 +39,8 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
       display: 'flex',
       alignItems: 'baseline',
       marginBottom: '8px',
-      ...(theme.effects.glow && {
-        textShadow: `0 0 8px ${getLineTypeColor(line.type)}60, 0 0 5px ${getLineTypeColor(line.type)}40` // Enhanced glow
+      ...(theme.effects.glow && { // Text-shadow glow always applies if theme wants it
+        textShadow: `0 0 8px ${getLineTypeColor(line.type)}70, 0 0 5px ${getLineTypeColor(line.type)}50` 
       })
     }}
   >
@@ -61,7 +61,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   prompt = '>',
   isLoading = false,
   commandRegistry,
-  config
+  config // Global config from appStore
 }) => {
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
@@ -83,6 +83,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const [loadingMessage, setLoadingMessage] = useState('thinking...');
   const [loadingDots, setLoadingDots] = useState(0);
 
+  // Determine if the main WebGL CRT Shader is active
+  const isWebGLShaderActive = config?.enableCRTEffect === true;
+
   useEffect(() => {
     if (lines.length > 0 && outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -91,31 +94,24 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        setIsInputFocused(true);
-      }
+      if (inputRef.current) inputRef.current.focus();
+      setIsInputFocused(true);
     }, 100);
     return () => clearTimeout(timer);
   }, []); 
 
   useEffect(() => {
-    if (inputRef.current && isInputFocused) {
-      inputRef.current.focus();
-    }
+    if (inputRef.current && isInputFocused) inputRef.current.focus();
   }, [isInputFocused]);
 
   useEffect(() => {
-    if (promptRef.current) {
-      setSuggestionsLeftOffset(promptRef.current.offsetWidth);
-    }
+    if (promptRef.current) setSuggestionsLeftOffset(promptRef.current.offsetWidth);
   }, [prompt, theme.font.family, theme.font.size]);
 
   useEffect(() => {
     if (!isLoading) return;
     const messages = ['thinking...', 'processing...', 'crafting response...', 'almost ready...', 'finalizing thoughts...'];
-    let messageIndex = 0;
-    let dotCount = 0;
+    let messageIndex = 0; let dotCount = 0;
     const messageInterval = setInterval(() => {
       messageIndex = (messageIndex + 1) % messages.length;
       setLoadingMessage(messages[messageIndex]);
@@ -124,21 +120,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       dotCount = (dotCount + 1) % 4;
       setLoadingDots(dotCount);
     }, 400);
-    return () => {
-      clearInterval(messageInterval);
-      clearInterval(dotInterval);
-    };
+    return () => { clearInterval(messageInterval); clearInterval(dotInterval); };
   }, [isLoading]); 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTypedInput = e.target.value;
     setCurrentInput(newTypedInput);
-    if (historyPointer !== -1) { 
-      inputBeforeHistoryNav.current = newTypedInput; 
-      setHistoryPointer(-1); 
-    }
-    setSuggestionCycleIndex(-1); 
-    setLastTabCompletionPrefix(null);
+    if (historyPointer !== -1) { inputBeforeHistoryNav.current = newTypedInput; setHistoryPointer(-1); }
+    setSuggestionCycleIndex(-1); setLastTabCompletionPrefix(null);
     if (newTypedInput.startsWith('/') && newTypedInput.length > 1) {
       const commandPrefix = newTypedInput.substring(1).split(' ')[0];
       if (commandPrefix) {
@@ -146,24 +135,15 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
         const exactMatch = `/${commandPrefix}`;
         const hasPartialMatches = matchingCommands.length > 0 && !matchingCommands.some(cmd => `/${cmd}` === exactMatch);
-        if (hasPartialMatches) {
-          setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
-          setShowSuggestions(true);
-        } else {
-          setShowSuggestions(false);
-        }
-      } else {
-        setShowSuggestions(false); 
-      }
-    } else {
-      setShowSuggestions(false);
-    }
+        setShowSuggestions(hasPartialMatches);
+        if (hasPartialMatches) setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
+      } else { setShowSuggestions(false); }
+    } else { setShowSuggestions(false); }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setCurrentInput(`${suggestion} `);
-    setShowSuggestions(false);
-    setSuggestions([]);
+    setShowSuggestions(false); setSuggestions([]);
     if (inputRef.current) inputRef.current.focus();
   };
 
@@ -207,17 +187,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       const matchingCommands = allCommandNames.filter(name => name.startsWith(typedPrefix));
       if (matchingCommands.length > 0) {
         currentCycleIndex = (currentCycleIndex + 1) % matchingCommands.length;
-        const completedCommand = matchingCommands[currentCycleIndex];
-        setCurrentInput(`/${completedCommand} `); setSuggestionCycleIndex(currentCycleIndex); setLastTabCompletionPrefix(typedPrefix);
+        setCurrentInput(`/${matchingCommands[currentCycleIndex]} `); setSuggestionCycleIndex(currentCycleIndex); setLastTabCompletionPrefix(typedPrefix);
       } else { setSuggestionCycleIndex(-1); }
     } else if (e.key === 'Escape') { setShowSuggestions(false); }
   };
 
   const handleTerminalClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Allow click on app-background-layer to focus input if terminal itself is clicked
     const target = e.target as HTMLElement;
-    if (target.closest('.terminal-container') || 
-        target.classList.contains('app-background-layer')) { // If background is clicked, and terminal is main element
+    if (target.closest('.terminal-container') || target.classList.contains('app-background-layer')) {
       setIsInputFocused(true);
       if (inputRef.current) inputRef.current.focus();
     }
@@ -227,8 +204,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     switch (type) {
       case 'error': return theme.colors.error;
       case 'system': return theme.colors.accent;
-      case 'input': return theme.colors.foreground; 
-      case 'output': return theme.colors.foreground;
       default: return theme.colors.foreground;
     }
   }, [theme.colors]);
@@ -240,34 +215,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return '';
   }, [prompt]);
 
-  const appBackgroundStyle = useMemo((): React.CSSProperties => {
-    let background = 'transparent'; // Default if no background is applied
-    if (config?.enableAppBackground) {
-      if (config.appBackgroundOverride) {
-        background = config.appBackgroundOverride;
-      } else if (theme.effects.appBackground) {
-        background = theme.effects.appBackground;
-      }
-    }
-    return {
-      width: '100%',
-      height: '100%',
-      background: background,
-      position: 'relative', // For stacking context if terminal needs absolute positioning within it
-      display: 'flex', // To center terminal if needed, or just contain it
-      flexDirection: 'column', // Align with terminal-container's flex direction
-    };
-  }, [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
+  const appBackgroundStyle = useMemo((): React.CSSProperties => ({
+    width: '100%', height: '100%',
+    background: (config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground)) || 'transparent',
+    position: 'relative', display: 'flex', flexDirection: 'column',
+  }), [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
 
   const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
-      position: 'relative', // Stays relative within the new app-background-layer
-      overflow: 'hidden', 
-      width: '100%', // Terminal fills the app-background-layer by default
-      height: '100%',
-      display: 'flex', 
-      flexDirection: 'column',
-      // zIndex: 0, // Let natural stacking order prevail initially
+      position: 'relative', overflow: 'hidden', width: '100%', height: '100%',
+      display: 'flex', flexDirection: 'column',
     };
     if (config?.terminalBreathing) baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
     if (config?.crtGlow) baseStyle.filter = 'brightness(1.1) contrast(1.1)';
@@ -275,47 +232,35 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [config?.terminalBreathing, config?.crtGlow]);
 
   const terminalContentWrapperStyle = useMemo((): React.CSSProperties => ({
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: theme.spacing.padding,
-    background: theme.colors.background, // Terminal's own background
-    position: 'relative',
-    zIndex: 2, 
-    transition: 'transform 0.3s ease-out', 
-  }), [theme.spacing.padding, theme.colors.background]);
+    flex: 1, display: 'flex', flexDirection: 'column',
+    padding: theme.spacing.padding, background: theme.colors.background,
+    position: 'relative', zIndex: 2, 
+    transition: 'transform 0.3s ease-out',
+    // Apply CSS curvature only if WebGL shader is NOT active and theme/config enables it
+    transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
+    borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
+  }), [theme, config?.screenCurvature, isWebGLShaderActive]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
-    position: 'relative', 
-    flexGrow: 1,
-    overflowY: 'auto', 
-    overflowX: 'hidden', 
-    paddingRight: '4px', 
+    position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px', 
   }), []);
 
   const inputAreaStyle = useMemo((): React.CSSProperties => ({
-    position: 'relative',
-    paddingTop: theme.spacing.lineSpacing,
-    flexShrink: 0,
+    position: 'relative', paddingTop: theme.spacing.lineSpacing, flexShrink: 0,
   }), [theme.spacing.lineSpacing]);
 
-
   return (
-    <div 
-      className="app-background-layer" 
-      style={appBackgroundStyle}
-      onClick={handleTerminalClick} // Allow clicking background to focus input
-    >
+    <div className="app-background-layer" style={appBackgroundStyle} onClick={handleTerminalClick}>
       <div
         ref={terminalContainerRef}
         className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''} ${theme.effects.crt ? 'crt-effect' : ''}`}
         data-theme={theme.id}
         style={terminalContainerOuterStyle}
-        // onClick prop moved to app-background-layer to catch clicks outside terminal-container too
       >
-        {(theme.effects.scanlines || config?.scanLines !== 'off') && (
+        {/* CSS Scanlines: Apply only if WebGL shader is NOT active and theme/config enables them */}
+        {!isWebGLShaderActive && (theme.effects.scanlines || config?.scanLines !== 'off') && (
           <div 
-            className="scanlines-overlay" 
+            className="scanlines-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
@@ -326,9 +271,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             }}
           />
         )}
-        {(theme.effects.noise || config?.staticOverlay) && (
+        {/* CSS Noise: Apply only if WebGL shader is NOT active and theme/config enables it */}
+        {!isWebGLShaderActive && (theme.effects.noise || config?.staticOverlay) && (
           <div 
-            className="noise-overlay" 
+            className="noise-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
@@ -338,9 +284,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           />
         )}
         
-        {config?.visualArtifacts && (
+        {config?.visualArtifacts && ( // This is a global config, can stay as is or also be made conditional
           <div 
-            className="visual-artifacts-overlay" 
+            className="visual-artifacts-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               pointerEvents: 'none', zIndex: 3, 
@@ -350,37 +296,17 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         )}
 
         <div
-          className={`terminal-content-wrapper ${(theme.effects.screenCurvature || config?.screenCurvature) ? 'screen-curved' : ''}`}
+          className="terminal-content-wrapper" // CSS curvature class removed, handled by inline style now
           style={terminalContentWrapperStyle}
         >
-          <div 
-            ref={outputRef}
-            className="terminal-output-area"
-            style={outputAreaStyle}
-          >
+          <div ref={outputRef} className="terminal-output-area" style={outputAreaStyle}>
             {lines.map((line) => (
-              <LineComponent
-                key={line.id}
-                line={line}
-                theme={theme}
-                getLineTypeColor={getLineTypeColor}
-                getUserPrefix={getUserPrefix}
-              />
+              <LineComponent key={line.id} line={line} theme={theme} getLineTypeColor={getLineTypeColor} getUserPrefix={getUserPrefix} />
             ))}
           </div>
-
-          <div 
-            className="terminal-input-area"
-            style={inputAreaStyle}
-          >
+          <div className="terminal-input-area" style={inputAreaStyle}>
             {isLoading && (
-              <div 
-                className="terminal-line loading"
-                style={{
-                  color: theme.colors.accent, marginBottom: theme.spacing.lineSpacing,
-                  display: 'flex', alignItems: 'baseline', opacity: 0.7,
-                }}
-              >
+              <div className="terminal-line loading" style={{ color: theme.colors.accent, marginBottom: theme.spacing.lineSpacing, display: 'flex', alignItems: 'baseline', opacity: 0.7 }}>
                 <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>claudia{'>'} </span>
                 <span className="loading-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span className="loading-dots">
@@ -392,11 +318,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                 </span>
               </div>
             )}
-
-            <div 
-              className="terminal-input-line"
-              style={{ color: theme.colors.foreground, display: 'flex', alignItems: 'center', position: 'relative' }}
-            >
+            <div className="terminal-input-line" style={{ color: theme.colors.foreground, display: 'flex', alignItems: 'center', position: 'relative' }}>
               <span ref={promptRef} className="input-prompt" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>{prompt}{' '}</span>
               <input
                 ref={inputRef} type="text" value={currentInput}
@@ -421,10 +343,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               {showSuggestions && suggestions.length > 0 && (
                 <div className="suggestions-box" style={{ left: suggestionsLeftOffset }} >
                   {suggestions.map((suggestion, index) => (
-                    <div key={index} className="suggestion-item"
-                      onClick={() => handleSuggestionClick(suggestion)}
-                      onMouseDown={(e) => e.preventDefault()} 
-                    >{suggestion}</div>
+                    <div key={index} className="suggestion-item" onClick={() => handleSuggestionClick(suggestion)} onMouseDown={(e) => e.preventDefault()}>{suggestion}</div>
                   ))}
                 </div>
               )}
@@ -433,20 +352,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         </div>
 
         <style>{`
-          .app-background-layer {
-            /* Styles applied via appBackgroundStyle prop */
-            /* Ensures it covers the area TerminalDisplay is supposed to occupy */
-          }
-          .terminal-container { 
-            /* Styles applied via terminalContainerOuterStyle and crt-effect class */
-          }
-          .terminal-content-wrapper { 
-            /* Styles applied via terminalContentWrapperStyle */
-          }
-          .terminal-content-wrapper.screen-curved {
-            transform: scale(1.01, 1.025); 
-            border-radius: 5px; 
-          }
+          /* app-background-layer and terminal-container styles are mostly via props */
+          /* terminal-content-wrapper styles via props, including conditional curvature */
 
           @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
           @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
@@ -454,7 +361,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             0%, 100% { transform: scale(1); filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'}; }
             50% { transform: scale(1.002); filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'}; }
           }
-          @keyframes artifacts {
+          @keyframes artifacts { /* This can stay as a global visual artifact */
             0%, 100% { opacity: 0; }
             2% { opacity: 0.3; background: linear-gradient(90deg, transparent 0%, rgba(255,0,0,0.1) 50%, transparent 100%); }
             4% { opacity: 0; } 85% { opacity: 0; }
@@ -472,6 +379,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           .terminal-output-area::-webkit-scrollbar-thumb { background: ${theme.colors.accent}60; border-radius: 4px; }
           .terminal-output-area::-webkit-scrollbar-thumb:hover { background: ${theme.colors.accent}80; }
           .terminal-output-area { scrollbar-width: thin; scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30; }
+          
           .suggestions-box {
             position: absolute; bottom: 100%; right: 0; max-height: 150px; overflow-y: auto;
             background-color: ${theme.colors.background || '#1e1e1e'}EE; 
@@ -497,14 +405,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           .suggestion-item:hover::before { left: 100%; }
 
           ${theme.effects.flicker ? `
-            .terminal-content-wrapper { 
+            .terminal-content-wrapper { /* Text flicker, applies if theme wants it */
               animation: contentFlicker 0.15s infinite linear alternate;
             }
             @keyframes contentFlicker { 0% { opacity: 1; } 100% { opacity: 0.98; } }
           ` : ''}
 
           ${theme.effects.crt ? `
-            .terminal-container.crt-effect { 
+            .terminal-container.crt-effect { /* CRT Bezel effect */
               border-radius: 15px; 
               box-shadow: 
                 inset 0 0 30px ${theme.colors.background}99, 
@@ -512,6 +420,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                 0 0 15px rgba(0,0,0,0.5), 
                 0 0 40px ${theme.colors.accent}20; 
             }
+            /* CSS Vignette: Apply only if WebGL shader is NOT active and theme enables CRT effect */
+            ${!isWebGLShaderActive ? `
             .terminal-container.crt-effect::before { 
               content: '';
               position: absolute;
@@ -521,6 +431,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               pointer-events: none;
               z-index: 1; 
             }
+            ` : ''}
           ` : ''}
         `}</style>
       </div>

@@ -16,22 +16,23 @@ const fragmentShader = `
   uniform sampler2D tDiffuse;
   uniform float time;
   uniform vec2 resolution;
-  uniform float curvature; // Higher values = less curvature. e.g., 5.0 to 20.0. 0 or less to disable.
-  uniform float scanlineDensity; // How many scanlines, e.g., resolution.y * 0.7. 0 to disable.
-  uniform float scanlineIntensity; // Strength of scanlines, e.g., 0.1 to 0.5
-  uniform float noiseIntensity; // Strength of noise, e.g., 0.05 to 0.2. 0 to disable.
+  uniform float curvature; // Higher values = less curvature. e.g., 5.0 to 30.0. 0 or less to disable.
+  uniform float scanlineDensity; // How many scanlines. e.g., resolution.y * 0.7. 0 to disable.
+  uniform float scanlineIntensity; // Strength of scanlines, e.g., 0.05 to 0.3
+  uniform float noiseIntensity; // Strength of noise, e.g., 0.02 to 0.15. 0 to disable.
   uniform float brightness;
   uniform float distortionAmount; // Chromatic aberration amount. 0 to disable.
+  uniform float vignetteStrength; // How strong the vignette is, e.g., 0.5 to 1.5
+  uniform float vignetteSmoothness; // How soft the vignette edge is, e.g., 0.2 to 0.8
   
   varying vec2 vUv;
   
-  // Curve function: uv_in is 0-1. curveAmount: higher means less curve.
   vec2 curveUV(vec2 uv_in, float curveAmount) {
-    if (curveAmount <= 0.0) return uv_in; // No curve if amount is zero or negative
-    vec2 uv = uv_in * 2.0 - 1.0; // Remap to -1.0 to 1.0
+    if (curveAmount <= 0.001) return uv_in; // Effectively no curve
+    vec2 uv = uv_in * 2.0 - 1.0; 
     vec2 offset = abs(uv.yx) / curveAmount; 
     uv = uv + uv * offset * offset;
-    uv = uv * 0.5 + 0.5; // Remap back to 0.0 to 1.0
+    uv = uv * 0.5 + 0.5; 
     return uv;
   }
   
@@ -44,10 +45,8 @@ const fragmentShader = `
     
     uv = curveUV(uv, curvature);
     
-    // Check if we're outside the curved bounds
-    // This creates a "rounded screen" effect by making pixels outside black.
-    if (curvature > 0.0 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // Black outside
+    if (curvature > 0.001 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); 
       return;
     }
     
@@ -55,51 +54,50 @@ const fragmentShader = `
     
     // Scanlines
     if (scanlineIntensity > 0.0 && scanlineDensity > 0.0) {
-      float scanlineEffect = sin(uv.y * scanlineDensity - time * 10.0); // Slower scanline animation
-      scanlineEffect = (scanlineEffect * 0.5 + 0.5); // Remap to 0-1
-      scanlineEffect = pow(scanlineEffect, 3.0); // Sharpen
-      col = mix(col, col * (1.0 - scanlineIntensity * 0.7), scanlineEffect); // Darken for scanlines
+      // Use resolution.y to make scanline density somewhat consistent across screen sizes
+      float actualScanlineDensity = scanlineDensity * (resolution.y / 1000.0); // Normalize density
+      float scanlineEffect = sin(uv.y * actualScanlineDensity - time * 5.0); // Slower animation
+      scanlineEffect = smoothstep(0.0, 1.0, pow(scanlineEffect * 0.5 + 0.5, 2.5)); // Sharper, more defined lines
+      col = mix(col, col * (1.0 - scanlineIntensity), scanlineEffect); // Darken for scanlines
     }
     
     // RGB shift for chromatic aberration
-    if (distortionAmount > 0.0) {
-      float shift = 0.001 * distortionAmount; 
-      vec2 ruv = curveUV(vUv + vec2(shift, 0.0), curvature); // Re-curve shifted UVs
-      vec2 buv = curveUV(vUv - vec2(shift, 0.0), curvature); // Re-curve shifted UVs
+    if (distortionAmount > 0.001) {
+      float shift = 0.0015 * distortionAmount; 
+      vec2 ruv = curveUV(vUv + vec2(shift, 0.0), curvature); 
+      vec2 buv = curveUV(vUv - vec2(shift, 0.0), curvature);
 
-      // Check bounds for shifted UVs as well
       if (ruv.x >= 0.0 && ruv.x <= 1.0 && ruv.y >= 0.0 && ruv.y <= 1.0) {
         col.r = texture2D(tDiffuse, ruv).r;
       }
       if (buv.x >= 0.0 && buv.x <= 1.0 && buv.y >= 0.0 && buv.y <= 1.0) {
          col.b = texture2D(tDiffuse, buv).b;
       }
-      // Green channel uses original 'uv' which is already bounds-checked
     }
     
     // Noise
-    if (noiseIntensity > 0.0) {
-      float n = random(uv + mod(time * 0.1, 1.0)); // Slightly faster noise animation
+    if (noiseIntensity > 0.001) {
+      float n = random(uv + mod(time * 0.08, 1.0)); 
       col += (n - 0.5) * noiseIntensity; 
     }
     
     // Vignette
-    float vignetteDist = distance(uv, vec2(0.5));
-    float vignetteAmount = smoothstep(0.7, 0.2, vignetteDist); // Adjust for stronger/softer vignette
-    col *= vignetteAmount;
+    if (vignetteStrength > 0.0) {
+      float vignetteDist = distance(uv, vec2(0.5));
+      // vignetteSmoothness: 0.1 (hard edge) to 0.8 (very soft edge)
+      // vignetteStrength: affects how dark the edges get
+      float vig = smoothstep(vignetteSmoothness, 0.2, vignetteDist); 
+      col *= mix(1.0, vig, vignetteStrength);
+    }
     
-    // Brightness
     col *= brightness;
-    
-    // Clamp final color
     col = clamp(col, 0.0, 1.0);
-    
     gl_FragColor = vec4(col, 1.0);
   }
 `;
 
 interface CRTMeshUniforms {
-  [uniform: string]: { value: any };
+  [uniform: string]: { value: any }; // Allow arbitrary uniforms
   tDiffuse: { value: THREE.Texture | null };
   time: { value: number };
   resolution: { value: THREE.Vector2 };
@@ -109,6 +107,8 @@ interface CRTMeshUniforms {
   noiseIntensity: { value: number };
   brightness: { value: number };
   distortionAmount: { value: number };
+  vignetteStrength: { value: number };
+  vignetteSmoothness: { value: number };
 }
 
 interface CRTMeshProps {
@@ -119,16 +119,20 @@ interface CRTMeshProps {
   noiseIntensity?: number;
   brightness?: number;
   distortionAmount?: number;
+  vignetteStrength?: number;
+  vignetteSmoothness?: number;
 }
 
 function CRTMesh({ 
   texture, 
-  curvature = 10.0, 
-  scanlineDensity = 400.0, 
-  scanlineIntensity = 0.2,
-  noiseIntensity = 0.08,
-  brightness = 1.1, 
-  distortionAmount = 0.6 
+  curvature = 15.0, 
+  scanlineDensity = 700.0, 
+  scanlineIntensity = 0.1,
+  noiseIntensity = 0.05,
+  brightness = 1.0, 
+  distortionAmount = 0.3,
+  vignetteStrength = 1.0,
+  vignetteSmoothness = 0.5,
 }: CRTMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { size, gl } = useThree();
@@ -142,8 +146,10 @@ function CRTMesh({
     scanlineIntensity: { value: scanlineIntensity },
     noiseIntensity: { value: noiseIntensity },
     brightness: { value: brightness },
-    distortionAmount: { value: distortionAmount }
-  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount]);
+    distortionAmount: { value: distortionAmount },
+    vignetteStrength: { value: vignetteStrength },
+    vignetteSmoothness: { value: vignetteSmoothness },
+  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount, vignetteStrength, vignetteSmoothness]);
   
   const material = useMemo(() => {
     return new ShaderMaterial({
@@ -154,26 +160,20 @@ function CRTMesh({
   }, [uniforms]);
 
   useEffect(() => {
-    if (material.uniforms.tDiffuse) {
-      material.uniforms.tDiffuse.value = texture;
-    }
+    material.uniforms.tDiffuse.value = texture;
   }, [texture, material.uniforms.tDiffuse]);
 
   useEffect(() => {
-    if (material.uniforms.resolution) {
-      material.uniforms.resolution.value.set(size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
-    }
+    material.uniforms.resolution.value.set(size.width * gl.getPixelRatio(), size.height * gl.getPixelRatio());
   }, [size, gl, material.uniforms.resolution]);
   
   useFrame((state) => {
-    if (material.uniforms.time) {
-      material.uniforms.time.value = state.clock.elapsedTime;
-    }
+    material.uniforms.time.value = state.clock.elapsedTime;
   });
   
   return (
     <mesh ref={meshRef} material={material}>
-      <planeGeometry args={[2, 2]} /> {/* Covers the entire viewport */}
+      <planeGeometry args={[2, 2]} />
     </mesh>
   );
 }
@@ -181,25 +181,20 @@ function CRTMesh({
 interface CRTShaderWrapperProps {
   children: React.ReactNode;
   enabled?: boolean;
-  theme?: string; // Theme ID to select CRT settings
+  theme?: string;
 }
 
-// Debounce function
 function debounce<F extends (...args: any[]) => Promise<void>>(func: F, waitFor: number) {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-
   return (...args: Parameters<F>): Promise<void> => {
     return new Promise((resolve, reject) => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
+      if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
         func(...args).then(resolve).catch(reject);
       }, waitFor);
     });
   };
 }
-
 
 export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }: CRTShaderWrapperProps) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -208,28 +203,37 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
   const [isCapturing, setIsCapturing] = useState(false);
   const [renderError, setRenderError] = useState(false);
 
-  // Theme-specific CRT settings
   const crtSettings = useMemo(() => {
-    // Default values, adjust these as base for all themes or specific looks
     const defaults = { 
-      curvature: 15.0,         // Higher = less curve. 0 or less to disable.
-      scanlineDensity: 600.0,  // e.g. target height * 0.8. 0 to disable.
-      scanlineIntensity: 0.15, // 0 to 1
-      noiseIntensity: 0.05,    // 0 to 1. 0 to disable.
-      brightness: 1.0,         // Multiplier
-      distortionAmount: 0.3    // Chromatic aberration. 0 to disable.
+      curvature: 20.0, scanlineDensity: 800.0, scanlineIntensity: 0.0, 
+      noiseIntensity: 0.0, brightness: 1.0, distortionAmount: 0.0,
+      vignetteStrength: 0.0, vignetteSmoothness: 0.5 
     };
     switch (theme) {
       case 'mainframe70s':
-        return { ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.2, noiseIntensity: 0.07, brightness: 1.05, distortionAmount: 0.2 };
+        return { 
+          ...defaults, curvature: 10.0, scanlineDensity: 600.0, scanlineIntensity: 0.18, 
+          noiseIntensity: 0.06, brightness: 1.1, distortionAmount: 0.1,
+          vignetteStrength: 1.2, vignetteSmoothness: 0.4 
+        };
       case 'pc80s':
-        return { ...defaults, curvature: 10.0, scanlineDensity: 500.0, scanlineIntensity: 0.18, noiseIntensity: 0.06, brightness: 1.0, distortionAmount: 0.4 };
+        return { 
+          ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.12, 
+          noiseIntensity: 0.04, brightness: 1.0, distortionAmount: 0.25,
+          vignetteStrength: 1.0, vignetteSmoothness: 0.5
+        };
       case 'bbs90s':
-        return { ...defaults, curvature: 8.0, scanlineDensity: 450.0, scanlineIntensity: 0.12, noiseIntensity: 0.04, brightness: 1.02, distortionAmount: 0.25 };
+        return { 
+          ...defaults, curvature: 15.0, scanlineDensity: 750.0, scanlineIntensity: 0.10, 
+          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.4,
+          vignetteStrength: 0.8, vignetteSmoothness: 0.6
+        };
       case 'modern':
       default:
-        // Modern might have very subtle or no CRT effects from the shader, relying more on TerminalDisplay's CSS effects
-        return { ...defaults, curvature: 30.0, scanlineIntensity: 0.05, noiseIntensity: 0.02, distortionAmount: 0.05, brightness: 1.0 };
+        return { // Minimal effects for modern, mostly relying on CSS if any
+          ...defaults, curvature: 0.0, scanlineIntensity: 0.0, 
+          noiseIntensity: 0.01, distortionAmount: 0.0, vignetteStrength: 0.2, vignetteSmoothness: 0.7, brightness: 1.0
+        };
     }
   }, [theme]);
   
@@ -240,75 +244,51 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
         setIsCapturing(true);
         try {
           const canvas = await html2canvas(element, {
-            backgroundColor: null, // Important for transparency if underlying DOM has it
-            allowTaint: true,
-            useCORS: true,
-            scale: window.devicePixelRatio || 1, // Capture at device resolution for sharpness
-            logging: false, // Disable html2canvas logging in console
-            scrollX: 0, 
-            scrollY: 0,
-            windowWidth: element.scrollWidth, // Use scrollWidth/Height for full content size
-            windowHeight: element.scrollHeight,
+            backgroundColor: null, allowTaint: true, useCORS: true,
+            scale: window.devicePixelRatio || 1, logging: false,
+            scrollX: 0, scrollY: 0,
+            windowWidth: element.scrollWidth, windowHeight: element.scrollHeight,
           });
-          
           const newTexture = new THREE.CanvasTexture(canvas);
           newTexture.needsUpdate = true;
-          
-          // Dispose old texture before assigning new one to prevent memory leaks
           if (textureRef.current && textureRef.current !== newTexture) {
             textureRef.current.dispose();
           }
           textureRef.current = newTexture;
-          setCurrentTextureForMesh(newTexture); // This will trigger re-render of CRTMesh
-
+          setCurrentTextureForMesh(newTexture);
         } catch (error) {
           console.error('CRTShader: html2canvas capture failed:', error);
-          setRenderError(true); // Fallback to showing children directly
+          setRenderError(true);
         } finally {
           setIsCapturing(false);
         }
-      }, 150), // Debounce time in ms (e.g., 150-250ms). Adjust based on performance.
-    [isCapturing] // isCapturing dependency ensures debounce is stable unless capture state changes
+      }, 180), 
+    [isCapturing]
   );
 
   useEffect(() => {
     if (!enabled || !contentRef.current) {
-      if (textureRef.current) { // Cleanup if disabled or unmounted
+      if (textureRef.current) {
         textureRef.current.dispose();
         textureRef.current = null;
         setCurrentTextureForMesh(null);
       }
       return;
     }
-
     const currentContentElement = contentRef.current;
-    
-    // Initial capture
     debouncedCaptureAndSetTexture(currentContentElement);
-
-    // Observe DOM changes to trigger re-capture
     const observer = new MutationObserver((mutationsList) => {
-      // We only need to know *if* there were mutations, not what they were.
       if (mutationsList.length > 0 && currentContentElement) {
          debouncedCaptureAndSetTexture(currentContentElement);
       }
     });
-
     observer.observe(currentContentElement, { 
-      attributes: true, 
-      childList: true, 
-      subtree: true, 
-      characterData: true 
+      attributes: true, childList: true, subtree: true, characterData: true 
     });
-
-    // Resize observer to recapture on size changes
     const resizeObserver = new ResizeObserver(() => {
-      if (currentContentElement) {
-        debouncedCaptureAndSetTexture(currentContentElement);
-      }
+      if (currentContentElement) debouncedCaptureAndSetTexture(currentContentElement);
     });
     resizeObserver.observe(currentContentElement);
-
     return () => {
       observer.disconnect();
       resizeObserver.disconnect();
@@ -320,54 +300,42 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
     };
   }, [enabled, debouncedCaptureAndSetTexture]); 
   
-  // If shader is disabled or an error occurred, just render children directly
   if (!enabled || renderError) {
     return <>{children}</>;
   }
   
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-      {/* This div is captured by html2canvas */}
       <div 
         ref={contentRef} 
         style={{ 
-          width: '100%', 
-          height: '100%',
-          // Visibility is controlled by whether the texture is ready for the overlay.
-          // This prevents FOUC (Flash Of Unstyled Content) if html2canvas is slow.
+          width: '100%', height: '100%',
           visibility: currentTextureForMesh ? 'hidden' : 'visible',
         }}
       >
         {children}
       </div>
-      
-      {/* The WebGL Canvas for rendering the shader effect */}
       {currentTextureForMesh && (
         <div style={{ 
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          zIndex: 1, // Ensure it overlays the original content div
-          pointerEvents: 'none', // Allows interaction with the underlying DOM
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+          zIndex: 1, pointerEvents: 'none',
         }}>
           <Canvas 
-            gl={{ 
-              antialias: false, // Often false for retro pixel effects
-              alpha: true,      // For transparency if shader/DOM needs it
-              powerPreference: "high-performance" 
-            }}
-            dpr={window.devicePixelRatio || 1} // Match screen DPR for crispness
+            gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
+            dpr={window.devicePixelRatio || 1}
             style={{ width: '100%', height: '100%' }}
-            camera={{ position: [0, 0, 1], near: 0.1, far: 2 }} // Simple ortho-like camera
-            flat // Use linear color workflow, good for shaders
-            frameloop="always" // Keep rendering for time-based effects in shader
+            camera={{ position: [0, 0, 1], near: 0.1, far: 2 }}
+            flat frameloop="always"
           >
             <CRTMesh 
               texture={currentTextureForMesh} 
               {...crtSettings} 
-              scanlineDensity={crtSettings.scanlineDensity > 0 ? (contentRef.current?.offsetHeight || 600) * 0.7 : 0} // Dynamic scanline density
+              // Dynamic scanline density based on actual rendered height for consistency
+              scanlineDensity={
+                crtSettings.scanlineDensity > 0 && contentRef.current 
+                ? crtSettings.scanlineDensity * (contentRef.current.offsetHeight / 1000.0) 
+                : 0
+              }
             />
           </Canvas>
         </div>
