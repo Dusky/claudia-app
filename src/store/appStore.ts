@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { type TerminalLine } from '../terminal/TerminalDisplay';
 import type { AvatarState } from '../avatar/types';
 import type { Personality } from '../types/personality';
-import { config } from '../config/env';
+import { config as globalAppConfig } from '../config/env'; // Renamed to avoid conflict with state 'config'
 import { type ClaudiaDatabase } from '../storage';
 import { type StorageService } from '../storage/types';
 import { DEFAULT_PERSONALITY } from '../types/personality';
@@ -30,6 +30,7 @@ export interface ConfigSettings {
   backgroundAnimation: boolean;
   colorShifts: boolean;
   staticOverlay: boolean;
+  screenCurvature: boolean; // Added for screen curvature effect
   
   // Performance
   reducedAnimations: boolean;
@@ -57,6 +58,7 @@ export const defaultConfig: ConfigSettings = {
   backgroundAnimation: true,
   colorShifts: true,
   staticOverlay: false,
+  screenCurvature: false, // Default to false, themes or user can enable
   
   // Performance
   reducedAnimations: false,
@@ -139,7 +141,7 @@ export interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Core application state
-  currentTheme: config.defaultTheme,
+  currentTheme: globalAppConfig.defaultTheme, // Use renamed import
   lines: [],
   isLoading: false,
   avatarState: {
@@ -191,14 +193,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   
   // Config actions
-  setConfig: async (config) => {
+  setConfig: async (newConfig) => { // Renamed parameter to avoid conflict
     const { settingsManager } = get();
-    set({ config });
+    set({ config: newConfig });
     if (settingsManager) {
-      await settingsManager.setAppConfig(config);
+      await settingsManager.setAppConfig(newConfig);
     } else {
       // Fallback to localStorage if settings manager not initialized
-      localStorage.setItem('claudia-config', JSON.stringify(config));
+      localStorage.setItem('claudia-config', JSON.stringify(newConfig));
     }
   },
   loadConfig: async () => {
@@ -214,10 +216,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       
       if (savedConfig) {
-        set({ config: savedConfig });
+        // Merge with defaultConfig to ensure all keys are present
+        set({ config: { ...defaultConfig, ...savedConfig } });
+      } else {
+        set({ config: defaultConfig });
       }
     } catch (error) {
       console.warn('Failed to load saved config:', error);
+      set({ config: defaultConfig }); // Fallback to default on error
     }
     set({ configLoaded: true });
   },
@@ -250,7 +256,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const newState = typeof partialState === 'function' 
       ? (state: AppState) => {
           const newAvatarState = { ...state.avatarState, ...partialState(state.avatarState) };
-          // Save to localStorage for persistence
           localStorage.setItem('claudia-avatar-state', JSON.stringify({
             visible: newAvatarState.visible,
             expression: newAvatarState.expression,
@@ -263,7 +268,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       : (state: AppState) => {
           const newAvatarState = { ...state.avatarState, ...partialState };
-          // Save to localStorage for persistence
           localStorage.setItem('claudia-avatar-state', JSON.stringify({
             visible: newAvatarState.visible,
             expression: newAvatarState.expression,
@@ -339,7 +343,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       allPersonalitiesInModal: allPs,
       activePersonalityIdInModal: activeP ? activeP.id : null,
-      editingPersonalityInModal: personality, // Keep the saved personality in view
+      editingPersonalityInModal: personality, 
     });
   },
   deletePersonalityInModal: async (db, personalityId) => {
@@ -354,7 +358,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const activeP = await db.getActivePersonality();
     if (activeP && activeP.id === personalityId) {
-      // Ensure DEFAULT_PERSONALITY exists before setting it active
       const defaultP = await db.getPersonality(DEFAULT_PERSONALITY.id);
       if (!defaultP) {
         await db.savePersonality(DEFAULT_PERSONALITY);
@@ -370,7 +373,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       allPersonalitiesInModal: allPs,
       activePersonalityIdInModal: newActiveP ? newActiveP.id : null,
-      editingPersonalityInModal: newActiveP || null, // Show the new active personality or null
+      editingPersonalityInModal: newActiveP || null, 
     });
   },
   
@@ -383,12 +386,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } else {
       await db.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, null);
-      if (loadMessages) set({ lines: [] }); // Clear lines if no active conversation
+      if (loadMessages) set({ lines: [] }); 
     }
   },
 
   loadConversationMessages: async (db: StorageService, id) => {
-    const history = await db.getMessages(id, config.conversationHistoryLength + 20);
+    const history = await db.getMessages(id, globalAppConfig.conversationHistoryLength + 20); // Use renamed import
     const newLines = history.map(m => ({
       id: `hist-${m.id}-${m.timestamp}`, type: m.role === 'user' ? 'input' : 'output',
       content: m.content, timestamp: m.timestamp,
@@ -409,43 +412,30 @@ export const useAppStore = create<AppState>((set, get) => ({
             activeConvIdToUse = conv.id;
             const messages = await db.getMessages(conv.id, 1);
             if (messages.length === 0) {
-                playBootAnimation = true; // Existing conversation is empty, treat as fresh start
+                playBootAnimation = true; 
             }
-            // If messages.length > 0, playBootAnimation remains false, normal load
         } else {
-            // lastActiveId exists, but conversation doesn't (e.g., deleted) -> new session
             playBootAnimation = true;
-            activeConvIdToUse = null; // Ensure we don't try to use the invalid ID
+            activeConvIdToUse = null; 
         }
     } else {
-        // No lastActiveId, so it's a completely fresh session
         playBootAnimation = true;
     }
 
     if (playBootAnimation) {
-        // If we're playing boot animation, we want a "clean slate".
-        // If activeConvIdToUse was from an existing (but empty) conversation, we can reuse its ID.
-        // Otherwise (no valid last active ID, or it pointed to a deleted convo), create a new one.
         if (!activeConvIdToUse) { 
             const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
             activeConvIdToUse = newConv.id;
         }
-        // Explicitly clear lines in the store *before* App.tsx starts adding boot animation lines.
-        // App.tsx also calls setLines([]), but this ensures the store state is definitely clean for the boot sequence.
         set({ lines: [] }); 
     }
     
-    // Set the determined active conversation ID in the store and persist it.
-    // Crucially, do NOT load messages here; App.tsx will handle that based on playBootAnimation.
     await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, false); 
 
     return { activeConvId: activeConvIdToUse, playBootAnimation };
   },
   
   clearTerminalForNewSession: async () => {
-    // This function is now mostly for specific commands like /conversation-clearhist
-    // that only want to clear lines and show boot messages without resetting the conversation.
-    // The /clear command uses resetConversationAndTerminal for a full reset.
     set({ lines: [
       { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
     ]});
@@ -455,7 +445,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetConversationAndTerminal: async (db: StorageService) => {
     const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
-    // Set new conversation active, but don't load messages (it's new and empty)
     await get().setActiveConversationAndLoadMessages(db, newConv.id, false);
 
     const now = new Date().toISOString();
@@ -472,7 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         content: 'Ready for new commands!', 
         timestamp: now, 
         user: 'claudia',
-        isChatResponse: true // To get the "claudia>" prefix
+        isChatResponse: true 
       }
     ];
     set({ lines: initialLines });
@@ -480,6 +469,5 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 }));
 
-// Helper to use outside of React components if needed
 export const getAppStoreState = useAppStore.getState;
 export const setAppStoreState = useAppStore.setState;

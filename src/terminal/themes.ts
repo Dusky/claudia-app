@@ -20,19 +20,20 @@ export interface TerminalTheme {
     lineHeight: string;
   };
   effects: {
-    scanlines: boolean; // This existing property might be related, but overlayClassName offers more flexibility
+    scanlines: boolean;
     glow: boolean;
     flicker: boolean;
     crt: boolean;
     noise: boolean;
     noiseIntensity?: number;
+    screenCurvature?: boolean; // Added for barrel distortion effect
   };
   spacing: {
     padding: string;
     lineSpacing: string;
     characterSpacing: string;
   };
-  overlayClassName?: string; // Added for theme-specific shader overlay CSS class
+  overlayClassName?: string;
 }
 
 export const themes: Record<string, TerminalTheme> = {
@@ -62,14 +63,15 @@ export const themes: Record<string, TerminalTheme> = {
       glow: true,
       flicker: false,
       crt: true,
-      noise: false
+      noise: false,
+      screenCurvature: true, // Enabled for this theme
     },
     spacing: {
       padding: '20px',
       lineSpacing: '2px',
       characterSpacing: '0.5px'
     },
-    overlayClassName: 'mainframe-70s-overlay' // Example overlay class
+    overlayClassName: 'mainframe-70s-overlay'
   },
 
   pc80s: {
@@ -98,14 +100,15 @@ export const themes: Record<string, TerminalTheme> = {
       glow: false,
       flicker: false,
       crt: true,
-      noise: false
+      noise: false,
+      screenCurvature: true, // Enabled for this theme
     },
     spacing: {
       padding: '16px',
       lineSpacing: '1px',
       characterSpacing: '0px'
     },
-    overlayClassName: 'pc-80s-overlay' // Example overlay class
+    overlayClassName: 'pc-80s-overlay'
   },
 
   bbs90s: {
@@ -134,14 +137,16 @@ export const themes: Record<string, TerminalTheme> = {
       glow: true,
       flicker: true,
       crt: false,
-      noise: true
+      noise: true,
+      noiseIntensity: 0.6, // Slightly increased noise intensity
+      screenCurvature: false,
     },
     spacing: {
       padding: '12px',
       lineSpacing: '1px',
       characterSpacing: '0.2px'
     },
-    overlayClassName: 'bbs-90s-overlay' // Example overlay class
+    overlayClassName: 'bbs-90s-overlay'
   },
 
   modern: {
@@ -170,14 +175,15 @@ export const themes: Record<string, TerminalTheme> = {
       glow: false,
       flicker: false,
       crt: false,
-      noise: false
+      noise: false,
+      screenCurvature: false,
     },
     spacing: {
       padding: '20px',
       lineSpacing: '2px',
       characterSpacing: '0px'
     },
-    overlayClassName: 'modern-subtle-overlay' // Added subtle overlay for modern theme
+    overlayClassName: 'modern-subtle-overlay'
   }
 };
 
