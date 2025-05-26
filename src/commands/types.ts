@@ -2,7 +2,7 @@ import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { StorageService } from '../storage/types';
-import type { ClaudiaDatabase } from '../storage/database';
+// import type { ClaudiaDatabase } from '../storage/database';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
 import type { Personality } from '../types/personality';
 // Removed direct import of CommandRegistry from './registry' to avoid circular dependency potential
@@ -22,7 +22,7 @@ export interface CommandContext {
   commandRegistry: CommandRegistry; // Provide access to the registry itself for sub-commands or help
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null, loadMessages?: boolean) => Promise<void>;
-  resetConversationAndTerminal: (db: ClaudiaDatabase) => Promise<void>; // Action to clear terminal and start new conversation
+  resetConversationAndTerminal: (db: StorageService) => Promise<void>; // Action to clear terminal and start new conversation
 }
 
 export interface CommandResult {

@@ -49,7 +49,7 @@ export const askCommand: Command = {
       context.setLoading(true);
       
       const activePersonality = await context.storage.getActivePersonality();
-      let systemPrompt = activePersonality?.system_prompt || 
+      const systemPrompt = activePersonality?.system_prompt || 
         `You are Claudia, a helpful AI terminal companion.`;
 
       const avatarInstructions = `

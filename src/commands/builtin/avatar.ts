@@ -224,7 +224,7 @@ export const avatarCommand: Command = {
           });
           break;
 
-        case 'test':
+        case 'test': {
           // Test the new AI-controlled photo description system
           const testDescription = value || 'me sitting comfortably with a warm smile, wearing my favorite sundress, cozy lighting in my digital nook';
           
@@ -244,6 +244,7 @@ export const avatarCommand: Command = {
             timestamp, user: 'claudia'
           });
           break;
+        }
 
         default:
           lines.push({
@@ -382,7 +383,7 @@ export const imagineCommand: Command = {
         const metadata = imageStorage.createImageMetadata(finalPrompt, response.imageUrl, {
           description: description,
           style: 'custom imagine command',
-          model: (provider as any).config?.model || 'unknown',
+          model: (provider as { config?: { model?: string } }).config?.model || 'unknown',
           provider: provider.name,
           dimensions: { width: 512, height: 512 },
           tags: ['imagine', 'custom', 'claudia', 'manual']

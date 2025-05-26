@@ -291,8 +291,9 @@ function App() {
 
   // Listen for help modal events
   useEffect(() => {
-    const handleShowHelpModal = (event: any) => {
-      setHelpModalCommandName(event.detail?.commandName || null);
+    const handleShowHelpModal = (event: Event) => {
+      const customEvent = event as CustomEvent<{ commandName?: string }>;
+      setHelpModalCommandName(customEvent.detail?.commandName || null);
       setHelpModalOpen(true);
     };
 
@@ -331,7 +332,7 @@ function App() {
       commandRegistry,
       activeConversationId: activeConversationId,
       setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs),
-      resetConversationAndTerminal: (db) => resetConversationAndTerminal(db as any), // Pass new action
+      resetConversationAndTerminal: (db) => resetConversationAndTerminal(db), // Pass new action
     };
 
     try {

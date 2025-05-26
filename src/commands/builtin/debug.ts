@@ -7,6 +7,7 @@ export const debugCommand: Command = {
   usage: '/debug [action]',
   aliases: ['dbg'],
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();

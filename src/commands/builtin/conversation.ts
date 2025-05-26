@@ -7,7 +7,7 @@ const findConversationByIdOrPartialTitle = async (
 ): Promise<import('../../storage/types').Conversation | null> => {
   const conversations = await context.storage.getAllConversations();
   // Try exact ID match first
-  let conversation = conversations.find(c => c.id === searchTerm);
+  const conversation = conversations.find(c => c.id === searchTerm);
   if (conversation) return conversation;
 
   // Try partial title match (case-insensitive)
@@ -35,6 +35,7 @@ export const conversationCommand: Command = {
   description: 'Manage chat conversations. Lists subcommands.',
   usage: '/conversation [help|list|new|load|delete|rename|clearhist]',
   aliases: ['conv'],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();

@@ -201,7 +201,7 @@ const parseContent = (content: string): React.ReactNode => {
     // If no special formatting was matched, take the next character as plain text
     if (!matched) {
       // Find the next special character or take the rest of the string
-      const nextSpecial = remaining.search(/[\*_`<\[]/);
+      const nextSpecial = remaining.search(/[*_`<[]/);
       const textLength = nextSpecial === -1 ? remaining.length : nextSpecial;
       const plainText = remaining.slice(0, Math.max(1, textLength));
       

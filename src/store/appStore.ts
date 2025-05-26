@@ -4,6 +4,7 @@ import type { AvatarState } from '../avatar/types';
 import type { Personality } from '../types/personality';
 import { config } from '../config/env';
 import { type ClaudiaDatabase } from '../storage';
+import { type StorageService } from '../storage/types';
 import { DEFAULT_PERSONALITY } from '../types/personality';
 
 const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
@@ -34,12 +35,12 @@ export interface AppState {
   deletePersonalityInModal: (db: ClaudiaDatabase, personalityId: string) => Promise<void>;
   
   // Combined action for setting active conversation and loading messages
-  setActiveConversationAndLoadMessages: (db: ClaudiaDatabase, id: string | null, loadMessages?: boolean) => Promise<void>;
+  setActiveConversationAndLoadMessages: (db: StorageService, id: string | null, loadMessages?: boolean) => Promise<void>;
   
-  loadConversationMessages: (db: ClaudiaDatabase, id: string) => Promise<void>; // Kept if direct loading is needed
+  loadConversationMessages: (db: StorageService, id: string) => Promise<void>; // Kept if direct loading is needed
   initializeActiveConversation: (db: ClaudiaDatabase) => Promise<{ activeConvId: string | null, playBootAnimation: boolean }>;
   clearTerminalForNewSession: () => Promise<void>;
-  resetConversationAndTerminal: (db: ClaudiaDatabase) => Promise<void>; // New action
+  resetConversationAndTerminal: (db: StorageService) => Promise<void>; // New action
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -180,7 +181,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const activeP = await db.getActivePersonality();
     if (activeP && activeP.id === personalityId) {
       // Ensure DEFAULT_PERSONALITY exists before setting it active
-      let defaultP = await db.getPersonality(DEFAULT_PERSONALITY.id);
+      const defaultP = await db.getPersonality(DEFAULT_PERSONALITY.id);
       if (!defaultP) {
         await db.savePersonality(DEFAULT_PERSONALITY);
       }
@@ -199,7 +200,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
   
-  setActiveConversationAndLoadMessages: async (db, id, loadMessages = true) => {
+  setActiveConversationAndLoadMessages: async (db: StorageService, id, loadMessages = true) => {
     set({ activeConversationId: id });
     if (id) {
       await db.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, id);
@@ -212,7 +213,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  loadConversationMessages: async (db, id) => {
+  loadConversationMessages: async (db: StorageService, id) => {
     const history = await db.getMessages(id, config.conversationHistoryLength + 20);
     const newLines = history.map(m => ({
       id: `hist-${m.id}-${m.timestamp}`, type: m.role === 'user' ? 'input' : 'output',
@@ -278,7 +279,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     setTimeout(() => get().addLines({ id: 'boot-re2', type: 'output', content: 'Ready for new commands!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true }), 600);
   },
 
-  resetConversationAndTerminal: async (db: ClaudiaDatabase) => {
+  resetConversationAndTerminal: async (db: StorageService) => {
     const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
     // Set new conversation active, but don't load messages (it's new and empty)
     await get().setActiveConversationAndLoadMessages(db, newConv.id, false);

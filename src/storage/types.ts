@@ -19,7 +19,7 @@ export interface Conversation {
 
 export interface AppSetting {
   key: string;
-  value: any; // Implementations will handle serialization/deserialization
+  value: unknown; // Implementations will handle serialization/deserialization
   type: 'string' | 'number' | 'boolean' | 'json';
 }
 
@@ -28,7 +28,7 @@ export interface CachedAvatarImage {
   promptHash: string;
   imageUrl: string;
   localPath?: string;
-  parameters: Record<string, any>; // Store as object, implementations handle JSON
+  parameters: Record<string, unknown>; // Store as object, implementations handle JSON
   createdAt: string;
   accessedAt: string; // Ensure this is always set/updated on access
   file_size?: number;
@@ -59,15 +59,15 @@ export interface StorageService {
   deleteMessage(messageId: string): Promise<void>;
 
   // Settings methods
-  setSetting(key: string, value: any, type?: AppSetting['type']): Promise<void>;
-  getSetting<T = any>(key: string, defaultValue?: T): Promise<T | null>;
-  getAllSettings(): Promise<Record<string, any>>;
+  setSetting(key: string, value: unknown, type?: AppSetting['type']): Promise<void>;
+  getSetting<T = unknown>(key: string, defaultValue?: T): Promise<T | null>;
+  getAllSettings(): Promise<Record<string, unknown>>;
 
   // Avatar cache methods
   cacheAvatarImage(
     promptHash: string,
     imageUrl: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, unknown>,
     localPath?: string,
     fileSize?: number
   ): Promise<void>;

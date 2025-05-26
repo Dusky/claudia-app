@@ -53,7 +53,7 @@ export class MockDatabase implements StorageService {
 
       const avatarCacheData = localStorage.getItem('claudia_avatar_cache');
       if (avatarCacheData) {
-        const parsedCache = JSON.parse(avatarCacheData) as [string, any][]; // Use any for initial parse
+        const parsedCache = JSON.parse(avatarCacheData) as [string, CachedAvatarImage][]; // Parse as cached avatar image type
         this.avatarCache = new Map(parsedCache.map(([key, value]) => {
           // Ensure parameters is an object, not a string
           if (typeof value.parameters === 'string') { // Check if params is string (new format but stringified)
@@ -63,14 +63,14 @@ export class MockDatabase implements StorageService {
               console.warn(`Failed to parse avatar parameters for ${key}`, e);
               value.parameters = {}; // Default to empty object on error
             }
-          } else if (value.params && typeof value.params === 'string') { // Check for old 'params' field (old format)
+          } else if ('params' in value && typeof (value as { params?: string }).params === 'string') { // Check for old 'params' field (old format)
              try {
-              value.parameters = JSON.parse(value.params);
+              value.parameters = JSON.parse((value as { params: string }).params);
             } catch (e) {
               console.warn(`Failed to parse avatar 'params' for ${key}`, e);
               value.parameters = {}; // Default to empty object on error
             }
-            delete value.params; // remove old field
+            delete (value as { params?: string }).params; // remove old field
           } else if (!value.parameters) { // If parameters field is missing
             value.parameters = {};
           }
@@ -200,7 +200,7 @@ export class MockDatabase implements StorageService {
   }
 
   // Settings methods
-  async setSetting(key: string, value: any, type?: AppSetting['type']): Promise<void> {
+  async setSetting(key: string, value: unknown, type?: AppSetting['type']): Promise<void> {
     let resolvedType = type;
     if (!resolvedType) { // Infer type if not provided
         if (typeof value === 'string') resolvedType = 'string';
@@ -212,7 +212,7 @@ export class MockDatabase implements StorageService {
     this.saveToLocalStorage();
   }
 
-  async getSetting<T = any>(key: string, defaultValue?: T): Promise<T | null> {
+  async getSetting<T = unknown>(key: string, defaultValue?: T): Promise<T | null> {
     const setting = this.settings.get(key);
     if (!setting) return defaultValue !== undefined ? defaultValue : null;
 
@@ -228,8 +228,8 @@ export class MockDatabase implements StorageService {
     return setting.value as unknown as T;
   }
   
-  async getAllSettings(): Promise<Record<string, any>> {
-    const allSettings: Record<string, any> = {};
+  async getAllSettings(): Promise<Record<string, unknown>> {
+    const allSettings: Record<string, unknown> = {};
     for (const [key, setting] of this.settings.entries()) {
        if (setting.type === 'json' && typeof setting.value === 'string') {
         try {
@@ -246,7 +246,7 @@ export class MockDatabase implements StorageService {
   async cacheAvatarImage(
     promptHash: string,
     imageUrl: string,
-    parameters: Record<string, any>, // Expect parameters as object
+    parameters: Record<string, unknown>, // Expect parameters as object
     localPath?: string,
     fileSize?: number
   ): Promise<void> {

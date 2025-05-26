@@ -7,6 +7,7 @@ export const helpCommand: Command = {
   usage: '/help [command_name]',
   aliases: ['h', '?'],
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
     const timestamp = new Date().toISOString();
     

@@ -1,8 +1,9 @@
-import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpression, AvatarAction, AvatarPose, AvatarPosition } from './types';
+import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpression, AvatarAction, AvatarPose, AvatarPosition, AvatarGesture } from './types';
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
 import { ImagePromptComposer, type PromptModificationContext } from '../providers/image/promptComposer';
 import { imageStorage } from '../utils/imageStorage';
+import type { Personality } from '../types/personality';
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
   let hash = 0;
@@ -123,19 +124,19 @@ export class AvatarController {
       
       switch (key.toLowerCase()) {
         case 'position':
-          command.position = value as any;
+          command.position = value as AvatarPosition;
           break;
         case 'expression':
-          command.expression = value as any;
+          command.expression = value as AvatarExpression;
           break;
         case 'action':
-          command.action = value as any;
+          command.action = value as AvatarAction;
           break;
         case 'gesture':
-          command.gesture = value as any;
+          command.gesture = value as AvatarGesture;
           break;
         case 'pose':
-          command.pose = value as any;
+          command.pose = value as AvatarPose;
           break;
         case 'hide':
           command.hide = value.toLowerCase() === 'true';
@@ -304,7 +305,7 @@ export class AvatarController {
       const response = await provider.generateImage(imageRequest);
       
       // Cache the result
-      this.database.cacheAvatarImage(promptHash, response.imageUrl, params);
+      this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
       this.state.imageUrl = response.imageUrl;
 
     } catch (error) {
@@ -402,7 +403,7 @@ export class AvatarController {
         const metadata = imageStorage.createImageMetadata(finalPrompt, response.imageUrl, {
           description: description,
           style: promptComponents.style,
-          model: (provider as any).config?.model || 'unknown',
+          model: (provider as { config?: { model?: string } }).config?.model || 'unknown',
           provider: provider.name,
           dimensions: { width: 512, height: 512 },
           tags: ['avatar', 'ai-generated', 'claudia'],
@@ -442,7 +443,8 @@ export class AvatarController {
   }
 
   // Automatically generate avatar based on AI response
-  async generateAvatarFromResponse(aiResponse: string, _personality?: any): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async generateAvatarFromResponse(aiResponse: string, _personality?: Personality): Promise<void> {
     // Extract emotional context and actions from AI response
     const emotionalContext = this.analyzeResponseForEmotion(aiResponse);
     
@@ -502,7 +504,13 @@ export class AvatarController {
     shouldShow: boolean;
   } {
     const lowerResponse = response.toLowerCase();
-    let result: any = { shouldShow: false };
+    const result: {
+      expression?: AvatarExpression;
+      action?: AvatarAction;
+      pose?: AvatarPose;
+      position?: AvatarPosition;
+      shouldShow: boolean;
+    } = { shouldShow: false };
 
     // Look for Japanese brackets indicating actions/emotions
     const bracketMatches = response.match(/『([^』]+)』/g);
