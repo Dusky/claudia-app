@@ -108,7 +108,7 @@ export class ReplicateProvider implements ImageProvider {
   };
 
   async initialize(providerConfig?: ReplicateProviderConfig): Promise<void> {
-    const apiKey = providerConfig?.apiKey || getApiKey('replicate') || 'r8_GDxK9nXYfIdr4Trm88CXFrWpw39Lq084SZJ1F';
+    const apiKey = providerConfig?.apiKey || getApiKey('replicate');
     
     // Use proxy in development to avoid CORS issues
     const isDevelopment = import.meta.env.DEV;
