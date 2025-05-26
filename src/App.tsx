@@ -11,6 +11,7 @@ import { AppSettingsModal } from './components/AppSettingsModal';
 import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { TopBar } from './components/TopBar';
+import { CRTShaderWrapper } from './components/CRTShader';
 import { getTheme, type TerminalTheme } from './terminal/themes';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
@@ -313,51 +314,52 @@ function App() {
   };
 
   return (
-    <div className="App">
-      {showBootSequence && (
-        <BootSequence
-          config={config}
-          onComplete={handleBootSequenceComplete}
-          onSkip={handleBootSequenceSkip}
-        />
-      )}
-      
-      {!showBootSequence && (
-        <>
-          {themeObject.overlayClassName && (
-            <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
-          )}
-          <TopBar
-            theme={themeObject}
-            storage={database}
-            activeConversationId={activeConversationId}
-            onConversationSwitch={handleConversationSwitch}
-            onNewConversation={handleNewConversation}
-            onConversationDelete={handleConversationDelete}
-            onConversationRename={handleConversationRename}
+    <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}>
+      <div className="App">
+        {showBootSequence && (
+          <BootSequence
+            config={config}
+            onComplete={handleBootSequenceComplete}
+            onSkip={handleBootSequenceSkip}
           />
-          <div className="main-content">
-            <TerminalDisplay
-              theme={themeObject} lines={lines} onInput={handleInput}
-              prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
-              config={config}
+        )}
+        
+        {!showBootSequence && (
+          <>
+            {themeObject.overlayClassName && (
+              <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
+            )}
+            <TopBar
+              theme={themeObject}
+              storage={database}
+              activeConversationId={activeConversationId}
+              onConversationSwitch={handleConversationSwitch}
+              onNewConversation={handleNewConversation}
+              onConversationDelete={handleConversationDelete}
+              onConversationRename={handleConversationRename}
             />
-            <AvatarPanel state={avatarState} theme={themeObject} />
-          </div>
-          <StatusBar
-            theme={themeObject} currentTheme={currentTheme}
-            llmManager={llmManager} imageManager={imageManager} storage={database}
-            activeConversationId={activeConversationId}
-            onThemeClick={handleThemeStatusClick}
-            onPersonalityClick={() => openPersonalityEditorModal(database)}
-            onImageProviderClick={() => setImageModalOpen(true)}
-            onAIOptionsClick={() => setAiOptionsModalOpen(true)}
-            onAppSettingsClick={() => setAppSettingsModalOpen(true)}
-          />
-        </>
-      )}
-
-      {personalityModalOpen && (
+            <div className="main-content">
+              <TerminalDisplay
+                theme={themeObject} lines={lines} onInput={handleInput}
+                prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
+                config={config}
+              />
+              <AvatarPanel state={avatarState} theme={themeObject} />
+            </div>
+            <StatusBar
+              theme={themeObject} currentTheme={currentTheme}
+              llmManager={llmManager} imageManager={imageManager} storage={database}
+              activeConversationId={activeConversationId}
+              onThemeClick={handleThemeStatusClick}
+              onPersonalityClick={() => openPersonalityEditorModal(database)}
+              onImageProviderClick={() => setImageModalOpen(true)}
+              onAIOptionsClick={() => setAiOptionsModalOpen(true)}
+              onAppSettingsClick={() => setAppSettingsModalOpen(true)}
+            />
+          </>
+        )}
+      </div>
+        {personalityModalOpen && (
         <PersonalityModal
           isOpen={personalityModalOpen} onClose={closePersonalityModal}
           onSave={(p) => savePersonalityInModal(database, p)}
@@ -406,7 +408,7 @@ function App() {
         storage={database}
         theme={themeObject}
       />
-    </div>
+    </CRTShaderWrapper>
   );
 }
 
