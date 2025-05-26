@@ -24,6 +24,8 @@ const fragmentShader = `
   uniform float distortionAmount; // Chromatic aberration amount. 0 to disable.
   uniform float vignetteStrength; // How strong the vignette is, e.g., 0.5 to 1.5
   uniform float vignetteSmoothness; // How soft the vignette edge is, e.g., 0.2 to 0.8
+  uniform float wobbleIntensity; // How much the screen wobbles, e.g., 0.001 to 0.005. 0 to disable.
+  uniform float wobbleSpeed; // Speed of the wobble, e.g., 1.0 to 5.0
   
   varying vec2 vUv;
   
@@ -42,11 +44,19 @@ const fragmentShader = `
 
   void main() {
     vec2 uv = vUv;
+
+    // Screen Wobble
+    if (wobbleIntensity > 0.0001) {
+      float wobbleX = sin(time * wobbleSpeed + uv.y * 8.0) * wobbleIntensity; // Wave-like horizontal wobble
+      float wobbleY = cos(time * wobbleSpeed * 0.65 + uv.x * 6.0) * wobbleIntensity; // Wave-like vertical wobble
+      uv.x += wobbleX;
+      uv.y += wobbleY;
+    }
     
     uv = curveUV(uv, curvature);
     
     if (curvature > 0.001 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); 
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); // Output transparent black for areas outside curve
       return;
     }
     
@@ -54,18 +64,26 @@ const fragmentShader = `
     
     // Scanlines
     if (scanlineIntensity > 0.0 && scanlineDensity > 0.0) {
-      // Use resolution.y to make scanline density somewhat consistent across screen sizes
-      float actualScanlineDensity = scanlineDensity * (resolution.y / 1000.0); // Normalize density
-      float scanlineEffect = sin(uv.y * actualScanlineDensity - time * 5.0); // Slower animation
-      scanlineEffect = smoothstep(0.0, 1.0, pow(scanlineEffect * 0.5 + 0.5, 2.5)); // Sharper, more defined lines
-      col = mix(col, col * (1.0 - scanlineIntensity), scanlineEffect); // Darken for scanlines
+      float actualScanlineDensity = scanlineDensity * (resolution.y / 1000.0); 
+      float scanlineEffect = sin(uv.y * actualScanlineDensity - time * 5.0); 
+      scanlineEffect = smoothstep(0.0, 1.0, pow(scanlineEffect * 0.5 + 0.5, 2.5)); 
+      col = mix(col, col * (1.0 - scanlineIntensity), scanlineEffect); 
     }
     
     // RGB shift for chromatic aberration
     if (distortionAmount > 0.001) {
       float shift = 0.0015 * distortionAmount; 
-      vec2 ruv = curveUV(vUv + vec2(shift, 0.0), curvature); 
-      vec2 buv = curveUV(vUv - vec2(shift, 0.0), curvature);
+      // Apply wobble to the base UVs for chromatic aberration samples too
+      vec2 baseUvForShift = vUv;
+      if (wobbleIntensity > 0.0001) {
+        float wobbleX = sin(time * wobbleSpeed + baseUvForShift.y * 8.0) * wobbleIntensity;
+        float wobbleY = cos(time * wobbleSpeed * 0.65 + baseUvForShift.x * 6.0) * wobbleIntensity;
+        baseUvForShift.x += wobbleX;
+        baseUvForShift.y += wobbleY;
+      }
+
+      vec2 ruv = curveUV(baseUvForShift + vec2(shift, 0.0), curvature); 
+      vec2 buv = curveUV(baseUvForShift - vec2(shift, 0.0), curvature);
 
       if (ruv.x >= 0.0 && ruv.x <= 1.0 && ruv.y >= 0.0 && ruv.y <= 1.0) {
         col.r = texture2D(tDiffuse, ruv).r;
@@ -84,20 +102,18 @@ const fragmentShader = `
     // Vignette
     if (vignetteStrength > 0.0) {
       float vignetteDist = distance(uv, vec2(0.5));
-      // vignetteSmoothness: 0.1 (hard edge) to 0.8 (very soft edge)
-      // vignetteStrength: affects how dark the edges get
       float vig = smoothstep(vignetteSmoothness, 0.2, vignetteDist); 
       col *= mix(1.0, vig, vignetteStrength);
     }
     
     col *= brightness;
     col = clamp(col, 0.0, 1.0);
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(col, 1.0); // Main content is opaque
   }
 `;
 
 interface CRTMeshUniforms {
-  [uniform: string]: { value: any }; // Allow arbitrary uniforms
+  [uniform: string]: { value: any }; 
   tDiffuse: { value: THREE.Texture | null };
   time: { value: number };
   resolution: { value: THREE.Vector2 };
@@ -109,6 +125,8 @@ interface CRTMeshUniforms {
   distortionAmount: { value: number };
   vignetteStrength: { value: number };
   vignetteSmoothness: { value: number };
+  wobbleIntensity: { value: number };
+  wobbleSpeed: { value: number };
 }
 
 interface CRTMeshProps {
@@ -121,6 +139,8 @@ interface CRTMeshProps {
   distortionAmount?: number;
   vignetteStrength?: number;
   vignetteSmoothness?: number;
+  wobbleIntensity?: number;
+  wobbleSpeed?: number;
 }
 
 function CRTMesh({ 
@@ -133,6 +153,8 @@ function CRTMesh({
   distortionAmount = 0.3,
   vignetteStrength = 1.0,
   vignetteSmoothness = 0.5,
+  wobbleIntensity = 0.0,
+  wobbleSpeed = 2.0,
 }: CRTMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { size, gl } = useThree();
@@ -149,13 +171,16 @@ function CRTMesh({
     distortionAmount: { value: distortionAmount },
     vignetteStrength: { value: vignetteStrength },
     vignetteSmoothness: { value: vignetteSmoothness },
-  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount, vignetteStrength, vignetteSmoothness]);
+    wobbleIntensity: { value: wobbleIntensity },
+    wobbleSpeed: { value: wobbleSpeed },
+  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount, vignetteStrength, vignetteSmoothness, wobbleIntensity, wobbleSpeed]);
   
   const material = useMemo(() => {
     return new ShaderMaterial({
       uniforms,
       vertexShader,
       fragmentShader,
+      transparent: true, 
     });
   }, [uniforms]);
 
@@ -207,32 +232,37 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
     const defaults = { 
       curvature: 20.0, scanlineDensity: 800.0, scanlineIntensity: 0.0, 
       noiseIntensity: 0.0, brightness: 1.0, distortionAmount: 0.0,
-      vignetteStrength: 0.0, vignetteSmoothness: 0.5 
+      vignetteStrength: 0.0, vignetteSmoothness: 0.5,
+      wobbleIntensity: 0.0, wobbleSpeed: 2.0,
     };
     switch (theme) {
       case 'mainframe70s':
         return { 
           ...defaults, curvature: 10.0, scanlineDensity: 600.0, scanlineIntensity: 0.18, 
           noiseIntensity: 0.06, brightness: 1.1, distortionAmount: 0.1,
-          vignetteStrength: 1.2, vignetteSmoothness: 0.4 
+          vignetteStrength: 1.2, vignetteSmoothness: 0.4,
+          wobbleIntensity: 0.002, wobbleSpeed: 1.5,
         };
       case 'pc80s':
         return { 
           ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.12, 
           noiseIntensity: 0.04, brightness: 1.0, distortionAmount: 0.25,
-          vignetteStrength: 1.0, vignetteSmoothness: 0.5
+          vignetteStrength: 1.0, vignetteSmoothness: 0.5,
+          wobbleIntensity: 0.0015, wobbleSpeed: 2.5,
         };
       case 'bbs90s':
         return { 
           ...defaults, curvature: 15.0, scanlineDensity: 750.0, scanlineIntensity: 0.10, 
           noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.4,
-          vignetteStrength: 0.8, vignetteSmoothness: 0.6
+          vignetteStrength: 0.8, vignetteSmoothness: 0.6,
+          wobbleIntensity: 0.001, wobbleSpeed: 3.5, // Faster, more jittery wobble
         };
       case 'modern':
       default:
-        return { // Minimal effects for modern, mostly relying on CSS if any
+        return { 
           ...defaults, curvature: 0.0, scanlineIntensity: 0.0, 
-          noiseIntensity: 0.01, distortionAmount: 0.0, vignetteStrength: 0.2, vignetteSmoothness: 0.7, brightness: 1.0
+          noiseIntensity: 0.01, distortionAmount: 0.0, vignetteStrength: 0.2, vignetteSmoothness: 0.7, brightness: 1.0,
+          wobbleIntensity: 0.0, // No wobble for modern
         };
     }
   }, [theme]);
@@ -330,7 +360,6 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
             <CRTMesh 
               texture={currentTextureForMesh} 
               {...crtSettings} 
-              // Dynamic scanline density based on actual rendered height for consistency
               scanlineDensity={
                 crtSettings.scanlineDensity > 0 && contentRef.current 
                 ? crtSettings.scanlineDensity * (contentRef.current.offsetHeight / 1000.0) 
