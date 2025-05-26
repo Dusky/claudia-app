@@ -128,6 +128,15 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
           </span>
         </div>
         <div className={styles.statusBarItem}>
+          <span>⌨️</span>
+          <span 
+            className={styles.shortcuts}
+            title="Keyboard Shortcuts: ⌘K (Clear), ⌘/ (Help), ⌘⇧T (Themes), ⌘R (Retry), ⌘⇧N (New Chat)"
+          >
+            Shortcuts
+          </span>
+        </div>
+        <div className={styles.statusBarItem}>
             <span>{formatTime(currentTime)}</span>
         </div>
       </div>

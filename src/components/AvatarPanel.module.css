@@ -133,6 +133,19 @@
   100% { transform: rotate(360deg); }
 }
 
+@keyframes subtleBreathing {
+  0%, 100% { 
+    transform: scale(var(--avatar-scale, 1));
+  }
+  50% { 
+    transform: scale(calc(var(--avatar-scale, 1) * 1.01));
+  }
+}
+
+.breathing {
+  animation: subtleBreathing 4s ease-in-out infinite;
+}
+
 .loadingText,
 .imageLoadingText {
   font-size: 0.8rem;

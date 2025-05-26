@@ -1,7 +1,10 @@
-# Claudia - AI Terminal Companion: UPDATED DEVELOPMENT PLAN
+# Claudia - AI Terminal Companion: SUPERSEDED PLAN
 
 **Last Updated:** January 2025  
-**Current Status:** ✅ PHASE 2 COMPLETE - Core AI integration with personality-based image generation
+**Status:** 🔄 **SUPERSEDED** - See NEW_DEVELOPMENT_PLAN.md for current roadmap
+**Previous Status:** ✅ PHASE 2 COMPLETE - Core AI integration with personality-based image generation
+
+⚠️ **THIS PLAN HAS BEEN REPLACED** - User workflow analysis revealed critical UX gaps that require immediate attention. See `NEW_DEVELOPMENT_PLAN.md` for the updated user-first approach.
 
 ---
 

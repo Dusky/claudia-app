@@ -108,11 +108,17 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
             alt={`Claudia avatar - ${state.expression} expression`}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            className={styles.avatarImage}
+            className={`${styles.avatarImage} ${isImageLoaded && !state.isGenerating ? styles.breathing : ''}`}
             style={{
               opacity: isImageLoaded ? (state.visible ? state.opacity : 0.3) : 0,
-              filter: hasImageError ? 'grayscale(100%)' : 'none'
-            }}
+              filter: hasImageError ? 'grayscale(100%)' : 'none',
+              transition: 'all 0.3s ease-in-out',
+              '--avatar-scale': state.scale || 1,
+              // Don't override transform if breathing animation is active
+              ...(!(isImageLoaded && !state.isGenerating) && {
+                transform: `scale(${state.scale || 1})`
+              })
+            } as React.CSSProperties}
           />
         )}
 

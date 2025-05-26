@@ -1,8 +1,11 @@
-# Claudia - AI Terminal Companion: UPDATED PLAN
-## Current Status & Next Phases
+# Claudia - AI Terminal Companion: SUPERSEDED PLAN
+## Previous Status & Phases
 
 **Last Updated:** January 2025  
+**Status:** 🔄 **SUPERSEDED** - See NEW_DEVELOPMENT_PLAN.md for current roadmap
 **Framework Status:** ✅ COMPLETE - Core architecture built and functional
+
+⚠️ **THIS PLAN HAS BEEN REPLACED** - User workflow analysis revealed critical UX gaps. New plan prioritizes user experience over feature expansion.
 
 ---
 

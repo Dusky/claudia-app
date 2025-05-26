@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { TerminalTheme } from './themes';
-import { FixedSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
 import type { CommandRegistry } from '../commands/types';
 import type { ConfigSettings } from '../components/ConfigModal';
 import { ContentRenderer } from './ContentRenderer';
@@ -25,79 +23,37 @@ interface TerminalDisplayProps {
   config?: ConfigSettings; // Configuration for visual effects
 }
 
-// Define a constant for the padding to be applied at the bottom of each line item.
-// This ensures consistent spacing and is used in both height calculation and rendering.
-const INTER_MESSAGE_PADDING_BOTTOM = 8; // pixels
-
-const calculateLineHeight = (theme: TerminalTheme): number => {
-  const fontSize = parseFloat(theme.font.size) || 16;
-  const lineHeightMultiplier = parseFloat(theme.font.lineHeight) || 1.5;
-  
-  // This is the height one visual line of text would occupy.
-  const singleVisualLineHeight = fontSize * lineHeightMultiplier;
-  
-  // Increase buffer significantly to prevent overlap
-  // Aim for 2.0 lines worth of content space plus extra margin
-  const estimatedContentLines = 2.0;
-  const extraMargin = 8; // Additional margin for safety
-  
-  // The total height for an item will be the space for the estimated content lines
-  // plus the explicit padding we want between messages plus extra margin
-  const itemHeight = (singleVisualLineHeight * estimatedContentLines) + INTER_MESSAGE_PADDING_BOTTOM + extraMargin;
-  
-  return Math.ceil(itemHeight);
-};
-
-interface LineRendererProps {
-  index: number;
-  style: React.CSSProperties; // This style from react-window is crucial!
-  data: {
-    lines: TerminalLine[];
-    theme: TerminalTheme;
-    getLineTypeColor: (type: TerminalLine['type']) => string;
-    getUserPrefix: (line: TerminalLine) => string;
-  };
-}
-
-const LineRenderer = React.memo(({ index, style, data }: LineRendererProps) => {
-  const { lines, theme, getLineTypeColor, getUserPrefix } = data;
-  const line = lines[index];
-
-  if (!line) return null;
-
-  // Combine react-window provided style with component-specific styles
-  const combinedStyle: React.CSSProperties = {
-    ...style, // Spread react-window styles first
-    color: getLineTypeColor(line.type),
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    display: 'flex',
-    alignItems: 'baseline', 
-    boxSizing: 'border-box',
-    // Add the defined padding to the bottom of each line item.
-    // This padding is included in the itemSize calculated by calculateLineHeight.
-    paddingBottom: `${INTER_MESSAGE_PADDING_BOTTOM}px`,
-    ...(theme.effects.glow && {
-      textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
-    })
-  };
-
-  return (
-    <div
-      style={combinedStyle} // Use the combined style object
-      className={`terminal-line terminal-line-${line.type}`}
-      data-type={line.type}
-    >
-      <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
-        {getUserPrefix(line)}
-      </span>
-      <span className="line-content" style={{ flex: 1 }}>
-        <ContentRenderer content={line.content} />
-      </span>
-    </div>
-  );
-});
-LineRenderer.displayName = 'LineRenderer';
+// Simple line component without virtualization
+const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix }: {
+  line: TerminalLine;
+  theme: TerminalTheme;
+  getLineTypeColor: (type: TerminalLine['type']) => string;
+  getUserPrefix: (line: TerminalLine) => string;
+}) => (
+  <div
+    className={`terminal-line terminal-line-${line.type}`}
+    data-type={line.type}
+    style={{
+      color: getLineTypeColor(line.type),
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+      display: 'flex',
+      alignItems: 'baseline',
+      marginBottom: '8px',
+      ...(theme.effects.glow && {
+        textShadow: `0 0 10px ${getLineTypeColor(line.type)}40`
+      })
+    }}
+  >
+    <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
+      {getUserPrefix(line)}
+    </span>
+    <span className="line-content" style={{ flex: 1 }}>
+      <ContentRenderer content={line.content} />
+    </span>
+  </div>
+));
+LineComponent.displayName = 'LineComponent';
 
 export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   theme,
@@ -111,7 +67,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const [currentInput, setCurrentInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<List>(null);
+  const outputRef = useRef<HTMLDivElement>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLSpanElement>(null); // Ref for the prompt span
 
@@ -128,16 +84,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [suggestionsLeftOffset, setSuggestionsLeftOffset] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('thinking...');
+  const [loadingDots, setLoadingDots] = useState(0);
 
 
-  const LINE_HEIGHT_ESTIMATE = useMemo(() => calculateLineHeight(theme), [theme]);
-
-  // Effect to scroll to bottom when new lines are added or loading state changes
+  // Effect to scroll to bottom when new lines are added
   useEffect(() => {
-    if (lines.length > 0 && listRef.current) {
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToItem(lines.length - 1, 'end'); 
-      });
+    if (lines.length > 0 && outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [lines, isLoading]);
 
@@ -154,23 +108,47 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   useEffect(() => {
     if (inputRef.current && isInputFocused) {
-      // Ensure proper focus without interference
-      requestAnimationFrame(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          // Ensure cursor is positioned correctly
-          inputRef.current.setSelectionRange(currentInput.length, currentInput.length);
-        }
-      });
+      inputRef.current.focus();
     }
-  }, [isInputFocused, currentInput.length]);
+  }, [isInputFocused]);
 
   // Calculate offset for suggestions box based on prompt width
   useEffect(() => {
     if (promptRef.current) {
       setSuggestionsLeftOffset(promptRef.current.offsetWidth);
     }
-  }, [prompt, theme.font.family, theme.font.size]); 
+  }, [prompt, theme.font.family, theme.font.size]);
+
+  // Dynamic loading messages
+  useEffect(() => {
+    if (!isLoading) return;
+
+    const messages = [
+      'thinking...',
+      'processing...',
+      'crafting response...',
+      'almost ready...',
+      'finalizing thoughts...'
+    ];
+
+    let messageIndex = 0;
+    let dotCount = 0;
+
+    const messageInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % messages.length;
+      setLoadingMessage(messages[messageIndex]);
+    }, 2000);
+
+    const dotInterval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      setLoadingDots(dotCount);
+    }, 400);
+
+    return () => {
+      clearInterval(messageInterval);
+      clearInterval(dotInterval);
+    };
+  }, [isLoading]); 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTypedInput = e.target.value;
@@ -184,12 +162,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     setSuggestionCycleIndex(-1); 
     setLastTabCompletionPrefix(null);
 
+    // Debounced suggestion calculation
     if (newTypedInput.startsWith('/') && newTypedInput.length > 1) {
       const commandPrefix = newTypedInput.substring(1).split(' ')[0];
       if (commandPrefix) {
-        const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
+        const allCommandNames = commandRegistry.getAllCommandNames?.() || [];
         const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
-        if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== newTypedInput.trim().split(' ')[0])) {
+        const exactMatch = `/${commandPrefix}`;
+        const hasPartialMatches = matchingCommands.length > 0 && !matchingCommands.some(cmd => `/${cmd}` === exactMatch);
+        
+        if (hasPartialMatches) {
           setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
           setShowSuggestions(true);
         } else {
@@ -213,6 +195,42 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Global keyboard shortcuts
+    if ((e.ctrlKey || e.metaKey)) {
+      switch (e.key) {
+        case 'l':
+        case 'k':
+          e.preventDefault();
+          if (onInput) onInput('/clear');
+          return;
+        case 'r':
+          e.preventDefault();
+          if (commandHistory.length > 0) {
+            const lastCommand = commandHistory[commandHistory.length - 1];
+            setCurrentInput(lastCommand);
+          }
+          return;
+        case '/':
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('showHelpModal'));
+          return;
+        case 't':
+          if (e.shiftKey) {
+            e.preventDefault();
+            if (onInput) onInput('/themes');
+            return;
+          }
+          break;
+        case 'n':
+          if (e.shiftKey) {
+            e.preventDefault();
+            if (onInput) onInput('/conversation-new');
+            return;
+          }
+          break;
+      }
+    }
+
     if (e.key === 'Enter') {
       setShowSuggestions(false);
       if (currentInput.trim() && onInput) {
@@ -317,7 +335,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       case 'output': return theme.colors.foreground;
       default: return theme.colors.foreground;
     }
-  }, [theme.colors]);
+  }, [theme.colors.error, theme.colors.accent, theme.colors.foreground]);
 
   const getUserPrefix = useCallback((line: TerminalLine) => {
     if (line.type === 'input' && line.user === 'user') return `${prompt} `;
@@ -328,14 +346,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return '';
   }, [prompt]);
 
-  const itemData = useMemo(() => ({
-    lines,
-    theme,
-    getLineTypeColor,
-    getUserPrefix
-  }), [lines, theme, getLineTypeColor, getUserPrefix]);
 
-  const getTerminalContainerStyle = (): React.CSSProperties => {
+  const terminalContainerStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       padding: theme.spacing.padding,
     };
@@ -350,14 +362,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     }
 
     return baseStyle;
-  };
+  }, [theme.spacing.padding, theme.colors.accent, config?.terminalBreathing, config?.crtGlow]);
 
   return (
     <div
       ref={terminalContainerRef}
       className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''}`}
       data-theme={theme.id}
-      style={getTerminalContainerStyle()}
+      style={terminalContainerStyle}
       onClick={handleTerminalClick}
     >
       {(theme.effects.scanlines || config?.scanLines !== 'off') && (
@@ -396,29 +408,25 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       )}
 
       <div 
+        ref={outputRef}
         className="terminal-output-area"
         style={{
           position: 'relative',
           flexGrow: 1,
-          overflow: 'hidden', 
-          zIndex: 2, 
+          overflow: 'auto',
+          zIndex: 2,
+          padding: '0 4px',
         }}
       >
-        <AutoSizer>
-          {({ height, width }) => (
-            <List
-              ref={listRef}
-              height={height}
-              width={width}
-              itemCount={lines.length}
-              itemSize={LINE_HEIGHT_ESTIMATE}
-              itemData={itemData}
-              className="terminal-virtualized-list" 
-            >
-              {LineRenderer}
-            </List>
-          )}
-        </AutoSizer>
+        {lines.map((line) => (
+          <LineComponent
+            key={line.id}
+            line={line}
+            theme={theme}
+            getLineTypeColor={getLineTypeColor}
+            getUserPrefix={getUserPrefix}
+          />
+        ))}
       </div>
 
       <div 
@@ -437,14 +445,20 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               color: theme.colors.accent,
               marginBottom: theme.spacing.lineSpacing,
               display: 'flex',
-              alignItems: 'baseline'
+              alignItems: 'baseline',
+              opacity: 0.7,
             }}
           >
             <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>claudia{'>'} </span>
-            <span className="loading-dots">
-              <span style={{ animation: 'blink 1s infinite' }}>.</span>
-              <span style={{ animation: 'blink 1s infinite 0.33s' }}>.</span>
-              <span style={{ animation: 'blink 1s infinite 0.66s' }}>.</span>
+            <span className="loading-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="loading-dots">
+                <span style={{ animation: 'blink 0.8s infinite' }}>•</span>
+                <span style={{ animation: 'blink 0.8s infinite 0.27s' }}>•</span>
+                <span style={{ animation: 'blink 0.8s infinite 0.54s' }}>•</span>
+              </span>
+              <span style={{ fontSize: '0.9em', fontStyle: 'italic' }}>
+                {loadingMessage}{'.'.repeat(loadingDots)}
+              </span>
             </span>
           </div>
         )}
@@ -471,23 +485,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             value={currentInput}
             onChange={handleInputChange} 
             onKeyDown={handleKeyDown} 
-            onFocus={() => {
-              setIsInputFocused(true);
-              if (currentInput.startsWith('/') && currentInput.length > 1) {
-                const commandPrefix = currentInput.substring(1).split(' ')[0];
-                 if (commandPrefix) {
-                    const allCommandNames = commandRegistry.getAllCommandNames ? commandRegistry.getAllCommandNames() : [];
-                    const matchingCommands = allCommandNames.filter(name => name.startsWith(commandPrefix));
-                    if (matchingCommands.length > 0 && matchingCommands.some(cmd => `/${cmd}` !== currentInput.trim().split(' ')[0])) {
-                      setSuggestions(matchingCommands.map(cmd => `/${cmd}`));
-                      setShowSuggestions(true);
-                    }
-                 }
-              }
-            }}
+            onFocus={() => setIsInputFocused(true)}
             onBlur={() => {
               setIsInputFocused(false);
-              setTimeout(() => setShowSuggestions(false), 150);
+              setShowSuggestions(false);
             }}
             style={{
               background: 'transparent',
@@ -500,11 +501,17 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               letterSpacing: 'inherit',
               flex: 1,
               caretColor: theme.colors.cursor,
+              transition: 'all 0.2s ease-in-out',
               ...(theme.effects.glow && {
                 textShadow: `0 0 5px ${theme.colors.foreground}60`
+              }),
+              ...(isInputFocused && {
+                filter: 'brightness(1.1)',
+                textShadow: theme.effects.glow 
+                  ? `0 0 8px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60` 
+                  : `0 0 2px ${theme.colors.cursor}40`
               })
             }}
-            disabled={isLoading}
             autoComplete="off"
             spellCheck={false}
           />
@@ -530,8 +537,8 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
       <style>{`
         @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
+          0%, 40% { opacity: 1; }
+          60%, 100% { opacity: 0.3; }
         }
         @keyframes scanmove {
           0% { background-position: 0 0; }
@@ -567,28 +574,24 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           99.5% { opacity: 1; filter: brightness(1.2); }
         }
         
-        .terminal-virtualized-list::-webkit-scrollbar {
+        .terminal-output-area::-webkit-scrollbar {
           width: 8px;
         }
         
-        .terminal-virtualized-list::-webkit-scrollbar-track {
+        .terminal-output-area::-webkit-scrollbar-track {
           background: ${theme.colors.background}30;
         }
         
-        .terminal-virtualized-list::-webkit-scrollbar-thumb {
+        .terminal-output-area::-webkit-scrollbar-thumb {
           background: ${theme.colors.accent}60;
           border-radius: 4px;
         }
         
-        .terminal-virtualized-list::-webkit-scrollbar-thumb:hover {
+        .terminal-output-area::-webkit-scrollbar-thumb:hover {
           background: ${theme.colors.accent}80;
         }
 
-        .terminal-output-area > div { 
-          height: 100% !important;
-          width: 100% !important;
-        }
-        .terminal-virtualized-list > div { 
+        .terminal-output-area { 
            scrollbar-width: thin;
            scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30;
         }
@@ -614,15 +617,35 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           padding: 6px 10px;
           cursor: pointer;
           border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
-          white-space: nowrap; 
+          white-space: nowrap;
+          transition: all 0.15s ease-in-out;
+          position: relative;
+          overflow: hidden;
         }
         .suggestion-item:last-child {
           border-bottom: none;
         }
 
+        .suggestion-item::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, ${theme.colors.accent}20, transparent);
+          transition: left 0.3s ease-in-out;
+        }
+
         .suggestion-item:hover {
           background-color: ${theme.colors.accent || '#00FFFF'}40; 
-          color: ${theme.colors.background}; 
+          color: ${theme.colors.background};
+          transform: translateX(2px);
+          box-shadow: 0 2px 4px ${theme.colors.accent}30;
+        }
+
+        .suggestion-item:hover::before {
+          left: 100%;
         }
 
 

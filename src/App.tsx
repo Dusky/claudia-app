@@ -343,6 +343,26 @@ function App() {
       // The /clear command will manage its lines via the store action, so it won't return lines here.
       if (result.lines && result.lines.length > 0) addLines(result.lines);
 
+      // Add subtle success feedback for successful commands
+      if (result.success && input.trim().startsWith('/')) {
+        const cmdName = input.trim().split(' ')[0];
+        const silentCommands = ['/clear', '/conversation-new', '/conversation-load'];
+        if (!silentCommands.includes(cmdName)) {
+          // Brief success indicator that fades
+          setTimeout(() => {
+            const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
+            if (inputElement) {
+              const successColor = currentTheme === 'mainframe70s' ? '#00ff00' : '#00FFFF';
+              inputElement.style.transition = 'box-shadow 0.15s ease-in-out';
+              inputElement.style.boxShadow = `0 0 4px ${successColor}60`;
+              setTimeout(() => {
+                inputElement.style.boxShadow = '';
+              }, 400);
+            }
+          }, 50);
+        }
+      }
+
       // Handle commands that might want to clear the terminal or change session fundamentally.
       // The /clear command now handles its own state reset via the store action and returns shouldContinue: false.
       // This block is now only for other commands like /conversation-clearhist that might use clearTerminalForNewSession.

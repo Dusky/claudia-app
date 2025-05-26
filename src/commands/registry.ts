@@ -56,6 +56,36 @@ export class CommandRegistryImpl implements CommandRegistry {
     return Array.from(this.commands.keys());
   }
 
+  // Find similar commands using Levenshtein distance for typo suggestions
+  private findSimilarCommands(input: string, commands: string[], maxDistance = 2): string[] {
+    const calculateDistance = (a: string, b: string): number => {
+      const matrix = Array(a.length + 1).fill(null).map(() => Array(b.length + 1).fill(null));
+      
+      for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+      for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+      
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j - 1] + indicator
+          );
+        }
+      }
+      
+      return matrix[a.length][b.length];
+    };
+
+    return commands
+      .map(cmd => ({ cmd, distance: calculateDistance(input.toLowerCase(), cmd.toLowerCase()) }))
+      .filter(({ distance }) => distance <= maxDistance && distance > 0)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3)
+      .map(({ cmd }) => cmd);
+  }
+
   async execute(input: string, context: CommandContext): Promise<CommandResult> {
     const trimmed = input.trim();
     const timestamp = new Date().toISOString(); // For potential error messages
@@ -217,33 +247,53 @@ Remember: Always include your physical description (chestnut hair, hazel eyes) i
     const command = this.get(commandName);
 
     if (!command) {
+      // Smart suggestions for typos
+      const availableCommands = this.getAllCommandNames();
+      const suggestions = this.findSimilarCommands(commandName, availableCommands);
+      
+      let content = `Unknown command: /${commandName}.`;
+      if (suggestions.length > 0) {
+        content += ` Did you mean: ${suggestions.map(cmd => `/${cmd}`).join(', ')}?`;
+      }
+      content += ' Type /help for all commands.';
+      
       const errorLine: TerminalLine = {
         id: `error-cmd-unknown-${timestamp}`, type: 'error',
-        content: `Unknown command: /${commandName}. Type /help for available commands.`,
-        timestamp, user: 'claudia'
-        // isChatResponse is false/undefined for command errors
+        content, timestamp, user: 'claudia'
       };
       return { success: false, lines: [errorLine], error: `Unknown command: ${commandName}` };
     }
 
     if (command.requiresAI && (!context.llmManager.getActiveProvider() || !context.llmManager.getActiveProvider()?.isConfigured())) {
-      const errorLine: TerminalLine = {
-        id: `error-cmd-noai-${timestamp}`, type: 'error',
-        content: `Command /${commandName} requires a configured AI provider.`,
-        timestamp, user: 'claudia'
-        // isChatResponse is false/undefined
-      };
-      return { success: false, lines: [errorLine], error: 'No AI provider configured for command' };
+      const errorLines: TerminalLine[] = [
+        {
+          id: `error-cmd-noai-${timestamp}`, type: 'error',
+          content: `❌ Command /${commandName} requires a configured AI provider.`,
+          timestamp, user: 'claudia'
+        },
+        {
+          id: `error-cmd-noai-help-${timestamp}`, type: 'system',
+          content: `💡 Quick fix: Use /providers to configure an AI provider, or check your API keys in settings.`,
+          timestamp, user: 'claudia'
+        }
+      ];
+      return { success: false, lines: errorLines, error: 'No AI provider configured for command' };
     }
 
     if (command.requiresImageGen && (!context.imageManager.getActiveProvider() || !context.imageManager.getActiveProvider()?.isConfigured())) {
-      const errorLine: TerminalLine = {
-        id: `error-cmd-noimg-${timestamp}`, type: 'error',
-        content: `Command /${commandName} requires a configured Image provider.`,
-        timestamp, user: 'claudia'
-        // isChatResponse is false/undefined
-      };
-      return { success: false, lines: [errorLine], error: 'No Image provider configured for command' };
+      const errorLines: TerminalLine[] = [
+        {
+          id: `error-cmd-noimg-${timestamp}`, type: 'error',
+          content: `❌ Command /${commandName} requires a configured Image provider.`,
+          timestamp, user: 'claudia'
+        },
+        {
+          id: `error-cmd-noimg-help-${timestamp}`, type: 'system',
+          content: `💡 Quick fix: Use /providers to configure an image provider, or add your Replicate API key in settings.`,
+          timestamp, user: 'claudia'
+        }
+      ];
+      return { success: false, lines: errorLines, error: 'No Image provider configured for command' };
     }
 
     try {
