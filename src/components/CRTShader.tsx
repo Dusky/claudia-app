@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ShaderMaterial } from 'three';
 import * as THREE from 'three';
@@ -99,6 +99,7 @@ const fragmentShader = `
 `;
 
 interface CRTMeshUniforms {
+  [uniform: string]: { value: any };
   tDiffuse: { value: THREE.Texture | null };
   time: { value: number };
   resolution: { value: THREE.Vector2 };
