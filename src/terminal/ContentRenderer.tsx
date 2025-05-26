@@ -44,10 +44,12 @@ const parseContent = (content: string): React.ReactNode => {
       }
     }
 
-    // _Emphasis text_ (but not __)
+    // _Emphasis text_ (but not __, and only when not part of identifier/code)
     else if (remaining.startsWith('_') && !remaining.startsWith('__')) {
+      // Only treat as emphasis if preceded by whitespace or start of string
+      // and the content doesn't look like code/identifiers
       const emphasisMatch = remaining.match(/^_([^_]+)_/);
-      if (emphasisMatch) {
+      if (emphasisMatch && !/\w_\w/.test(remaining.slice(0, 10))) {
         elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: 0.8 }}>{emphasisMatch[1]}</em>);
         remaining = remaining.slice(emphasisMatch[0].length);
         matched = true;

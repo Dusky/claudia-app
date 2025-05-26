@@ -14,6 +14,7 @@ import { getTheme, type TerminalTheme } from './terminal/themes';
 import { config as envConfig, configManager } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
+import { MCPProviderManager } from './providers/mcp/manager';
 import { AvatarController } from './avatar/AvatarController';
 import { ClaudiaDatabase } from './storage';
 import { createCommandRegistry, type CommandContext } from './commands';
@@ -62,6 +63,7 @@ function App() {
   // Select actions individually - their references are stable from Zustand
   const setTheme = useAppStore(state => state.setTheme);
   const addLines = useAppStore(state => state.addLines);
+  const setLines = useAppStore(state => state.setLines);
   const setLoading = useAppStore(state => state.setLoading);
   const setAvatarState = useAppStore(state => state.setAvatarState);
   const openPersonalityEditorModal = useAppStore(state => state.openPersonalityEditorModal);
@@ -79,6 +81,7 @@ function App() {
 
   const llmManager = useMemo(() => new LLMProviderManager(), []);
   const imageManager = useMemo(() => new ImageProviderManager(), []);
+  const mcpManager = useMemo(() => new MCPProviderManager(), []);
   const database = useMemo(() => new ClaudiaDatabase(), []);
   
   const avatarController = useMemo(() =>
@@ -124,6 +127,14 @@ function App() {
           console.log('✅ Image provider initialized:', envConfig.defaultImageProvider);
         } catch (error) {
           console.warn('⚠️ Image provider initialization failed:', error);
+        }
+
+        try {
+          // Initialize MCP provider with default configuration
+          await mcpManager.initialize();
+          console.log('✅ MCP provider initialized');
+        } catch (error) {
+          console.warn('⚠️ MCP provider initialization failed:', error);
         }
 
         if (playBootAnimation) {
@@ -174,7 +185,7 @@ function App() {
   // Add specific actions used inside this useEffect to the dependency array if they were not stable
   // However, Zustand actions are typically stable by reference.
   // Managers and DB are memoized. isInitialized controls the single run.
-  }, [isInitialized, configLoaded, config.enhancedBoot, llmManager, imageManager, database, avatarController, 
+  }, [isInitialized, configLoaded, config.enhancedBoot, llmManager, imageManager, mcpManager, database, avatarController, 
       initializeActiveConversation, addLines, loadConversationMessages, restoreAvatarState, avatarState.imageUrl]);
 
 
@@ -321,10 +332,20 @@ function App() {
       });
     }
 
+    // Function to update a specific line during streaming
+    const updateStreamingLine = (lineId: string, content: string) => {
+      setLines(lines.map((line: TerminalLine) => 
+        line.id === lineId 
+          ? { ...line, content } 
+          : line
+      ));
+    };
+
     const context: CommandContext = {
-      llmManager, imageManager, avatarController, storage: database,
+      llmManager, imageManager, mcpManager, avatarController, storage: database,
       addLines, 
-      setLoading, 
+      setLoading,
+      updateStreamingLine,
       currentTheme, 
       setTheme,
       openPersonalityEditor: (p) => openPersonalityEditorModal(database, p),
@@ -471,6 +492,7 @@ function App() {
         onClose={() => setImageModalOpen(false)}
         imageManager={imageManager}
         avatarController={avatarController}
+        storage={database}
         theme={themeObject}
       />
 
@@ -478,6 +500,7 @@ function App() {
         isOpen={aiOptionsModalOpen}
         onClose={() => setAiOptionsModalOpen(false)}
         storage={database}
+        llmManager={llmManager}
       />
 
       <AppSettingsModal

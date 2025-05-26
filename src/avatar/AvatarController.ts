@@ -234,11 +234,15 @@ export class AvatarController {
   }
 
   private async generateAvatarImage(conversationContext?: string): Promise<void> {
+    // Get the configured image style from config manager
+    const { configManager } = await import('../config/env');
+    const configuredStyle = configManager.getImageStyle();
+    
     const params: AvatarGenerationParams = {
       expression: this.state.expression,
       pose: this.state.pose,
       action: this.state.action,
-      style: 'realistic digital art, warm cozy style',
+      style: configuredStyle,
       background: 'none',
       lighting: 'soft',
       quality: 'high'
@@ -342,7 +346,7 @@ export class AvatarController {
       }
 
       // Parse description to extract avatar parameters and use sophisticated prompt composer
-      const extractedParams = this.parseDescriptionToParams(description);
+      const extractedParams = await this.parseDescriptionToParams(description);
       
       // Generate prompt components using the sophisticated prompt composer
       let promptComponents = this.promptComposer.generatePromptComponents(extractedParams);
@@ -591,7 +595,7 @@ export class AvatarController {
   }
 
   // Parse AI description to extract avatar parameters
-  private parseDescriptionToParams(description: string): AvatarGenerationParams {
+  private async parseDescriptionToParams(description: string): Promise<AvatarGenerationParams> {
     const lowerDesc = description.toLowerCase();
     
     // Extract expression from description
@@ -648,11 +652,15 @@ export class AvatarController {
       action = 'work';
     }
 
+    // Get the configured image style from config manager
+    const { configManager } = await import('../config/env');
+    const configuredStyle = configManager.getImageStyle();
+    
     return {
       expression,
       pose,
       action,
-      style: 'realistic digital art, warm cozy style',
+      style: configuredStyle,
       background: 'none',
       lighting: 'soft',
       quality: 'high'

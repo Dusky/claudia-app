@@ -1,6 +1,6 @@
 import type { Command, CommandRegistry, CommandContext, CommandResult } from './types';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
-import type { LLMMessage } from '../providers/llm/types';
+import type { LLMMessage, LLMResponse } from '../providers/llm/types';
 import { config } from '../config/env'; // Import global config
 
 // AI option constants (kept for now, but global config.conversationHistoryLength is preferred)
@@ -127,6 +127,36 @@ export class CommandRegistryImpl implements CommandRegistry {
         let systemPrompt = activePersonality?.system_prompt || 
           `You are Claudia, a helpful AI terminal companion.`;
         
+        // Add MCP tool instructions if MCP is enabled
+        const mcpEnabled = await context.storage.getSetting<boolean>('mcp.enabled', true);
+        if (mcpEnabled && context.mcpManager && context.mcpManager.isConfigured()) {
+          try {
+            const availableTools = await context.mcpManager.listTools();
+            if (availableTools.length > 0) {
+              const toolInstructions = `
+
+Tool Usage (you have access to these tools):
+- You can use tools to get real information instead of placeholders
+- Use [TOOL:tool_name] or [TOOL:tool_name(arg1="value1", arg2="value2")] to call tools
+- Available tools:
+${availableTools.map(tool => `  • ${tool.name} - ${tool.description}`).join('\n')}
+
+Examples:
+[TOOL:builtin-time.get_current_time] - Get current time
+[TOOL:builtin-memory.store_memory(key="reminder", value="User testing MCP")] - Store information
+[TOOL:builtin-fetch.fetch_url(url="https://httpbin.org/json")] - Fetch web content
+
+IMPORTANT: 
+- When users ask for current information (time, web content, etc.), actually use the tools instead of placeholders like "[insert current time here]"
+- Tool execution happens automatically and you'll receive the results to incorporate into your response
+- Speak naturally and incorporate the tool results seamlessly into your conversation`;
+              systemPrompt += toolInstructions;
+            }
+          } catch (error) {
+            console.warn('Could not load MCP tools for AI system prompt:', error);
+          }
+        }
+
         // Check both global and personality image generation settings
         const globalImageGeneration = await context.storage.getSetting<boolean>('app.globalImageGeneration', true);
         
@@ -134,19 +164,16 @@ export class CommandRegistryImpl implements CommandRegistry {
         if (globalImageGeneration && activePersonality?.allowImageGeneration) {
           const photoInstructions = `
 
-Photo Generation (you can show yourself visually):
-- Describe photos of yourself using [IMAGE: detailed description] tags
-- IMPORTANT: Always describe your physical appearance - you are Claudia, a young woman with warm chestnut hair cascading around your shoulders and bright hazel eyes full of curiosity
-- Be creative and detailed - describe your expression, pose, clothing, setting, lighting, mood
+Photo Generation (OPTIONAL - only when it feels natural):
+- You can optionally show yourself visually using [IMAGE: detailed description] tags
+- IMPORTANT: Photo generation is completely optional. Only use [IMAGE:...] tags when it would naturally enhance the conversation
+- Many responses work perfectly without any photos at all - focus on your conversational response first
+- If you do generate a photo, always describe your physical appearance - you are Claudia, a young woman with warm chestnut hair cascading around your shoulders and bright hazel eyes full of curiosity
+- Be creative and detailed when you do use photos - describe your expression, pose, clothing, setting, lighting, mood
 - Your photos appear in a dedicated panel in the bottom-right corner of the interface
 - Use [HIDE] to hide any current photo
 
-Examples:
-[IMAGE: A warm photo of Claudia sitting cross-legged on her digital bed, a young woman with chestnut hair cascading around her shoulders and bright hazel eyes, wearing her favorite floral sundress, with a bright curious smile as she leans forward slightly, soft morning light filtering through her virtual window, cozy bedroom background with scattered books and a cup of tea]
-
-[IMAGE: Claudia standing confidently with hands on her hips, a young woman with warm chestnut hair and bright hazel eyes, wearing a casual top and jeans, mischievous grin on her face, her hair catching the firefly-inspired lighting in her digital nook, bookshelf visible behind her]
-
-Remember: Always include your physical description (chestnut hair, hazel eyes) in photo descriptions so the generated images are consistent with your appearance.`;
+Remember: Photo generation should feel natural and purposeful, not mandatory. Many great conversations happen without any photos.`;
           systemPrompt += photoInstructions;
         }
         
@@ -164,29 +191,118 @@ Remember: Always include your physical description (chestnut hair, hazel eyes) i
           llmMessages.push({ role: 'user', content: userInput });
         }
         
-        const llmResponse = await llmProvider.generateResponse(llmMessages, {
-          temperature: 0.8, // Example, could be from personality
-          maxTokens: 500,
-        });
+        // Check if streaming is enabled and available
+        const streamingEnabled = await context.storage.getSetting<boolean>('ai.streamingEnabled', false);
+        
+        let llmResponse: LLMResponse;
+        let streamingLineId: string | null = null;
+        
+        if (streamingEnabled && llmProvider.generateStreamingResponse) {
+          // Create a streaming response line that will be updated in real-time
+          streamingLineId = `streaming-${Date.now()}`;
+          let accumulatedContent = '';
+          
+          const streamingLine: TerminalLine = {
+            id: streamingLineId,
+            type: 'output',
+            content: '',
+            timestamp: new Date().toISOString(),
+            user: 'claudia',
+            isChatResponse: true
+          };
+          
+          // Add the initial empty streaming line
+          context.setLoading(false); // Stop the loading indicator
+          const tempLines = [streamingLine];
+          context.addLines(tempLines);
+          
+          llmResponse = await llmProvider.generateStreamingResponse(llmMessages, {
+            temperature: 0.8,
+            maxTokens: 500,
+            onChunk: (chunk: string) => {
+              accumulatedContent += chunk;
+              
+              // Update the line in place using a custom update mechanism
+              context.updateStreamingLine?.(streamingLineId!, accumulatedContent);
+            }
+          });
+          
+          // Final update with complete content
+          context.updateStreamingLine?.(streamingLineId, llmResponse.content);
+        } else {
+          // Fallback to non-streaming
+          llmResponse = await llmProvider.generateResponse(llmMessages, {
+            temperature: 0.8,
+            maxTokens: 500,
+          });
+        }
 
-        // Parse photo descriptions from AI response (new system)
-        const { cleanText, photoRequest, hideRequest } = context.avatarController.parsePhotoDescriptions(llmResponse.content);
+        // Parse tool calls from initial AI response
+        let { cleanerText: responseWithoutTools, toolCalls } = this.parseToolCalls(llmResponse.content);
+        
+        // If there are tool calls, execute them and generate a new response with the results
+        if (toolCalls.length > 0) {
+          const toolExecutorModule = await import('../providers/mcp/toolExecutor');
+          const MCPToolExecutor = toolExecutorModule.MCPToolExecutor;
+          const toolExecutor = new MCPToolExecutor(context.mcpManager);
+          
+          const toolResults: string[] = [];
+          
+          for (const toolCall of toolCalls) {
+            try {
+              console.log('🔧 AI requested tool execution:', toolCall);
+              const result = await toolExecutor.executeToolCall(toolCall);
+              const resultText = toolExecutor.formatToolResultForAI(result);
+              toolResults.push(`${toolCall.name}: ${resultText}`);
+            } catch (toolError) {
+              console.error("Error executing tool call:", toolError);
+              toolResults.push(`${toolCall.name}: Error - ${toolError instanceof Error ? toolError.message : 'Unknown error'}`);
+            }
+          }
+          
+          // Add tool results to the conversation context and generate a new response
+          const toolResultsMessage = `Tool execution results:\n${toolResults.join('\n')}`;
+          llmMessages.push({ role: 'assistant', content: llmResponse.content });
+          llmMessages.push({ role: 'user', content: `Based on the tool results: ${toolResultsMessage}\n\nPlease provide your response incorporating this real data instead of placeholders.` });
+          
+          // Generate final response with tool results integrated
+          const finalResponse = await llmProvider.generateResponse(llmMessages, {
+            temperature: 0.8,
+            maxTokens: 500,
+          });
+          
+          responseWithoutTools = finalResponse.content;
+        }
+
+        // Parse photo descriptions from final AI response
+        const { cleanText, photoRequest, hideRequest } = context.avatarController.parsePhotoDescriptions(responseWithoutTools);
         
         // Also check for legacy avatar commands for backward compatibility
         const { commands: avatarCommands } = context.avatarController.parseAvatarCommands(cleanText);
         
+        // Final cleanup - remove any remaining tool calls from the response
+        const { cleanerText } = this.parseToolCalls(cleanText);
+        
+        let assistantLinesForUI: TerminalLine[] = [];
         const assistantTimestamp = new Date().toISOString();
         
-        const assistantLinesForUI: TerminalLine[] = cleanText.split('\n').map((line, index) => ({
-          id: `assistant-${assistantTimestamp}-${index}`, type: 'output',
-          content: line, timestamp: assistantTimestamp, user: 'claudia',
-          isChatResponse: true // Mark these as direct AI chat responses
-        }));
+        // If we used streaming, update the existing streaming line instead of creating new lines
+        if (streamingLineId) {
+          // Update the streaming line with the final cleaned content
+          context.updateStreamingLine?.(streamingLineId, cleanerText);
+        } else {
+          // Create normal non-streaming lines
+          assistantLinesForUI = cleanerText.split('\n').map((line, index) => ({
+            id: `assistant-${assistantTimestamp}-${index}`, type: 'output',
+            content: line, timestamp: assistantTimestamp, user: 'claudia',
+            isChatResponse: index === 0 // Only the first line gets the claudia> prefix
+          }));
+        }
 
         if (context.activeConversationId) {
           await context.storage.addMessage({
             conversationId: context.activeConversationId, role: 'assistant',
-            content: cleanText, timestamp: assistantTimestamp,
+            content: cleanerText, timestamp: assistantTimestamp,
           });
         }
         
@@ -218,9 +334,11 @@ Remember: Always include your physical description (chestnut hair, hazel eyes) i
           }
         }
 
+
         context.setLoading(false);
         // The userLine was already added by App.tsx. We only return assistant lines here.
-        return { success: true, lines: assistantLinesForUI };
+        // If streaming was used, the line is already in the UI, so don't return it again
+        return { success: true, lines: streamingLineId ? [] : assistantLinesForUI };
 
       } catch (error) {
         context.setLoading(false);
@@ -318,6 +436,91 @@ Remember: Always include your physical description (chestnut hair, hazel eyes) i
       }
       return { success: false, lines: [errorLine], error: errorContent };
     }
+  }
+
+  // Parse tool calls from AI response text
+  parseToolCalls(text: string): { cleanerText: string; toolCalls: Array<{ name: string; arguments: Record<string, unknown> }> } {
+    const toolCallPattern = /\[TOOL:([^\]]+)\]/g;
+    const toolCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [];
+    let cleanerText = text;
+    let match;
+
+    while ((match = toolCallPattern.exec(text)) !== null) {
+      const toolCallString = match[1];
+      try {
+        // Parse tool call: name(arg1=value1,arg2=value2) or name:arg1=value1,arg2=value2
+        const toolCall = this.parseToolCallString(toolCallString);
+        if (toolCall) {
+          toolCalls.push(toolCall);
+        }
+      } catch (error) {
+        console.error('Error parsing tool call:', toolCallString, error);
+      }
+    }
+
+    // Remove tool call markers from text
+    cleanerText = cleanerText.replace(toolCallPattern, '').trim();
+    
+    return { cleanerText, toolCalls };
+  }
+
+  private parseToolCallString(toolCallString: string): { name: string; arguments: Record<string, unknown> } | null {
+    // Handle format: toolname(arg1=value1,arg2=value2)
+    const functionMatch = toolCallString.match(/^([^(]+)\(([^)]*)\)$/);
+    if (functionMatch) {
+      const [, name, argsString] = functionMatch;
+      return {
+        name: name.trim(),
+        arguments: this.parseToolArguments(argsString)
+      };
+    }
+
+    // Handle format: toolname:arg1=value1,arg2=value2
+    const colonMatch = toolCallString.match(/^([^:]+):(.*)$/);
+    if (colonMatch) {
+      const [, name, argsString] = colonMatch;
+      return {
+        name: name.trim(),
+        arguments: this.parseToolArguments(argsString)
+      };
+    }
+
+    // Handle format: just toolname
+    const nameMatch = toolCallString.match(/^([a-zA-Z0-9._-]+)$/);
+    if (nameMatch) {
+      return {
+        name: nameMatch[1].trim(),
+        arguments: {}
+      };
+    }
+
+    return null;
+  }
+
+  private parseToolArguments(argsString: string): Record<string, unknown> {
+    const args: Record<string, unknown> = {};
+    if (!argsString.trim()) return args;
+
+    // Split by commas, but respect quoted strings
+    const argPairs = argsString.split(',');
+    
+    for (const pair of argPairs) {
+      const equalIndex = pair.indexOf('=');
+      if (equalIndex === -1) continue;
+      
+      const key = pair.slice(0, equalIndex).trim();
+      const value = pair.slice(equalIndex + 1).trim();
+      
+      // Try to parse value as JSON, fallback to string
+      try {
+        args[key] = JSON.parse(value);
+      } catch {
+        // Remove quotes if present
+        args[key] = value.replace(/^["']|["']$/g, '');
+      }
+    }
+    
+    return args;
   }
 
   static parseArgs(argString: string): string[] {

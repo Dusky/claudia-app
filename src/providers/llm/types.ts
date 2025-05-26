@@ -18,6 +18,8 @@ export interface LLMProvider {
   id: string;
   initialize(config?: Record<string, any>): Promise<void>;
   generateResponse(messages: LLMMessage[], options?: LLMGenerationOptions): Promise<LLMResponse>;
+  generateStreamingResponse?(messages: LLMMessage[], options: LLMGenerationOptions & { onChunk: (chunk: string) => void }): Promise<LLMResponse>;
+  listModels?(): Promise<Array<{ id: string; name: string; description: string }>>;
   isConfigured(): boolean;
 }
 

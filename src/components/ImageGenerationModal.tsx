@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { TerminalTheme } from '../terminal/themes';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
+import type { StorageService } from '../storage/types';
 import type { ImagePromptComponents } from '../providers/image/types';
 import type { ModelConfig } from '../providers/image/replicate';
 import { configManager } from '../config/env';
@@ -12,6 +13,7 @@ interface ImageGenerationModalProps {
   onClose: () => void;
   imageManager: ImageProviderManager;
   avatarController: AvatarController;
+  storage: StorageService;
   theme: TerminalTheme;
 }
 
@@ -20,6 +22,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   onClose,
   imageManager,
   avatarController,
+  storage,
   theme
 }) => {
   const [activeProvider, setActiveProvider] = useState<string>('');
@@ -46,38 +49,67 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Load current settings
-      const provider = imageManager.getActiveProvider();
-      setActiveProvider(provider?.id || '');
-      setAvailableProviders(imageManager.getAvailableProviders());
-      
-      // Load current image style
-      setImageStyle(configManager.getImageStyle());
-      
-      // Load model configurations if provider is Replicate
-      if (provider?.id === 'replicate') {
-        try {
-          // Type assertion to access Replicate-specific methods
-          const replicateProvider = provider as any;
-          if (replicateProvider.getAllModelConfigs) {
-            const models = replicateProvider.getAllModelConfigs();
-            setAvailableModels(models);
-            
-            // Get current model config
-            const currentConfig = replicateProvider.getModelConfig();
-            setModelConfig(currentConfig);
-            
-            // Set current model if available
-            if (replicateProvider.config?.model) {
-              setSelectedModel(replicateProvider.config.model);
-            }
+      loadSettings();
+    }
+  }, [isOpen, imageManager, avatarController, storage]);
+
+  const loadSettings = async () => {
+    // Load current settings
+    const provider = imageManager.getActiveProvider();
+    setActiveProvider(provider?.id || '');
+    setAvailableProviders(imageManager.getAvailableProviders());
+    
+    // Load current image style
+    setImageStyle(configManager.getImageStyle());
+    
+    // Load model configurations if provider is Replicate
+    if (provider?.id === 'replicate') {
+      try {
+        // Type assertion to access Replicate-specific methods
+        const replicateProvider = provider as any;
+        if (replicateProvider.getAllModelConfigs) {
+          const models = replicateProvider.getAllModelConfigs();
+          setAvailableModels(models);
+          
+          // Get current model config
+          const currentConfig = replicateProvider.getModelConfig();
+          setModelConfig(currentConfig);
+          
+          // Set current model if available
+          if (replicateProvider.config?.model) {
+            setSelectedModel(replicateProvider.config.model);
           }
-        } catch (error) {
-          console.warn('Could not load model configurations:', error);
         }
+      } catch (error) {
+        console.warn('Could not load model configurations:', error);
       }
-      
-      // Load current prompt components from avatar controller
+    }
+    
+    // Load saved prompt components from storage
+    try {
+      const savedComponents = await storage.getSetting<ImagePromptComponents>('image.promptComponents');
+      if (savedComponents) {
+        setPromptComponents(savedComponents);
+      } else {
+        // Load default prompt components from avatar controller
+        const composer = avatarController.getPromptComposer();
+        const avatarState = avatarController.getState();
+        
+        const components = composer.generatePromptComponents({
+          expression: avatarState.expression,
+          pose: avatarState.pose,
+          action: avatarState.action,
+          style: configManager.getImageStyle(),
+          background: 'none',
+          lighting: 'soft',
+          quality: 'high'
+        });
+        
+        setPromptComponents(components);
+      }
+    } catch (error) {
+      console.warn('Could not load saved prompt components:', error);
+      // Fallback to defaults
       const composer = avatarController.getPromptComposer();
       const avatarState = avatarController.getState();
       
@@ -85,7 +117,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         expression: avatarState.expression,
         pose: avatarState.pose,
         action: avatarState.action,
-        style: 'realistic digital art, warm cozy style',
+        style: configManager.getImageStyle(),
         background: 'none',
         lighting: 'soft',
         quality: 'high'
@@ -93,7 +125,22 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       
       setPromptComponents(components);
     }
-  }, [isOpen, imageManager, avatarController]);
+
+    // Load other saved settings
+    try {
+      const savedUseCustomPrompt = await storage.getSetting('image.useCustomPrompt');
+      const savedCustomPrompt = await storage.getSetting('image.customPrompt');
+      
+      if (savedUseCustomPrompt !== null) {
+        setUseCustomPrompt(Boolean(savedUseCustomPrompt));
+      }
+      if (savedCustomPrompt !== null) {
+        setCustomPrompt(String(savedCustomPrompt));
+      }
+    } catch (error) {
+      console.warn('Could not load custom prompt settings:', error);
+    }
+  };
 
   const handleProviderChange = (providerId: string) => {
     try {
@@ -201,7 +248,25 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     }
   };
 
-  const resetToDefaults = () => {
+  const saveSettings = async () => {
+    try {
+      // Save prompt components
+      await storage.setSetting('image.promptComponents', promptComponents);
+      
+      // Save custom prompt settings
+      await storage.setSetting('image.useCustomPrompt', useCustomPrompt);
+      await storage.setSetting('image.customPrompt', customPrompt);
+      
+      // Save image style to localStorage (for configManager compatibility)
+      localStorage.setItem('claudia-image-style', imageStyle);
+      
+      console.log('✅ Image settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save image settings:', error);
+    }
+  };
+
+  const resetToDefaults = async () => {
     const composer = avatarController.getPromptComposer();
     const avatarState = avatarController.getState();
     
@@ -209,7 +274,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       expression: avatarState.expression,
       pose: avatarState.pose,
       action: avatarState.action,
-      style: 'realistic digital art, warm cozy style',
+      style: configManager.getImageStyle(),
       background: 'none',
       lighting: 'soft',
       quality: 'high'
@@ -218,7 +283,21 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     setPromptComponents(defaultComponents);
     setUseCustomPrompt(false);
     setCustomPrompt('');
+    
+    // Save the reset state
+    await saveSettings();
   };
+
+  // Auto-save when settings change
+  useEffect(() => {
+    if (isOpen) {
+      const timeoutId = setTimeout(() => {
+        saveSettings();
+      }, 1000); // Auto-save after 1 second of inactivity
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [promptComponents, useCustomPrompt, customPrompt, imageStyle, isOpen]);
 
   if (!isOpen) return null;
 

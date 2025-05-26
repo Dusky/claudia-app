@@ -54,15 +54,14 @@ export const askCommand: Command = {
 
       const avatarInstructions = `
 
-Avatar Commands (use these to enhance your responses):
+Avatar Commands (OPTIONAL - only use when it feels natural):
 - Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
-- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
+- Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)  
 - Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
 - Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
 - Combine multiple attributes: [AVATAR:expression=excited,action=wave,pose=standing]
 
-The avatar now appears in a dedicated panel in the bottom-right corner. Focus on expressions, actions, and poses rather than positioning.
-Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
+IMPORTANT: Avatar commands are completely optional. Only use them when they would naturally enhance your response. Many responses work perfectly without any avatar commands at all. Focus primarily on your conversational response - avatar commands should feel like a natural addition, not a requirement.`;
       
       const fullSystemPrompt = systemPrompt + avatarInstructions;
       const llmMessages: LLMMessage[] = [{ role: 'system', content: fullSystemPrompt }];

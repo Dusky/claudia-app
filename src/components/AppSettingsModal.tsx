@@ -19,7 +19,13 @@ export const APP_SETTINGS_KEYS = {
   BOOT_ANIMATION: 'app.bootAnimation',
   CONVERSATION_HISTORY_LIMIT: 'app.conversationHistoryLimit',
   AUTO_SCROLL: 'app.autoScroll',
-  SOUND_EFFECTS: 'app.soundEffects'
+  SOUND_EFFECTS: 'app.soundEffects',
+  // MCP Settings
+  MCP_ENABLED: 'mcp.enabled',
+  MCP_AUTO_CONNECT: 'mcp.autoConnect',
+  MCP_TIMEOUT: 'mcp.timeout',
+  MCP_SERVERS: 'mcp.servers',
+  MCP_TOOL_CONFIRMATION: 'mcp.toolConfirmation'
 } as const;
 
 // Default values
@@ -31,7 +37,12 @@ const DEFAULT_SETTINGS = {
   bootAnimation: true,
   conversationHistoryLimit: 50,
   autoScroll: true,
-  soundEffects: false
+  soundEffects: false,
+  // MCP Settings
+  mcpEnabled: true,
+  mcpAutoConnect: true,
+  mcpTimeout: 10000,
+  mcpToolConfirmation: true
 };
 
 interface AppSettings {
@@ -43,6 +54,11 @@ interface AppSettings {
   conversationHistoryLimit: number;
   autoScroll: boolean;
   soundEffects: boolean;
+  // MCP Settings
+  mcpEnabled: boolean;
+  mcpAutoConnect: boolean;
+  mcpTimeout: number;
+  mcpToolConfirmation: boolean;
 }
 
 export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
@@ -97,7 +113,24 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
         soundEffects: (await storage.getSetting<boolean>(
           APP_SETTINGS_KEYS.SOUND_EFFECTS, 
           DEFAULT_SETTINGS.soundEffects
-        )) ?? DEFAULT_SETTINGS.soundEffects
+        )) ?? DEFAULT_SETTINGS.soundEffects,
+        // MCP Settings
+        mcpEnabled: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_ENABLED, 
+          DEFAULT_SETTINGS.mcpEnabled
+        )) ?? DEFAULT_SETTINGS.mcpEnabled,
+        mcpAutoConnect: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_AUTO_CONNECT, 
+          DEFAULT_SETTINGS.mcpAutoConnect
+        )) ?? DEFAULT_SETTINGS.mcpAutoConnect,
+        mcpTimeout: (await storage.getSetting<number>(
+          APP_SETTINGS_KEYS.MCP_TIMEOUT, 
+          DEFAULT_SETTINGS.mcpTimeout
+        )) ?? DEFAULT_SETTINGS.mcpTimeout,
+        mcpToolConfirmation: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_TOOL_CONFIRMATION, 
+          DEFAULT_SETTINGS.mcpToolConfirmation
+        )) ?? DEFAULT_SETTINGS.mcpToolConfirmation
       };
       setSettings(loadedSettings);
       setHasChanges(false);
@@ -127,7 +160,12 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
         storage.setSetting(APP_SETTINGS_KEYS.BOOT_ANIMATION, settings.bootAnimation, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.CONVERSATION_HISTORY_LIMIT, settings.conversationHistoryLimit, 'number'),
         storage.setSetting(APP_SETTINGS_KEYS.AUTO_SCROLL, settings.autoScroll, 'boolean'),
-        storage.setSetting(APP_SETTINGS_KEYS.SOUND_EFFECTS, settings.soundEffects, 'boolean')
+        storage.setSetting(APP_SETTINGS_KEYS.SOUND_EFFECTS, settings.soundEffects, 'boolean'),
+        // MCP Settings
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_ENABLED, settings.mcpEnabled, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_AUTO_CONNECT, settings.mcpAutoConnect, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_TIMEOUT, settings.mcpTimeout, 'number'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_TOOL_CONFIRMATION, settings.mcpToolConfirmation, 'boolean')
       ]);
       setHasChanges(false);
       console.log('✅ App settings saved successfully');
@@ -299,6 +337,73 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                   </label>
                   <p className={styles.description}>
                     Enable audio feedback for actions (coming soon).
+                  </p>
+                </div>
+              </div>
+
+              {/* MCP Section */}
+              <div className={styles.section}>
+                <h3>MCP Tools</h3>
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpEnabled}
+                      onChange={(e) => updateSetting('mcpEnabled', e.target.checked)}
+                    />
+                    <span>Enable MCP tools</span>
+                  </label>
+                  <p className={styles.description}>
+                    Enable Model Context Protocol tools for enhanced capabilities.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpAutoConnect}
+                      onChange={(e) => updateSetting('mcpAutoConnect', e.target.checked)}
+                      disabled={!settings.mcpEnabled}
+                    />
+                    <span>Auto-connect to MCP servers</span>
+                  </label>
+                  <p className={styles.description}>
+                    Automatically connect to configured MCP servers on startup.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.slider}>
+                    <span>MCP timeout: {settings.mcpTimeout}ms</span>
+                    <input
+                      type="range"
+                      min="5000"
+                      max="60000"
+                      step="1000"
+                      value={settings.mcpTimeout}
+                      onChange={(e) => updateSetting('mcpTimeout', parseInt(e.target.value))}
+                      disabled={!settings.mcpEnabled}
+                      style={{ backgroundColor: theme.colors.background }}
+                    />
+                  </label>
+                  <p className={styles.description}>
+                    Timeout for MCP server connections and tool calls.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpToolConfirmation}
+                      onChange={(e) => updateSetting('mcpToolConfirmation', e.target.checked)}
+                      disabled={!settings.mcpEnabled}
+                    />
+                    <span>Require confirmation for tool calls</span>
+                  </label>
+                  <p className={styles.description}>
+                    Ask for confirmation before executing potentially dangerous operations.
                   </p>
                 </div>
               </div>
