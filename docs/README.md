@@ -1,6 +1,6 @@
 # Claudia Framework Documentation
 
-Welcome to the Claudia AI Terminal Companion framework documentation. This guide covers everything you need to understand, extend, and build upon the framework.
+This documentation covers the architecture, usage, and extension of the Claudia AI terminal companion framework.
 
 ## Table of Contents
 
@@ -18,115 +18,87 @@ Welcome to the Claudia AI Terminal Companion framework documentation. This guide
 
 ## Overview
 
-Claudia is a comprehensive framework for building immersive AI terminal companions. The framework provides:
-
-- **Extensible LLM Integration** - Support for multiple AI providers
-- **Dynamic Avatar System** - AI-controlled visual companion
-- **Authentic Terminal Themes** - Period-accurate terminal aesthetics
-- **Persistent Memory** - SQLite-based conversation and memory storage
-- **Cache-First Architecture** - Efficient image generation and storage
+Claudia is a framework for building AI terminal companions with visual avatars and customizable interfaces. The system provides modular components for AI integration, image generation, persistent storage, and themed terminal displays.
 
 ### Key Features
 
-- 🤖 **Multi-Provider LLM Support** - Anthropic, Google, Local LLMs
-- 🎨 **4 Retro Terminal Themes** - 70s, 80s, 90s, Modern
-- 👤 **Dynamic Avatar System** - Expression, pose, and action control
-- 💾 **SQLite Storage** - Conversations, memory, settings, cache
-- 🔧 **Extensible Architecture** - Easy to add new providers and features
-- ⚡ **React + TypeScript** - Modern, type-safe development
+- Multi-provider LLM support (Anthropic, Google, Local)
+- Four retro terminal themes (70s, 80s, 90s, Modern)
+- Dynamic avatar system with AI control
+- SQLite storage for conversations and settings
+- Extensible provider architecture
+- React TypeScript implementation
 
 ## Architecture
 
 ```
 claudia-app/
 ├── src/
-│   ├── providers/           # Extensible API providers
-│   │   ├── llm/            # LLM providers (Anthropic, Google, Local)
-│   │   │   ├── types.ts    # Common interfaces
-│   │   │   ├── anthropic.ts
-│   │   │   ├── google.ts
-│   │   │   ├── local.ts
-│   │   │   └── manager.ts  # Provider management
+│   ├── providers/           # API provider integrations
+│   │   ├── llm/            # LLM providers
 │   │   └── image/          # Image generation providers
-│   │       ├── types.ts    # Common interfaces
-│   │       ├── replicate.ts
-│   │       └── manager.ts  # Provider management
-│   ├── terminal/           # Terminal UI and themes
-│   │   ├── TerminalDisplay.tsx
-│   │   ├── themes.ts       # Theme definitions
-│   │   └── index.ts
-│   ├── avatar/             # Avatar system
-│   │   ├── types.ts        # Avatar interfaces
-│   │   ├── AvatarController.ts
-│   │   ├── AvatarDisplay.tsx
-│   │   └── index.ts
-│   ├── storage/            # Database layer
-│   │   ├── database.ts     # SQLite operations
-│   │   └── index.ts
-│   ├── components/         # Reusable components
-│   ├── utils/              # Utility functions
-│   └── App.tsx             # Main application
+│   ├── terminal/           # Terminal interface and themes
+│   ├── avatar/             # Avatar controller and display
+│   ├── storage/            # Database operations
+│   ├── components/         # React UI components
+│   ├── store/              # State management
+│   └── utils/              # Utility functions
 ├── docs/                   # Documentation
 └── package.json
 ```
 
 ### Design Principles
 
-1. **Modularity** - Each system is independent and replaceable
-2. **Extensibility** - Easy to add new providers, themes, features
-3. **Type Safety** - Full TypeScript coverage with strict typing
-4. **Performance** - Cache-first architecture, efficient rendering
-5. **Immersion** - Authentic terminal aesthetics with modern functionality
+1. **Modularity** - Independent, replaceable systems
+2. **Extensibility** - Easy addition of providers and features
+3. **Type Safety** - Full TypeScript coverage
+4. **Performance** - Cached operations and efficient rendering
+5. **Immersion** - Authentic terminal aesthetics
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ (LTS recommended)
+- Node.js 18+
 - npm or yarn
 - Modern browser with ES2020+ support
 
 ### Installation
 
 ```bash
-# Clone the repository
+# Clone and install
 git clone <repo-url>
 cd claudia-app
-
-# Install dependencies
 npm install
 
-# Set up environment configuration
+# Configure environment
 cp .env.example .env
-# Edit .env and add your API keys (see Configuration section)
+# Add API keys to .env file
 
-# Start development server
+# Start development
 npm run dev
 ```
 
-The terminal interface will be available at `http://localhost:5173/`
+The application runs at `http://localhost:5173/`
 
 ### Basic Commands
 
-Try these commands in the terminal:
-
 ```bash
-help                    # Show available commands
-theme mainframe70s      # Switch to 70s green terminal
-theme pc80s            # Switch to 80s blue terminal
-theme bbs90s           # Switch to 90s BBS with effects
-theme modern           # Switch to modern terminal
-clear                  # Clear terminal history
+/help                    # Show available commands
+/theme mainframe70s      # Switch to 70s green terminal
+/theme pc80s            # Switch to 80s blue terminal
+/theme bbs90s           # Switch to 90s BBS with effects
+/theme modern           # Switch to modern terminal
+/clear                  # Clear terminal history
 ```
 
 ## Core Systems
 
-### 1. Provider System
+### Provider System
 
-The provider system enables extensible integration with different AI services:
+Extensible integration with AI services through common interfaces:
 
 ```typescript
-// LLM Provider Interface
 interface LLMProvider {
   name: string;
   id: string;
@@ -135,7 +107,6 @@ interface LLMProvider {
   isConfigured(): boolean;
 }
 
-// Image Provider Interface  
 interface ImageProvider {
   name: string;
   id: string;
@@ -145,33 +116,32 @@ interface ImageProvider {
 }
 ```
 
-### 2. Terminal System
+### Terminal System
 
-The terminal provides an authentic retro computing experience:
+Authentic retro computing experience with:
 
-- **Authentic Theming** - Period-accurate colors, fonts, effects
-- **Visual Effects** - Scanlines, CRT curvature, glow, flicker
-- **Responsive Input** - Real-time command processing
-- **History Management** - Persistent conversation history
+- Period-accurate theming
+- Visual effects (scanlines, CRT curvature, glow)
+- Real-time command processing
+- Persistent conversation history
 
-### 3. Avatar System
+### Avatar System
 
-The avatar system provides dynamic visual feedback:
+Dynamic visual companion with:
 
-- **LLM Control** - AI can control avatar through `[AVATAR:...]` commands
-- **Expression System** - 12 different expressions
-- **Positioning** - 9 different screen positions
-- **Animation** - Smooth transitions and gesture animations
-- **Caching** - Intelligent image caching for performance
+- AI control through embedded commands
+- Expression and pose system
+- Image generation and caching
+- Smooth animations
 
-### 4. Storage System
+### Storage System
 
-SQLite-based storage for all persistent data:
+SQLite-based persistence for:
 
-- **Conversations** - Full chat history with metadata
-- **Memory** - Long-term memory for RAG implementation
-- **Settings** - User preferences and configuration
-- **Avatar Cache** - Generated avatar images with parameters
+- Conversation history
+- User settings
+- Avatar image cache
+- Long-term memory entries
 
 ## Provider System
 
@@ -180,8 +150,6 @@ SQLite-based storage for all persistent data:
 #### Anthropic Claude
 
 ```typescript
-import { AnthropicProvider } from './providers';
-
 const anthropic = new AnthropicProvider();
 await anthropic.initialize({
   apiKey: 'your-api-key',
@@ -192,8 +160,6 @@ await anthropic.initialize({
 #### Google Gemini
 
 ```typescript
-import { GoogleProvider } from './providers';
-
 const google = new GoogleProvider();
 await google.initialize({
   apiKey: 'your-api-key',
@@ -204,13 +170,11 @@ await google.initialize({
 #### Local LLM
 
 ```typescript
-import { LocalProvider } from './providers';
-
 const local = new LocalProvider();
 await local.initialize({
   baseURL: 'http://localhost:11434',
   model: 'llama2',
-  apiFormat: 'ollama' // or 'openai-compatible'
+  apiFormat: 'ollama'
 });
 ```
 
@@ -219,8 +183,6 @@ await local.initialize({
 #### Replicate
 
 ```typescript
-import { ReplicateProvider } from './providers';
-
 const replicate = new ReplicateProvider();
 await replicate.initialize({
   apiKey: 'your-replicate-token',
@@ -231,8 +193,6 @@ await replicate.initialize({
 ### Provider Management
 
 ```typescript
-import { LLMProviderManager, ImageProviderManager } from './providers';
-
 // LLM Provider Management
 const llmManager = new LLMProviderManager();
 await llmManager.initializeProvider('anthropic', { apiKey: 'key' });
@@ -247,32 +207,24 @@ await imageManager.initializeProvider('replicate', { apiKey: 'key' });
 
 ### Avatar Commands
 
-LLMs can control Claudia's avatar through embedded commands in their responses:
+AI can control the avatar through embedded commands:
 
 ```typescript
 // Basic positioning and expression
-[AVATAR:position=center,expression=happy]
+[AVATAR:expression=happy,action=wave]
 
-// Complex animation sequence
-[AVATAR:position=beside-text,expression=thinking,action=type,gesture=point-down]
+// Complex sequences
+[AVATAR:expression=thinking,action=type,pose=sitting]
 
 // Visibility control
 [AVATAR:hide=true]
 [AVATAR:show=true,expression=excited]
 
-// Advanced effects
-[AVATAR:position=floating,expression=curious,pulse=true,scale=1.2]
+// Effects
+[AVATAR:expression=curious,pulse=true,scale=1.2]
 ```
 
 ### Avatar Parameters
-
-#### Positions
-- `center` - Center of screen, larger size
-- `top-left`, `top-right`, `bottom-left`, `bottom-right` - Corner positions
-- `beside-text` - Right side, next to terminal content
-- `overlay-left`, `overlay-right` - Overlay positions
-- `floating` - Center with floating animation
-- `peeking` - Bottom edge, partially visible
 
 #### Expressions
 - `neutral`, `happy`, `curious`, `focused`, `thinking`
@@ -283,27 +235,25 @@ LLMs can control Claudia's avatar through embedded commands in their responses:
 - `idle`, `type`, `search`, `read`, `wave`
 - `nod`, `shrug`, `point`, `think`, `work`
 
-#### Gestures
-- `point-down`, `point-up`, `point-left`, `point-right`
-- `thumbs-up`, `wave`, `peace`, `ok`, `shrug`
+#### Poses
+- `standing`, `sitting`, `leaning`
+- `crossed-arms`, `hands-on-hips`, `casual`
 
 ### Avatar Controller Usage
 
 ```typescript
-import { AvatarController } from './avatar';
-
 const avatarController = new AvatarController(
   imageManager,
   database,
   (state) => updateAvatarDisplay(state)
 );
 
-// Parse LLM response for avatar commands
+// Parse AI response for commands
 const { cleanText, commands } = avatarController.parseAvatarCommands(
-  "Hello! [AVATAR:position=center,expression=happy] How can I help you today?"
+  "Hello! [AVATAR:expression=happy] How can I help?"
 );
 
-// Execute the commands
+// Execute commands
 await avatarController.executeCommands(commands);
 ```
 
@@ -311,7 +261,7 @@ await avatarController.executeCommands(commands);
 
 ### Theme System
 
-Each theme provides a complete visual experience:
+Each theme provides complete visual styling:
 
 ```typescript
 interface TerminalTheme {
@@ -323,20 +273,17 @@ interface TerminalTheme {
     foreground: string;
     cursor: string;
     accent: string;
-    // ... more colors
   };
   font: {
     family: string;
     size: string;
     weight: string;
-    lineHeight: string;
   };
   effects: {
     scanlines: boolean;
     glow: boolean;
     flicker: boolean;
     crt: boolean;
-    noise: boolean;
   };
 }
 ```
@@ -344,28 +291,24 @@ interface TerminalTheme {
 ### Available Themes
 
 #### 70s Mainframe (`mainframe70s`)
-- **Colors**: Green on black
-- **Font**: IBM Plex Mono
-- **Effects**: Scanlines, glow, CRT curvature
-- **Feel**: Classic mainframe terminal
+- Colors: Green on black
+- Font: IBM Plex Mono
+- Effects: Scanlines, glow, CRT curvature
 
 #### 80s Personal Computer (`pc80s`)
-- **Colors**: White on blue
-- **Font**: Perfect DOS VGA 437
-- **Effects**: CRT curvature
-- **Feel**: Home computer era
+- Colors: White on blue
+- Font: Perfect DOS VGA 437
+- Effects: CRT curvature
 
 #### 90s BBS (`bbs90s`)
-- **Colors**: Full color palette
-- **Font**: MS-DOS Terminal
-- **Effects**: Scanlines, glow, flicker, noise
-- **Feel**: Bulletin board system
+- Colors: Full color palette
+- Font: MS-DOS Terminal
+- Effects: Scanlines, glow, flicker, noise
 
 #### Modern Terminal (`modern`)
-- **Colors**: Modern dark theme
-- **Font**: JetBrains Mono
-- **Effects**: Clean, no retro effects
-- **Feel**: Contemporary terminal
+- Colors: Modern dark theme
+- Font: JetBrains Mono
+- Effects: Clean, no retro effects
 
 ### Theme Usage
 
@@ -375,7 +318,7 @@ import { getTheme, getAllThemes } from './terminal';
 // Get specific theme
 const theme = getTheme('mainframe70s');
 
-// List all available themes
+// List all themes
 const themes = getAllThemes();
 
 // Use in component
@@ -386,13 +329,13 @@ const themes = getAllThemes();
 
 ### Database Schema
 
-The SQLite database includes these tables:
+SQLite tables:
 
 - **conversations** - Chat sessions with metadata
-- **messages** - Individual messages with roles and content
-- **memory** - Long-term memory entries for RAG
+- **messages** - Individual messages with roles
+- **memory** - Long-term memory entries
 - **settings** - Application configuration
-- **avatar_cache** - Cached avatar images with parameters
+- **avatar_cache** - Cached avatar images
 
 ### Database Usage
 
@@ -404,8 +347,7 @@ const db = new ClaudiaDatabase('./claudia.db');
 // Conversation management
 const convId = db.createConversation({
   title: 'New Chat',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString()
+  createdAt: new Date().toISOString()
 });
 
 // Message storage
@@ -416,68 +358,45 @@ db.addMessage({
   timestamp: new Date().toISOString()
 });
 
-// Settings management
+// Settings
 db.setSetting('theme', 'mainframe70s');
 const theme = db.getSetting('theme');
 
 // Avatar caching
-db.cacheAvatarImage(promptHash, imageUrl, parameters);
-const cached = db.getCachedAvatar(promptHash);
+db.cacheAvatarImage(hash, imageUrl, parameters);
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-Claudia uses environment variables for secure configuration. Copy the example file and add your API keys:
-
-```bash
-cp .env.example .env
-```
+Copy `.env.example` to `.env` and configure:
 
 #### Required for Full Functionality
 
 ```env
-# Anthropic Claude (recommended LLM)
-VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+# Anthropic Claude
+VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-key
 
-# Replicate (for avatar generation)
-VITE_REPLICATE_API_TOKEN=r8_your-token-here
+# Replicate for avatar generation
+VITE_REPLICATE_API_TOKEN=r8_your-token
 ```
 
 #### Optional Configuration
 
 ```env
-# Alternative LLM providers
-VITE_GOOGLE_API_KEY=AIzaSy-your-key-here
-VITE_OPENAI_API_KEY=sk-your-key-here
+# Alternative providers
+VITE_GOOGLE_API_KEY=your-google-key
+VITE_OPENAI_API_KEY=your-openai-key
 
 # Application settings
 VITE_DEFAULT_THEME=mainframe70s
 VITE_DEFAULT_LLM_PROVIDER=anthropic
 VITE_DEBUG_MODE=true
 
-# Local LLM settings
+# Local LLM
 VITE_OLLAMA_BASE_URL=http://localhost:11434
 VITE_LOCAL_LLM_MODEL=llama2
-```
-
-See [Environment Configuration Guide](./ENVIRONMENT.md) for complete documentation.
-
-### Automatic Provider Configuration
-
-Providers automatically initialize from environment variables:
-
-```typescript
-// No configuration needed - uses environment variables
-const manager = new LLMProviderManager();
-// Automatically initializes default provider if API key is present
-
-// Or override with custom config
-await manager.initializeProvider('anthropic', {
-  apiKey: 'custom-key',
-  model: 'claude-3-opus-20240229'
-});
 ```
 
 ## Extending the Framework
@@ -487,18 +406,16 @@ await manager.initializeProvider('anthropic', {
 1. **Create Provider Class**:
 
 ```typescript
-import { LLMProvider, LLMMessage, LLMResponse } from './types';
-
 export class CustomLLMProvider implements LLMProvider {
   name = 'Custom LLM';
   id = 'custom';
   
   async initialize(config: any): Promise<void> {
-    // Initialize your provider
+    // Initialize provider
   }
   
   async generateResponse(messages: LLMMessage[]): Promise<LLMResponse> {
-    // Implement your API call
+    // Implement API call
     return { content: response };
   }
   
@@ -511,8 +428,6 @@ export class CustomLLMProvider implements LLMProvider {
 2. **Register Provider**:
 
 ```typescript
-import { LLMProviderManager } from './providers';
-
 const manager = new LLMProviderManager();
 manager.registerProvider(new CustomLLMProvider());
 ```
@@ -529,48 +444,38 @@ const myTheme: TerminalTheme = {
   colors: {
     background: '#000000',
     foreground: '#ffffff',
-    // ... more colors
   },
-  // ... rest of theme definition
+  // Additional properties
 };
 ```
 
-2. **Add to Theme Registry**:
+2. **Add to Registry**:
 
 ```typescript
 // In themes.ts
 export const themes = {
-  // ... existing themes
+  // existing themes
   mytheme: myTheme
 };
 ```
 
-### Adding New Avatar Features
+### Adding Avatar Features
 
-1. **Extend Avatar Types**:
+1. **Extend Types**:
 
 ```typescript
-// Add new expression
 export type AvatarExpression = 
-  | 'existing expressions...'
+  | 'existing expressions'
   | 'my-new-expression';
-
-// Add new action
-export type AvatarAction = 
-  | 'existing actions...'
-  | 'my-new-action';
 ```
 
-2. **Update Avatar Controller**:
+2. **Update Controller**:
 
 ```typescript
-// Add description mappings
 private getExpressionDescription(expression: string): string {
   const descriptions = {
-    // ... existing descriptions
-    'my-new-expression': 'description for prompt'
+    'my-new-expression': 'description for AI prompt'
   };
-  // ...
 }
 ```
 
@@ -580,11 +485,11 @@ private getExpressionDescription(expression: string): string {
 
 ```typescript
 interface LLMProvider {
-  name: string;                    // Human-readable name
-  id: string;                      // Unique identifier
+  name: string;
+  id: string;
   initialize(config: LLMProviderConfig): Promise<void>;
   generateResponse(messages: LLMMessage[], options?: LLMGenerationOptions): Promise<LLMResponse>;
-  isConfigured(): boolean;         // Check if properly configured
+  isConfigured(): boolean;
 }
 
 interface LLMMessage {
@@ -611,7 +516,6 @@ interface ImageProvider {
   initialize(config: ImageProviderConfig): Promise<void>;
   generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
   isConfigured(): boolean;
-  getSupportedModels?(): string[];
 }
 
 interface ImageGenerationRequest {
@@ -621,13 +525,11 @@ interface ImageGenerationRequest {
   height?: number;
   steps?: number;
   guidance?: number;
-  seed?: number;
 }
 
 interface ImageGenerationResponse {
   imageUrl: string;
   seed?: number;
-  parameters?: Record<string, any>;
   metadata?: {
     prompt: string;
     model: string;
@@ -641,26 +543,20 @@ interface ImageGenerationResponse {
 
 ```typescript
 interface AvatarCommand {
-  position?: AvatarPosition;
   expression?: AvatarExpression;
   action?: AvatarAction;
-  gesture?: AvatarGesture;
   pose?: AvatarPose;
   hide?: boolean;
   show?: boolean;
-  fade?: boolean;
-  pulse?: boolean;
   scale?: number;
   duration?: number;
 }
 
 interface AvatarState {
   visible: boolean;
-  position: AvatarPosition;
   expression: AvatarExpression;
   pose: AvatarPose;
   action: AvatarAction;
-  gesture?: AvatarGesture;
   scale: number;
   opacity: number;
   imageUrl?: string;
@@ -678,7 +574,6 @@ interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
-  metadata?: string;
 }
 
 interface Conversation {
@@ -686,19 +581,14 @@ interface Conversation {
   title: string;
   createdAt: string;
   updatedAt: string;
-  metadata?: string;
 }
 
 interface MemoryEntry {
   id?: number;
   content: string;
-  embedding?: string;
-  type: 'conversation' | 'avatar' | 'system' | 'user_preference';
+  type: 'conversation' | 'avatar' | 'system';
   timestamp: string;
-  metadata?: string;
 }
 ```
 
----
-
-This documentation provides the foundation for understanding and extending the Claudia framework. For specific implementation details, refer to the source code and inline comments.
+This documentation provides the foundation for understanding and extending the Claudia framework. For implementation details, refer to the source code and inline comments.

@@ -1,22 +1,22 @@
-# Environment Configuration Guide
+# Environment Configuration
 
-This guide covers how to configure Claudia using environment variables for API keys, provider settings, and application preferences.
+This guide covers configuration of Claudia using environment variables for API keys, provider settings, and application preferences.
 
 ## Quick Start
 
-1. **Copy the example file:**
+1. Copy the example file:
    ```bash
    cp .env.example .env
    ```
 
-2. **Add your API keys:**
+2. Add your API keys:
    ```bash
    # Edit .env file
    VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-actual-key
    VITE_REPLICATE_API_TOKEN=r8_your-actual-token
    ```
 
-3. **Start the application:**
+3. Start the application:
    ```bash
    npm run dev
    ```
@@ -96,9 +96,9 @@ VITE_DETAILED_ERRORS=true
 
 The configuration system uses this priority order:
 
-1. **Runtime config** - Passed directly to provider initialization
-2. **Environment variables** - From `.env` file
-3. **Default values** - Built-in fallbacks
+1. Runtime config - Passed directly to provider initialization
+2. Environment variables - From `.env` file
+3. Default values - Built-in fallbacks
 
 ```typescript
 // Example: Provider will use env var if no config passed
@@ -110,28 +110,27 @@ await provider.initialize({ apiKey: 'different-key' });
 
 ## Security Best Practices
 
-### 1. Environment File Security
+### Environment File Security
 
 ```bash
-# ✅ DO: Keep .env files local and private
+# Keep .env files local and private
 echo ".env" >> .gitignore
 
-# ❌ DON'T: Commit .env files to version control
-git add .env  # ⚠️ NEVER DO THIS
+# Don't commit .env files to version control
+# Never run: git add .env
 ```
 
-### 2. API Key Management
+### API Key Management
 
 ```env
-# ✅ DO: Use descriptive comments
+# Use descriptive comments
 # Anthropic Claude API Key - Production Account
 VITE_ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxx
 
-# ❌ DON'T: Use production keys in development
-VITE_ANTHROPIC_API_KEY=sk-ant-prod-NEVER-USE-IN-DEV
+# Don't use production keys in development
 ```
 
-### 3. Environment Separation
+### Environment Separation
 
 ```bash
 # Different files for different environments
@@ -177,7 +176,7 @@ VITE_ANTHROPIC_API_KEY=sk-ant-prod-NEVER-USE-IN-DEV
 
 ## Development Modes
 
-### 1. Full Development (with API keys)
+### Full Development (with API keys)
 
 ```env
 VITE_DEBUG_MODE=true
@@ -186,7 +185,7 @@ VITE_REPLICATE_API_TOKEN=r8_dev-token
 VITE_MOCK_APIS=false
 ```
 
-### 2. Mock Development (without API keys)
+### Mock Development (without API keys)
 
 ```env
 VITE_DEBUG_MODE=true
@@ -194,7 +193,7 @@ VITE_MOCK_APIS=true
 # No API keys needed - uses mock responses
 ```
 
-### 3. Local LLM Only
+### Local LLM Only
 
 ```env
 VITE_DEFAULT_LLM_PROVIDER=local
@@ -207,36 +206,33 @@ VITE_MOCK_APIS=true  # For image generation
 
 The app validates configuration on startup:
 
-```typescript
-// Automatic validation
-✅ API key format validation
-✅ Provider availability checks  
-✅ Timeout value validation
-✅ Theme name validation
-```
+- API key format validation
+- Provider availability checks  
+- Timeout value validation
+- Theme name validation
 
-**Debug output example:**
+Debug output example:
 ```
-🔧 Claudia Configuration
+Claudia Configuration
 Default LLM Provider: anthropic
 Default Image Provider: replicate
 Default Theme: mainframe70s
 
-🔑 API Key Status
-Anthropic: ✅ Configured
-Google: ❌ Missing
-Replicate: ✅ Configured
+API Key Status
+Anthropic: Configured
+Google: Missing
+Replicate: Configured
 
-🛠️ Development Settings
-Debug Mode: ✅ Enabled
-Mock APIs: ❌ Disabled
+Development Settings
+Debug Mode: Enabled
+Mock APIs: Disabled
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 1. API Key Not Working
+#### API Key Not Working
 
 ```bash
 # Check if key is loaded
@@ -244,7 +240,7 @@ VITE_DEBUG_MODE=true npm run dev
 # Look for "API Key Status" in console
 ```
 
-#### 2. Environment Variables Not Loading
+#### Environment Variables Not Loading
 
 ```bash
 # Ensure file is named exactly ".env"
@@ -257,17 +253,17 @@ cat .env
 npm run dev
 ```
 
-#### 3. VITE_ Prefix Required
+#### VITE_ Prefix Required
 
 ```env
-# ❌ Wrong - Vite won't load this
+# Wrong - Vite won't load this
 ANTHROPIC_API_KEY=sk-ant-api03-key
 
-# ✅ Correct - Must start with VITE_
+# Correct - Must start with VITE_
 VITE_ANTHROPIC_API_KEY=sk-ant-api03-key
 ```
 
-#### 4. Mock Mode for Development
+#### Mock Mode for Development
 
 ```env
 # Work without API keys
@@ -319,6 +315,4 @@ VITE_DATABASE_PATH=/path/to/custom/claudia.db
 VITE_DATABASE_PATH=./data/conversations.db
 ```
 
----
-
-This environment configuration system provides flexible, secure, and developer-friendly configuration management for the Claudia framework.
+This environment configuration system provides flexible, secure configuration management for the Claudia application.

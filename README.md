@@ -1,160 +1,126 @@
-# Claudia - AI Terminal Companion Framework
+# Claudia
 
-A comprehensive React TypeScript framework for building an immersive AI terminal companion with avatar support, multiple themes, and extensible provider systems.
+An AI terminal companion built with React and TypeScript, featuring customizable retro themes, avatar interactions, and multiple LLM provider support.
 
-## 🚀 What's Been Built
+## Features
 
-### ✅ Core Framework Complete
+- **Retro Terminal Interface** - Four authentic terminal themes from different computing eras
+- **AI Conversation** - Support for Anthropic Claude, Google Gemini, and local LLMs
+- **Interactive Avatar** - AI-controlled companion with expressions, poses, and image generation
+- **Persistent Storage** - SQLite database for conversations, settings, and cache
+- **Extensible Architecture** - Plugin system for adding new providers and themes
 
-1. **React TypeScript Project Setup**
-   - Vite build system
-   - Full TypeScript configuration
-   - Modern React 19 with hooks
+## Quick Start
 
-2. **Extensible LLM Provider System**
-   - Anthropic Claude support
-   - Google Gemini support  
-   - Local LLM support (Ollama/OpenAI-compatible)
-   - Easy addition of new providers
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-3. **Image Generation Framework**
-   - Replicate API integration
-   - Extensible provider architecture
-   - Multiple model support (FLUX, SDXL, etc.)
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and add your API keys:
+   ```env
+   VITE_ANTHROPIC_API_KEY=your_key_here
+   VITE_REPLICATE_API_TOKEN=your_token_here
+   ```
 
-4. **SQLite Storage System**
-   - Conversation history
-   - Memory/RAG system for long-term memory
-   - Settings management
-   - Avatar image caching
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
-5. **Terminal Interface with Themes**
-   - 70s Mainframe (green on black, scanlines)
-   - 80s Personal Computer (blue background, retro fonts)
-   - 90s BBS (full color, ANSI art support, effects)
-   - Modern Terminal (clean, contemporary)
-   - Full theme switching with visual effects
+## Commands
 
-6. **Avatar System**
-   - LLM-controlled `[AVATAR:...]` commands
-   - Dynamic positioning (center, corners, floating, etc.)
-   - Expression system (happy, curious, thinking, etc.)
-   - Action system (typing, waving, pointing, etc.)
-   - Image generation with caching
-   - Smooth animations and transitions
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/theme <name>` | Switch terminal theme |
+| `/clear` | Clear terminal history |
+| `/avatar <action>` | Control avatar display |
+| `/ask <question>` | Ask AI directly |
 
-## 🏗️ Architecture
+## Available Themes
+
+- **mainframe70s** - Green on black with scanlines
+- **pc80s** - Blue retro PC interface  
+- **bbs90s** - Colorful ANSI-style terminal
+- **modern** - Clean contemporary design
+
+## API Providers
+
+### LLM Providers
+- **Anthropic Claude** - Primary AI provider
+- **Google Gemini** - Alternative LLM option
+- **Local LLM** - Ollama/OpenAI-compatible servers
+
+### Image Generation
+- **Replicate** - Avatar image generation
+
+## Project Structure
 
 ```
 src/
-├── providers/           # Extensible API providers
-│   ├── llm/            # LLM providers (Anthropic, Google, Local)
-│   └── image/          # Image providers (Replicate)
-├── terminal/           # Terminal UI and themes
-├── avatar/             # Avatar system and display
-├── storage/            # SQLite database layer
-├── components/         # Reusable React components
-└── utils/              # Utility functions
+├── avatar/          # Avatar system and controls
+├── commands/        # Command registry and built-ins
+├── components/      # React UI components
+├── providers/       # LLM and image provider integrations
+├── storage/         # SQLite database layer
+├── terminal/        # Terminal display and themes
+└── types/           # TypeScript definitions
 ```
 
-## 🎮 Current Demo Features
-
-Run `npm run dev` and try:
-
-- `help` - Show available commands
-- `theme mainframe70s` - Switch to retro green terminal
-- `theme pc80s` - Switch to 80s blue terminal  
-- `theme bbs90s` - Switch to 90s BBS with effects
-- `theme modern` - Switch to clean modern theme
-- `clear` - Clear terminal
-- Any other input - Basic echo response
-
-## 🔧 Next Steps for Full Implementation
-
-1. **Connect the Systems** - Wire up LLM providers to terminal
-2. **Implement Avatar Commands** - Parse `[AVATAR:...]` from LLM responses
-3. **Add API Configuration** - Settings UI for API keys
-4. **Memory System** - Implement RAG for conversation memory
-5. **Virtual File System** - Add simulated files for Claudia to interact with
-6. **Electron Packaging** - Convert to desktop app
-
-## 📦 Key Technologies
-
-- **React 19** with TypeScript
-- **Vite** for fast development
-- **better-sqlite3** for local data storage
-- **Zustand** for state management
-- **Axios** for API calls
-- **CSS-in-JS** with dynamic theming
-- **Environment variables** for secure configuration
-
-## 🎨 Theme System
-
-Each theme includes:
-- Color schemes authentic to their era
-- Period-appropriate fonts
-- Visual effects (scanlines, glow, CRT curvature)
-- Era-specific spacing and typography
-- Smooth transitions between themes
-
-## 🤖 Avatar Command System
-
-LLMs can control Claudia's avatar through embedded commands:
-
-```
-[AVATAR:position=center,expression=happy,action=wave]
-[AVATAR:position=beside-text,expression=thinking,gesture=point-down]
-[AVATAR:hide=true]
-[AVATAR:show=true,expression=excited,pose=standing]
-```
-
-## 🔄 Provider Extensibility
-
-Adding new providers is straightforward:
-
-```typescript
-// New LLM Provider
-class NewLLMProvider implements LLMProvider {
-  // Implement interface
-}
-
-// Register it
-llmManager.registerProvider(new NewLLMProvider());
-```
-
-## 🏃‍♂️ Getting Started
+## Development
 
 ```bash
-cd claudia-app
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env and add your API keys
-
+# Start dev server
 npm run dev
+
+# Build for production
+npm run build
+
+# Run linter
+npm run lint
 ```
 
-Visit `http://localhost:5173/` to see the terminal interface!
+## Configuration
 
-### Quick Setup with API Keys
+Environment variables are loaded from `.env`:
 
-```bash
-# Add to .env file:
-VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
-VITE_REPLICATE_API_TOKEN=r8_your-token-here
+```env
+# Required for AI functionality
+VITE_ANTHROPIC_API_KEY=sk-ant-api03-...
+VITE_REPLICATE_API_TOKEN=r8_...
 
-# Optional: Enable debug mode
+# Optional providers
+VITE_GOOGLE_API_KEY=AIzaSy...
+
+# Local LLM setup
+VITE_OLLAMA_BASE_URL=http://localhost:11434
+VITE_LOCAL_LLM_MODEL=llama2
+
+# Application settings
+VITE_DEFAULT_THEME=mainframe70s
 VITE_DEBUG_MODE=true
 ```
 
-## 📚 Documentation
+## Documentation
 
-- [Framework Overview](docs/README.md) - Complete system documentation
-- [Setup Guide](docs/SETUP.md) - Installation and configuration
+- [Setup Guide](docs/SETUP.md) - Detailed installation and configuration
 - [Environment Configuration](docs/ENVIRONMENT.md) - API keys and settings
 - [API Reference](docs/API_REFERENCE.md) - Complete API documentation
 
----
+## Tech Stack
 
-The framework is now ready for the next phase of development. All core systems are in place and working together to create the immersive Claudia experience you envisioned.
+- React 18 + TypeScript
+- Vite (build tool)
+- Zustand (state management)
+- SQLite (better-sqlite3)
+- CSS Modules
+
+## License
+
+MIT
