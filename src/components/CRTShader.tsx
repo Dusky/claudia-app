@@ -1,7 +1,8 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ShaderMaterial, PlaneGeometry } from 'three';
+import { ShaderMaterial } from 'three';
 import * as THREE from 'three';
+import html2canvas from 'html2canvas';
 
 const vertexShader = `
   varying vec2 vUv;
@@ -133,9 +134,9 @@ interface CRTShaderWrapperProps {
 }
 
 export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }: CRTShaderWrapperProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
+  const [isCapturing, setIsCapturing] = React.useState(false);
   const [renderError, setRenderError] = React.useState(false);
   
   // Theme-specific CRT settings
@@ -153,13 +154,65 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
     }
   }, [theme]);
   
-  // Disable CRT shader if there's an error
+  const captureContent = useCallback(async () => {
+    if (!contentRef.current || isCapturing) return;
+    
+    setIsCapturing(true);
+    try {
+      const canvas = await html2canvas(contentRef.current, {
+        backgroundColor: null,
+        allowTaint: true,
+        useCORS: true,
+        scale: 1,
+        logging: false
+      });
+      
+      if (textureRef.current) {
+        textureRef.current.dispose();
+      }
+      
+      textureRef.current = new THREE.CanvasTexture(canvas);
+      textureRef.current.needsUpdate = true;
+    } catch (error) {
+      console.error('CRT capture failed:', error);
+      setRenderError(true);
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [isCapturing]);
+  
+  // Initial capture and periodic updates
+  React.useEffect(() => {
+    if (!enabled) return;
+    
+    const timer = setInterval(captureContent, 100); // Update 10fps
+    captureContent(); // Initial capture
+    
+    return () => clearInterval(timer);
+  }, [enabled, captureContent]);
+  
+  // Disable CRT shader if there's an error or not enabled
   if (!enabled || renderError) {
     return <>{children}</>;
   }
   
-  // For now, let's disable the shader and just return children to debug
-  // We'll implement a proper canvas-to-texture system later
-  console.log('CRT Shader temporarily disabled for debugging');
-  return <>{children}</>;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div ref={contentRef} style={{ 
+        position: 'absolute', 
+        inset: 0, 
+        zIndex: textureRef.current ? 1 : 3,
+        visibility: textureRef.current ? 'hidden' : 'visible'
+      }}>
+        {children}
+      </div>
+      {textureRef.current && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
+          <Canvas style={{ width: '100%', height: '100%' }}>
+            <CRTMesh texture={textureRef.current} {...crtSettings} />
+          </Canvas>
+        </div>
+      )}
+    </div>
+  );
 }
