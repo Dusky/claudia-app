@@ -231,15 +231,20 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return baseStyle;
   }, [config?.terminalBreathing, config?.crtGlow]);
 
-  const terminalContentWrapperStyle = useMemo((): React.CSSProperties => ({
-    flex: 1, display: 'flex', flexDirection: 'column',
-    padding: theme.spacing.padding, background: theme.colors.background,
-    position: 'relative', zIndex: 2, 
-    transition: 'transform 0.3s ease-out',
-    // Apply CSS curvature only if WebGL shader is NOT active and theme/config enables it
-    transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
-    borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
-  }), [theme, config?.screenCurvature, isWebGLShaderActive]);
+  const terminalContentWrapperStyle = useMemo((): React.CSSProperties => {
+    const showAppBackground = config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground);
+    return {
+      flex: 1, display: 'flex', flexDirection: 'column',
+      padding: theme.spacing.padding, 
+      // If appBackground is active, make this transparent, otherwise use theme's text area background
+      background: showAppBackground ? 'transparent' : theme.colors.background,
+      position: 'relative', zIndex: 2, 
+      transition: 'transform 0.3s ease-out',
+      // Apply CSS curvature only if WebGL shader is NOT active and theme/config enables it
+      transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
+      borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
+    };
+  }, [theme, config?.enableAppBackground, config?.appBackgroundOverride, config?.screenCurvature, isWebGLShaderActive]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
     position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px', 
