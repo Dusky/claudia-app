@@ -43,6 +43,22 @@ export class ReplicateProvider implements ImageProvider {
   private supportedModels: Record<string, ReplicateModel> = {};
   
   private modelConfigs: Record<string, ModelConfig> = {
+    'minimax/image-01': {
+      maxSteps: 50,
+      defaultSteps: 25,
+      maxGuidance: 20.0,
+      defaultGuidance: 7.5,
+      supportedDimensions: [
+        { width: 512, height: 512 },
+        { width: 768, height: 768 },
+        { width: 1024, height: 1024 },
+        { width: 1024, height: 1536 },
+        { width: 1536, height: 1024 },
+      ],
+      defaultDimensions: { width: 1024, height: 1024 },
+      supportsNegativePrompt: true,
+      description: 'Minimax Image 01 - General purpose image generation'
+    },
     'google/imagen-4': {
       maxSteps: 1,
       defaultSteps: 1,
@@ -200,8 +216,8 @@ export class ReplicateProvider implements ImageProvider {
       ? '/api/replicate'  // This will be proxied to api.replicate.com
       : (providerConfig?.baseURL || 'https://api.replicate.com');
     
-    const selectedModel = providerConfig?.model || 'google/imagen-4';
-    const modelConfig = this.modelConfigs[selectedModel];
+    const selectedModel = providerConfig?.model || 'google/imagen-4'; // Default to a known good model
+    const modelConfig = this.modelConfigs[selectedModel] || this.modelConfigs['minimax/image-01']; // Fallback if selectedModel config is missing
     
     this.config = {
       apiKey,
@@ -212,8 +228,8 @@ export class ReplicateProvider implements ImageProvider {
       defaultParameters: {
         width: modelConfig?.defaultDimensions.width || 1024,
         height: modelConfig?.defaultDimensions.height || 1024,
-        num_inference_steps: modelConfig?.defaultSteps || 4,
-        guidance_scale: modelConfig?.defaultGuidance || 0.0,
+        num_inference_steps: modelConfig?.defaultSteps || 25, // Adjusted default
+        guidance_scale: modelConfig?.defaultGuidance || 7.5, // Adjusted default
         ...providerConfig?.defaultParameters
       },
       ...providerConfig
@@ -229,6 +245,7 @@ export class ReplicateProvider implements ImageProvider {
 
   getSupportedModels(): string[] {
     const baseModels = [
+      'minimax/image-01', // Added new model
       'google/imagen-4',
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-schnell',
@@ -265,6 +282,7 @@ export class ReplicateProvider implements ImageProvider {
     try {
       // Load some popular image generation models
       const popularModels = [
+        'minimax/image-01', // Added new model
         'google/imagen-4',
         'black-forest-labs/flux-1.1-pro',
         'black-forest-labs/flux-schnell',
@@ -431,7 +449,7 @@ export class ReplicateProvider implements ImageProvider {
 
   private async createOfficialModelPrediction(request: ImageGenerationRequest): Promise<{ id: string }> {
     const input = this.buildInputParameters(request);
-    const [owner, modelName] = (this.config.model || 'black-forest-labs/flux-schnell').split('/');
+    const [owner, modelName] = (this.config.model || 'minimax/image-01').split('/'); // Default to new model if current is undefined
     
     console.log('📡 Creating official model prediction:', { 
       owner, 
@@ -513,12 +531,12 @@ export class ReplicateProvider implements ImageProvider {
     };
 
     // Add steps with model-specific validation
-    const requestedSteps = request.steps || modelConfig?.defaultSteps || 4;
+    const requestedSteps = request.steps || modelConfig?.defaultSteps || 25;
     const maxSteps = modelConfig?.maxSteps || 50;
     input.num_inference_steps = Math.min(requestedSteps, maxSteps);
 
     // Add guidance with model-specific validation
-    const requestedGuidance = request.guidance !== undefined ? request.guidance : (modelConfig?.defaultGuidance || 0.0);
+    const requestedGuidance = request.guidance !== undefined ? request.guidance : (modelConfig?.defaultGuidance || 7.5);
     const maxGuidance = modelConfig?.maxGuidance || 20.0;
     input.guidance_scale = Math.min(requestedGuidance, maxGuidance);
 
@@ -552,7 +570,7 @@ export class ReplicateProvider implements ImageProvider {
   }
 
   getModelConfig(): ModelConfig | undefined {
-    return this.modelConfigs[this.config.model || 'google/imagen-4'];
+    return this.modelConfigs[this.config.model || 'minimax/image-01']; // Default to new model if current is undefined
   }
 
   getAllModelConfigs(): Record<string, ModelConfig> {
