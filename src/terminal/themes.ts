@@ -21,7 +21,7 @@ export interface TerminalTheme {
   };
   effects: {
     scanlines: boolean; // CSS-based scanlines (fallback)
-    glow: boolean; // Text-shadow glow
+    glow: boolean; // Text-shadow glow/blur
     flicker: boolean; // Text opacity flicker
     crt: boolean; // CSS-based CRT bezel and vignette (bezel always applies, vignette is fallback)
     noise: boolean; // CSS-based noise (fallback)
@@ -43,8 +43,8 @@ export const themes: Record<string, TerminalTheme> = {
     name: '70s Mainframe',
     era: '1970s',
     colors: {
-      background: '#0A0A0A', // Slightly off-black
-      foreground: '#33FF33', // Classic green
+      background: '#0A0A0A', 
+      foreground: '#33FF33', 
       cursor: '#66FF66',
       selection: '#003300',
       accent: '#44DD44',
@@ -54,14 +54,14 @@ export const themes: Record<string, TerminalTheme> = {
       error: '#FF3333'
     },
     font: {
-      family: '"IBM Plex Mono", "VT323", "Courier New", monospace', // Added VT323 for more pixelated option
-      size: '15px', // Slightly larger for older feel
-      weight: '500',
-      lineHeight: '1.5'
+      family: '"VT323", "IBM Plex Mono", "Courier New", monospace', // VT323 first for pixel look
+      size: '18px', // Pixel fonts often look better at specific sizes
+      weight: '400', // VT323 is typically regular weight
+      lineHeight: '1.4'
     },
     effects: {
       scanlines: true,
-      glow: true,
+      glow: true, // Will be a subtle blur/phosphor halo
       flicker: false,
       crt: true,
       noise: true,
@@ -70,7 +70,7 @@ export const themes: Record<string, TerminalTheme> = {
       appBackground: '#050505 url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23151515\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
-      padding: '25px', // More padding
+      padding: '25px', 
       lineSpacing: '3px',
       characterSpacing: '0.75px'
     },
@@ -82,7 +82,7 @@ export const themes: Record<string, TerminalTheme> = {
     name: '80s Personal Computer',
     era: '1980s',
     colors: {
-      background: '#0000AA', // Classic blue
+      background: '#0000AA', 
       foreground: '#FFFFFF',
       cursor: '#FFFF00',
       selection: '#000055',
@@ -93,14 +93,14 @@ export const themes: Record<string, TerminalTheme> = {
       error: '#FF5555'
     },
     font: {
-      family: '"Perfect DOS VGA 437", "Fixedsys Excelsior", "Monaco", monospace', // Added Fixedsys
-      size: '16px',
+      family: '"Perfect DOS VGA 437", "Fixedsys Excelsior", "Monaco", monospace', 
+      size: '16px', // Common size for these fonts
       weight: '400',
-      lineHeight: '1.3'
+      lineHeight: '1.25' // Tighter line height common for DOS
     },
     effects: {
-      scanlines: true, // More subtle scanlines for 80s monitors
-      glow: false, // Less glow typically
+      scanlines: true, 
+      glow: true, // Subtle glow
       flicker: false,
       crt: true,
       noise: false,
@@ -122,28 +122,28 @@ export const themes: Record<string, TerminalTheme> = {
     era: '1990s',
     colors: {
       background: '#000000',
-      foreground: '#CCCCCC', // Often slightly off-white
+      foreground: '#CCCCCC', 
       cursor: '#FF00FF',
       selection: '#333333',
-      accent: '#00AAAA', // Cyan was common
-      secondary: '#AAAA00', // Yellow/Amber
+      accent: '#00AAAA', 
+      secondary: '#AAAA00', 
       success: '#00FF00',
       warning: '#FFFF00',
       error: '#FF0000'
     },
     font: {
-      family: '"MS-DOS", "Terminal", "Consolas", monospace',
+      family: '"Terminal", "Fixedsys Excelsior", "Consolas", monospace', // Terminal font was common
       size: '15px',
       weight: '400',
-      lineHeight: '1.35'
+      lineHeight: '1.3'
     },
     effects: {
       scanlines: true,
-      glow: true, // Some glow for effect
-      flicker: true, // BBS often had some flicker
-      crt: true, // Still CRT era
+      glow: true, // More of a digital glow
+      flicker: true, 
+      crt: true, 
       noise: true,
-      noiseIntensity: 0.25, // More noticeable noise/artifacts
+      noiseIntensity: 0.25, 
       screenCurvature: true,
       appBackground: 'radial-gradient(ellipse at center, #101020 0%, #000000 80%)',
     },
@@ -160,7 +160,7 @@ export const themes: Record<string, TerminalTheme> = {
     name: 'Modern Terminal',
     era: '2020s',
     colors: {
-      background: '#1E1E1E', // Common modern dark theme
+      background: '#1E1E1E', 
       foreground: '#D4D4D4',
       cursor: '#00AACC',
       selection: '#264F78',
@@ -174,17 +174,17 @@ export const themes: Record<string, TerminalTheme> = {
       family: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
       size: '14px',
       weight: '400',
-      lineHeight: '1.6' // More spacious
+      lineHeight: '1.6' 
     },
     effects: {
-      scanlines: false, // Off by default for modern
-      glow: false,
+      scanlines: false, 
+      glow: false, // Modern themes usually have crisp text
       flicker: false,
-      crt: false, // No CRT bezel by default
+      crt: false, 
       noise: false,
       noiseIntensity: 0,
       screenCurvature: false,
-      appBackground: '#121212', // Dark, clean background
+      appBackground: '#121212', 
     },
     spacing: {
       padding: '20px',

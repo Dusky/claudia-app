@@ -7,29 +7,18 @@
 html, body, #root {
   height: 100vh;
   overflow: hidden;
-  /* Changed from #000 to a subtle dark gradient for the global app background */
   background: linear-gradient(160deg, #08080A 0%, #030305 100%);
+  
+  /* Attempt to disable default browser font smoothing for a more retro pixelated look */
+  /* These are suggestions and browser support/effect varies */
+  font-smooth: never;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  /* For true pixel fonts, this helps maintain crispness if not blurred by shader */
+  /* image-rendering: pixelated; /* or crisp-edges - apply this on specific elements if needed */
 }
 
-/* 
- * CRITICAL LAYOUT STRUCTURE - DO NOT MODIFY WITHOUT UNDERSTANDING
- * 
- * App Layout Architecture:
- * .App (flexbox column) - Full viewport height
- *   ├── TopBar (flex-shrink: 0) - Fixed height 48px
- *   ├── .main-content (flex: 1) - Takes remaining space
- *   │   └── .terminal-container (flex: 1) - Full main-content space
- *   │       └── TerminalDisplay - Handles internal scrolling
- *   └── StatusBar (flex-shrink: 0) - Fixed height 28px
- * 
- * This prevents:
- * - Input being covered by fixed positioned elements
- * - Content overflow outside viewport
- * - Layout conflicts when adding new UI elements
- * 
- * NEVER use position: fixed for TopBar or StatusBar!
- * ALWAYS use flex-shrink: 0 for fixed-size elements!
- */
+/* ... rest of App.css ... */
 .App {
   height: 100vh;
   width: 100vw;
@@ -41,7 +30,6 @@ html, body, #root {
   flex-direction: column;
 }
 
-/* Combined background effects with CRT gradient for the .App div (screen content) */
 .App::before {
   content: '';
   position: absolute;
@@ -56,7 +44,7 @@ html, body, #root {
     radial-gradient(circle at 40% 80%, rgba(0, 255, 0, 0.02) 0%, transparent 50%);
   animation: backgroundPulse 8s ease-in-out infinite;
   pointer-events: none;
-  z-index: 1; /* Above .App's direct background, below its content */
+  z-index: 1; 
 }
 
 .App::after {
@@ -68,7 +56,7 @@ html, body, #root {
   bottom: 0;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.015'/%3E%3C/svg%3E");
   pointer-events: none;
-  z-index: 0; /* Below .App's direct background */
+  z-index: 0; 
   opacity: 0.6;
 }
 
@@ -83,38 +71,29 @@ html, body, #root {
   }
 }
 
-/* 
- * MAIN CONTENT AREA - Takes remaining space between TopBar and StatusBar
- * This ensures the terminal input is never covered by fixed elements
- */
 .main-content {
-  flex: 1; /* Take remaining space between TopBar and StatusBar */
+  flex: 1; 
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden; /* Prevent content from overflowing main area */
-  min-height: 0; /* Allow flex child to shrink below content size */
-  z-index: 2; /* Ensure main content is above .App::before/::after */
+  overflow: hidden; 
+  min-height: 0; 
+  z-index: 2; 
 }
 
-/* 
- * TERMINAL CONTAINER - Full space within main-content with proper scrolling
- * This handles the terminal display and ensures input stays visible
- */
 .terminal-container {
-  flex: 1; /* Take all available space in main-content */
+  flex: 1; 
   width: 100%;
-  overflow-y: auto; /* For internal scrolling of TerminalDisplay */
+  overflow-y: auto; 
   position: relative;
-  /* z-index: 2; Removed, main-content handles z-index relative to .App pseudos */
-  backdrop-filter: blur(0.5px); /* This will blur the .App background if terminal-container's own bg is transparent */
+  backdrop-filter: blur(0.5px); 
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Allow flex child to shrink below content size */
+  min-height: 0; 
+  /* Moved font-smoothing attempts to html, body, #root for global effect */
+  /* image-rendering can be applied here if specific pixel fonts need it */
 }
 
-/* CSS-generated circuit board wallpaper for terminal-container */
-/* This will be part of the html2canvas capture if terminal-container's direct background is transparent */
 .terminal-container::before {
   content: '';
   position: absolute;
@@ -122,51 +101,31 @@ html, body, #root {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: -1; /* Behind terminal-container's content, but above its direct background */
+  z-index: -1; 
   opacity: 0.08;
   background-image: 
-    /* Horizontal circuit traces */
     linear-gradient(90deg, transparent 48%, rgba(0, 255, 255, 0.3) 49%, rgba(0, 255, 255, 0.3) 51%, transparent 52%),
     linear-gradient(90deg, transparent 78%, rgba(0, 255, 255, 0.2) 79%, rgba(0, 255, 255, 0.2) 81%, transparent 82%),
-    
-    /* Vertical circuit traces */
     linear-gradient(0deg, transparent 23%, rgba(0, 255, 255, 0.3) 24%, rgba(0, 255, 255, 0.3) 26%, transparent 27%),
     linear-gradient(0deg, transparent 67%, rgba(0, 255, 255, 0.2) 68%, rgba(0, 255, 255, 0.2) 70%, transparent 71%),
-    
-    /* Circuit nodes/joints */
     radial-gradient(circle at 49% 24%, rgba(0, 255, 255, 0.4) 1px, transparent 1px),
     radial-gradient(circle at 79% 49%, rgba(0, 255, 255, 0.4) 1px, transparent 1px),
     radial-gradient(circle at 49% 68%, rgba(0, 255, 255, 0.4) 1px, transparent 1px),
     radial-gradient(circle at 81% 68%, rgba(0, 255, 255, 0.4) 1px, transparent 1px),
-    
-    /* Larger circuit components */
     radial-gradient(ellipse 8px 3px at 25% 35%, rgba(0, 255, 255, 0.3) 0%, transparent 100%),
     radial-gradient(ellipse 3px 8px at 75% 75%, rgba(0, 255, 255, 0.3) 0%, transparent 100%),
-    
-    /* Background grid pattern */
     linear-gradient(90deg, transparent 99%, rgba(0, 255, 255, 0.1) 100%),
     linear-gradient(0deg, transparent 99%, rgba(0, 255, 255, 0.1) 100%);
   
   background-size: 
-    120px 40px,  /* Horizontal traces */
-    80px 60px,
-    40px 120px,  /* Vertical traces */
-    60px 80px,
-    120px 120px, /* Circuit nodes */
-    120px 120px,
-    120px 120px,
-    120px 120px,
-    120px 120px, /* Components */
-    120px 120px,
-    20px 20px,   /* Grid */
-    20px 20px;
+    120px 40px, 80px 60px, 40px 120px, 60px 80px,
+    120px 120px, 120px 120px, 120px 120px, 120px 120px,
+    120px 120px, 120px 120px, 20px 20px, 20px 20px;
   
   background-position:
-    0 0, 20px 0,     /* Horizontal traces */
-    0 0, 0 20px,     /* Vertical traces */
-    0 0, 0 0, 0 0, 0 0, /* Nodes */
-    0 0, 0 0,        /* Components */
-    0 0, 0 0;        /* Grid */
+    0 0, 20px 0, 0 0, 0 20px,
+    0 0, 0 0, 0 0, 0 0,
+    0 0, 0 0, 0 0, 0 0;
   
   animation: circuitFlow 15s linear infinite;
 }
@@ -174,84 +133,44 @@ html, body, #root {
 @keyframes circuitFlow {
   0% { 
     background-position:
-      0 0, 20px 0,
-      0 0, 0 20px,
+      0 0, 20px 0, 0 0, 0 20px,
       0 0, 0 0, 0 0, 0 0,
-      0 0, 0 0,
-      0 0, 0 0;
+      0 0, 0 0, 0 0, 0 0;
   }
   100% { 
     background-position:
-      120px 0, 140px 0,
-      0 120px, 0 140px,
+      120px 0, 140px 0, 0 120px, 0 140px,
       120px 120px, 120px 120px, 120px 120px, 120px 120px,
-      120px 120px, 120px 120px,
-      20px 20px, 20px 20px;
+      120px 120px, 120px 120px, 20px 20px, 20px 20px;
   }
 }
 
-/* Enhanced theme-specific backgrounds for .terminal-container */
-/* These are applied to .terminal-container. If theme.effects.appBackground is opaque, these won't be visible. */
-/* If theme.effects.appBackground is semi-transparent, these will blend. */
 .terminal-container[data-theme="mainframe70s"] {
   background: 
-    linear-gradient(180deg, 
-      rgba(0, 255, 0, 0.02) 0%, 
-      rgba(0, 0, 0, 0.9) 20%, 
-      rgba(0, 0, 0, 0.95) 80%, 
-      rgba(0, 255, 0, 0.02) 100%
-    ),
-    radial-gradient(ellipse at center, 
-      rgba(0, 255, 0, 0.02) 0%, 
-      transparent 70%
-    );
+    linear-gradient(180deg, rgba(0, 255, 0, 0.02) 0%, rgba(0, 0, 0, 0.9) 20%, rgba(0, 0, 0, 0.95) 80%, rgba(0, 255, 0, 0.02) 100%),
+    radial-gradient(ellipse at center, rgba(0, 255, 0, 0.02) 0%, transparent 70%);
 }
 
 .terminal-container[data-theme="pc80s"] {
   background: 
-    linear-gradient(180deg, 
-      rgba(0, 0, 255, 0.8) 0%, 
-      rgba(0, 0, 128, 0.9) 100%
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 2px,
-      rgba(255, 255, 255, 0.01) 2px,
-      rgba(255, 255, 255, 0.01) 4px
-    );
+    linear-gradient(180deg, rgba(0, 0, 255, 0.8) 0%, rgba(0, 0, 128, 0.9) 100%),
+    repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255, 255, 255, 0.01) 2px, rgba(255, 255, 255, 0.01) 4px);
 }
 
 .terminal-container[data-theme="bbs90s"] {
   background: 
-    linear-gradient(45deg, 
-      rgba(255, 0, 255, 0.03) 0%, 
-      rgba(0, 0, 0, 0.9) 25%, 
-      rgba(0, 0, 0, 0.95) 75%, 
-      rgba(0, 255, 255, 0.03) 100%
-    ),
-    radial-gradient(circle at 30% 70%, 
-      rgba(255, 0, 255, 0.02) 0%, 
-      transparent 50%
-    );
+    linear-gradient(45deg, rgba(255, 0, 255, 0.03) 0%, rgba(0, 0, 0, 0.9) 25%, rgba(0, 0, 0, 0.95) 75%, rgba(0, 255, 255, 0.03) 100%),
+    radial-gradient(circle at 30% 70%, rgba(255, 0, 255, 0.02) 0%, transparent 50%);
 }
 
 .terminal-container[data-theme="modern"] {
   background: 
-    linear-gradient(180deg, 
-      rgba(26, 26, 26, 0.95) 0%, 
-      rgba(20, 20, 20, 0.98) 100%
-    ),
-    linear-gradient(90deg, 
-      transparent 0%, 
-      rgba(0, 212, 170, 0.02) 50%, 
-      transparent 100%
-    );
+    linear-gradient(180deg, rgba(26, 26, 26, 0.95) 0%, rgba(20, 20, 20, 0.98) 100%),
+    linear-gradient(90deg, transparent 0%, rgba(0, 212, 170, 0.02) 50%, transparent 100%);
 }
 
-/* Avatar enhancements */
 .claudia-avatar {
-  z-index: 1000; /* Ensure avatar is above terminal content but below modals */
+  z-index: 1000; 
   filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.3));
   transition: all 0.3s ease;
 }
@@ -261,196 +180,68 @@ html, body, #root {
   transform: scale(1.02);
 }
 
-/* Hide default scrollbars in Firefox */
 .terminal-container {
   scrollbar-width: thin;
 }
 
-/* Enhanced scrollbar styling */
-.terminal-container::-webkit-scrollbar {
-  width: 12px;
-}
-
-.terminal-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-}
-
+.terminal-container::-webkit-scrollbar { width: 12px; }
+.terminal-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 6px; }
 .terminal-container::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, 
-    rgba(0, 255, 255, 0.3) 0%, 
-    rgba(0, 255, 255, 0.6) 50%, 
-    rgba(0, 255, 255, 0.3) 100%
-  );
-  border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: linear-gradient(180deg, rgba(0, 255, 255, 0.3) 0%, rgba(0, 255, 255, 0.6) 50%, rgba(0, 255, 255, 0.3) 100%);
+  border-radius: 6px; border: 2px solid transparent; background-clip: content-box;
 }
-
 .terminal-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, 
-    rgba(0, 255, 255, 0.5) 0%, 
-    rgba(0, 255, 255, 0.8) 50%, 
-    rgba(0, 255, 255, 0.5) 100%
-  );
+  background: linear-gradient(180deg, rgba(0, 255, 255, 0.5) 0%, rgba(0, 255, 255, 0.8) 50%, rgba(0, 255, 255, 0.5) 100%);
   background-clip: content-box;
 }
 
-/* Custom selection color for terminal */
-::selection {
-  background: rgba(0, 255, 255, 0.3);
-  color: inherit;
-  text-shadow: 0 0 8px currentColor;
-}
+::selection { background: rgba(0, 255, 255, 0.3); color: inherit; text-shadow: 0 0 8px currentColor; }
+::-moz-selection { background: rgba(0, 255, 255, 0.3); color: inherit; text-shadow: 0 0 8px currentColor; }
 
-::-moz-selection {
-  background: rgba(0, 255, 255, 0.3);
-  color: inherit;
-  text-shadow: 0 0 8px currentColor;
-}
-
-/* Terminal text enhancements */
-.terminal-line {
-  position: relative;
-  margin-bottom: 8px; 
-  padding-bottom: 4px; 
-  min-height: 24px; 
-}
-
-/* Glow effect for important lines */
-.terminal-line[data-type="system"] {
-  text-shadow: 0 0 10px currentColor;
-  animation: systemGlow 2s ease-in-out infinite;
-}
-
+.terminal-line { position: relative; margin-bottom: 8px; padding-bottom: 4px; min-height: 24px; }
+.terminal-line[data-type="system"] { text-shadow: 0 0 10px currentColor; animation: systemGlow 2s ease-in-out infinite; }
 @keyframes systemGlow {
-  0%, 100% { 
-    text-shadow: 0 0 5px currentColor;
-    opacity: 0.9;
-  }
-  50% { 
-    text-shadow: 0 0 15px currentColor, 0 0 25px currentColor;
-    opacity: 1;
-  }
+  0%, 100% { text-shadow: 0 0 5px currentColor; opacity: 0.9; }
+  50% { text-shadow: 0 0 15px currentColor, 0 0 25px currentColor; opacity: 1; }
 }
 
-/* Loading animation enhancement */
-.loading-dots span {
-  display: inline-block;
-  animation: loadingPulse 1.5s ease-in-out infinite;
-  text-shadow: 0 0 10px currentColor;
-}
-
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
+.loading-dots span { display: inline-block; animation: loadingPulse 1.5s ease-in-out infinite; text-shadow: 0 0 10px currentColor; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes loadingPulse {
-  0%, 100% { 
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  50% { 
-    opacity: 1;
-    transform: scale(1.2);
-    text-shadow: 0 0 15px currentColor;
-  }
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); text-shadow: 0 0 15px currentColor; }
 }
 
-/* Input field enhancements */
-.terminal-input-line input {
-  text-shadow: 0 0 5px currentColor;
-}
+.terminal-input-line input { text-shadow: 0 0 5px currentColor; }
+.terminal-input-line input:focus { text-shadow: 0 0 10px currentColor; }
 
-.terminal-input-line input:focus {
-  text-shadow: 0 0 10px currentColor;
-}
-
-/* Responsive design */
 @media (max-width: 768px) { 
-  .claudia-avatar {
-    transform: scale(0.8);
-  }
-  
-  .terminal-container {
-    font-size: 14px; 
-  }
+  .claudia-avatar { transform: scale(0.8); }
+  .terminal-container { font-size: 14px; }
 }
-
 @media (max-width: 480px) { 
-  .claudia-avatar {
-    transform: scale(0.65); 
-  }
-  
-  .terminal-container {
-    font-size: 13px; 
-    padding: 10px; 
-  }
-
-  .App::before {
-    animation: backgroundPulse 12s ease-in-out infinite; 
-  }
-
-  .terminal-line[data-type="system"] {
-    animation: systemGlow 3s ease-in-out infinite; 
-  }
+  .claudia-avatar { transform: scale(0.65); }
+  .terminal-container { font-size: 13px; padding: 10px; }
+  .App::before { animation: backgroundPulse 12s ease-in-out infinite; }
+  .terminal-line[data-type="system"] { animation: systemGlow 3s ease-in-out infinite; }
 }
-
 @media (max-width: 360px) { 
-  .claudia-avatar {
-    transform: scale(0.55); 
-  }
-  
-  .terminal-container {
-    font-size: 12px; 
-    padding: 8px; 
-  }
-
-  .App::after { 
-    opacity: 0.4;
-  }
-  
-  .loading-dots span {
-    animation-duration: 1.8s; 
-  }
+  .claudia-avatar { transform: scale(0.55); }
+  .terminal-container { font-size: 12px; padding: 8px; }
+  .App::after { opacity: 0.4; }
+  .loading-dots span { animation-duration: 1.8s; }
 }
 
-
-/* Special effects for different terminal themes */
-.terminal-container[data-theme="mainframe70s"] .terminal-line {
-  animation: scanlineGlow 0.1s linear infinite;
-}
-
+.terminal-container[data-theme="mainframe70s"] .terminal-line { animation: scanlineGlow 0.1s linear infinite; }
 @keyframes scanlineGlow {
   0%, 100% { background: transparent; }
   50% { background: rgba(0, 255, 0, 0.01); }
 }
-
-.terminal-container[data-theme="bbs90s"] .terminal-line {
-  position: relative;
-}
-
+.terminal-container[data-theme="bbs90s"] .terminal-line { position: relative; }
 .terminal-container[data-theme="bbs90s"] .terminal-line::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 0, 255, 0.5) 50%,
-    transparent 100%
-  );
+  content: ''; position: absolute; left: -10px; top: 0; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 0, 255, 0.5) 50%, transparent 100%);
   animation: bbsBorder 3s ease-in-out infinite;
 }
-
-@keyframes bbsBorder {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
+@keyframes bbsBorder { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }

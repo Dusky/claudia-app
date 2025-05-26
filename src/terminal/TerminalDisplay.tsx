@@ -23,35 +23,53 @@ interface TerminalDisplayProps {
   config?: ConfigSettings; // Global config from appStore
 }
 
-const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix }: {
+const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix, isWebGLShaderActive }: {
   line: TerminalLine;
   theme: TerminalTheme;
   getLineTypeColor: (type: TerminalLine['type']) => string;
   getUserPrefix: (line: TerminalLine) => string;
-}) => (
-  <div
-    className={`terminal-line terminal-line-${line.type}`}
-    data-type={line.type}
-    style={{
-      color: getLineTypeColor(line.type),
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      display: 'flex',
-      alignItems: 'baseline',
-      marginBottom: '8px',
-      ...(theme.effects.glow && { // Text-shadow glow always applies if theme wants it
-        textShadow: `0 0 8px ${getLineTypeColor(line.type)}70, 0 0 5px ${getLineTypeColor(line.type)}50` 
-      })
-    }}
-  >
-    <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
-      {getUserPrefix(line)}
-    </span>
-    <span className="line-content" style={{ flex: 1 }}>
-      <ContentRenderer content={line.content} />
-    </span>
-  </div>
-));
+  isWebGLShaderActive: boolean;
+}) => {
+  let textShadowStyle = {};
+  if (theme.effects.glow) {
+    if (isWebGLShaderActive) {
+      // More subtle glow/halo when WebGL shader is active, as shader handles heavier effects
+      textShadowStyle = { textShadow: `0 0 3px ${getLineTypeColor(line.type)}30, 0 0 1px ${getLineTypeColor(line.type)}20` };
+    } else {
+      // More pronounced CSS glow/blur if WebGL shader is off
+      if (theme.id === 'mainframe70s') {
+        textShadowStyle = { textShadow: `0 0 1px ${getLineTypeColor(line.type)}90, 0 0 3px ${getLineTypeColor(line.type)}50, 0 0 5px ${getLineTypeColor(line.type)}30` };
+      } else if (theme.id === 'pc80s') {
+        textShadowStyle = { textShadow: `0 0 1px ${getLineTypeColor(line.type)}70, 0 0 2px ${getLineTypeColor(line.type)}40` };
+      } else { // bbs90s and others
+        textShadowStyle = { textShadow: `0 0 2px ${getLineTypeColor(line.type)}60, 0 0 4px ${getLineTypeColor(line.type)}40` };
+      }
+    }
+  }
+
+  return (
+    <div
+      className={`terminal-line terminal-line-${line.type}`}
+      data-type={line.type}
+      style={{
+        color: getLineTypeColor(line.type),
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        display: 'flex',
+        alignItems: 'baseline',
+        marginBottom: '8px',
+        ...textShadowStyle
+      }}
+    >
+      <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
+        {getUserPrefix(line)}
+      </span>
+      <span className="line-content" style={{ flex: 1 }}>
+        <ContentRenderer content={line.content} />
+      </span>
+    </div>
+  );
+});
 LineComponent.displayName = 'LineComponent';
 
 export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
@@ -83,7 +101,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const [loadingMessage, setLoadingMessage] = useState('thinking...');
   const [loadingDots, setLoadingDots] = useState(0);
 
-  // Determine if the main WebGL CRT Shader is active
   const isWebGLShaderActive = config?.enableCRTEffect === true;
 
   useEffect(() => {
@@ -236,11 +253,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return {
       flex: 1, display: 'flex', flexDirection: 'column',
       padding: theme.spacing.padding, 
-      // If appBackground is active, make this transparent, otherwise use theme's text area background
       background: showAppBackground ? 'transparent' : theme.colors.background,
       position: 'relative', zIndex: 2, 
       transition: 'transform 0.3s ease-out',
-      // Apply CSS curvature only if WebGL shader is NOT active and theme/config enables it
       transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
       borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
     };
@@ -262,7 +277,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         data-theme={theme.id}
         style={terminalContainerOuterStyle}
       >
-        {/* CSS Scanlines: Apply only if WebGL shader is NOT active and theme/config enables them */}
         {!isWebGLShaderActive && (theme.effects.scanlines || config?.scanLines !== 'off') && (
           <div 
             className="scanlines-overlay"
@@ -276,7 +290,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             }}
           />
         )}
-        {/* CSS Noise: Apply only if WebGL shader is NOT active and theme/config enables it */}
         {!isWebGLShaderActive && (theme.effects.noise || config?.staticOverlay) && (
           <div 
             className="noise-overlay"
@@ -289,7 +302,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           />
         )}
         
-        {config?.visualArtifacts && ( // This is a global config, can stay as is or also be made conditional
+        {config?.visualArtifacts && ( 
           <div 
             className="visual-artifacts-overlay"
             style={{
@@ -301,12 +314,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         )}
 
         <div
-          className="terminal-content-wrapper" // CSS curvature class removed, handled by inline style now
+          className="terminal-content-wrapper"
           style={terminalContentWrapperStyle}
         >
           <div ref={outputRef} className="terminal-output-area" style={outputAreaStyle}>
             {lines.map((line) => (
-              <LineComponent key={line.id} line={line} theme={theme} getLineTypeColor={getLineTypeColor} getUserPrefix={getUserPrefix} />
+              <LineComponent key={line.id} line={line} theme={theme} getLineTypeColor={getLineTypeColor} getUserPrefix={getUserPrefix} isWebGLShaderActive={isWebGLShaderActive} />
             ))}
           </div>
           <div className="terminal-input-area" style={inputAreaStyle}>
@@ -335,11 +348,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                   color: theme.colors.foreground, fontFamily: 'inherit', fontSize: 'inherit',
                   fontWeight: 'inherit', letterSpacing: 'inherit', flex: 1,
                   caretColor: theme.colors.cursor, transition: 'all 0.2s ease-in-out',
-                  ...(theme.effects.glow && { textShadow: `0 0 5px ${theme.colors.foreground}60` }),
+                  ...(theme.effects.glow && !isWebGLShaderActive && { // Apply CSS glow only if WebGL is off
+                     textShadow: theme.id === 'mainframe70s' ? `0 0 1px ${theme.colors.foreground}90, 0 0 3px ${theme.colors.foreground}50` : `0 0 2px ${theme.colors.foreground}60`
+                  }),
+                  ...(theme.effects.glow && isWebGLShaderActive && { // More subtle CSS glow if WebGL is on
+                     textShadow: `0 0 2px ${theme.colors.foreground}30`
+                  }),
                   ...(isInputFocused && {
                     filter: 'brightness(1.1)',
                     textShadow: theme.effects.glow 
-                      ? `0 0 8px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60` 
+                      ? (isWebGLShaderActive ? `0 0 3px ${theme.colors.foreground}40, 0 0 1px ${theme.colors.cursor}30` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
                       : `0 0 2px ${theme.colors.cursor}40`
                   })
                 }}
@@ -357,8 +375,15 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         </div>
 
         <style>{`
-          /* app-background-layer and terminal-container styles are mostly via props */
-          /* terminal-content-wrapper styles via props, including conditional curvature */
+          .terminal-container {
+            /* Attempt to disable default browser font smoothing for a more retro pixelated look */
+            /* These are suggestions and browser support/effect varies */
+            font-smooth: never;
+            -webkit-font-smoothing: none;
+            -moz-osx-font-smoothing: grayscale;
+            /* For true pixel fonts, this helps maintain crispness if not blurred by shader */
+            image-rendering: pixelated; /* or crisp-edges */
+          }
 
           @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
           @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
@@ -366,7 +391,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             0%, 100% { transform: scale(1); filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'}; }
             50% { transform: scale(1.002); filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'}; }
           }
-          @keyframes artifacts { /* This can stay as a global visual artifact */
+          @keyframes artifacts { 
             0%, 100% { opacity: 0; }
             2% { opacity: 0.3; background: linear-gradient(90deg, transparent 0%, rgba(255,0,0,0.1) 50%, transparent 100%); }
             4% { opacity: 0; } 85% { opacity: 0; }
@@ -410,14 +435,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           .suggestion-item:hover::before { left: 100%; }
 
           ${theme.effects.flicker ? `
-            .terminal-content-wrapper { /* Text flicker, applies if theme wants it */
+            .terminal-content-wrapper { 
               animation: contentFlicker 0.15s infinite linear alternate;
             }
             @keyframes contentFlicker { 0% { opacity: 1; } 100% { opacity: 0.98; } }
           ` : ''}
 
           ${theme.effects.crt ? `
-            .terminal-container.crt-effect { /* CRT Bezel effect */
+            .terminal-container.crt-effect { 
               border-radius: 15px; 
               box-shadow: 
                 inset 0 0 30px ${theme.colors.background}99, 
@@ -425,7 +450,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                 0 0 15px rgba(0,0,0,0.5), 
                 0 0 40px ${theme.colors.accent}20; 
             }
-            /* CSS Vignette: Apply only if WebGL shader is NOT active and theme enables CRT effect */
             ${!isWebGLShaderActive ? `
             .terminal-container.crt-effect::before { 
               content: '';

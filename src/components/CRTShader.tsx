@@ -16,21 +16,23 @@ const fragmentShader = `
   uniform sampler2D tDiffuse;
   uniform float time;
   uniform vec2 resolution;
-  uniform float curvature; // Higher values = less curvature. e.g., 5.0 to 30.0. 0 or less to disable.
-  uniform float scanlineDensity; // How many scanlines. e.g., resolution.y * 0.7. 0 to disable.
-  uniform float scanlineIntensity; // Strength of scanlines, e.g., 0.05 to 0.3
-  uniform float noiseIntensity; // Strength of noise, e.g., 0.02 to 0.15. 0 to disable.
+  uniform float curvature; 
+  uniform float scanlineDensity; 
+  uniform float scanlineIntensity; 
+  uniform float noiseIntensity; 
   uniform float brightness;
-  uniform float distortionAmount; // Chromatic aberration amount. 0 to disable.
-  uniform float vignetteStrength; // How strong the vignette is, e.g., 0.5 to 1.5
-  uniform float vignetteSmoothness; // How soft the vignette edge is, e.g., 0.2 to 0.8
-  uniform float wobbleIntensity; // How much the screen wobbles, e.g., 0.001 to 0.005. 0 to disable.
-  uniform float wobbleSpeed; // Speed of the wobble, e.g., 1.0 to 5.0
+  uniform float distortionAmount; 
+  uniform float vignetteStrength; 
+  uniform float vignetteSmoothness; 
+  uniform float wobbleIntensity; 
+  uniform float wobbleSpeed;
+  uniform float textBlurIntensity; // New: For slight text blurring. 0 to disable. e.g., 0.5 to 1.0 for pixelated blur
+  uniform float phosphorIntensity; // New: For phosphor dot mask effect. 0 to disable. e.g., 0.1 to 0.5
   
   varying vec2 vUv;
   
   vec2 curveUV(vec2 uv_in, float curveAmount) {
-    if (curveAmount <= 0.001) return uv_in; // Effectively no curve
+    if (curveAmount <= 0.001) return uv_in; 
     vec2 uv = uv_in * 2.0 - 1.0; 
     vec2 offset = abs(uv.yx) / curveAmount; 
     uv = uv + uv * offset * offset;
@@ -42,45 +44,72 @@ const fragmentShader = `
     return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
   }
 
+  // Function to simulate phosphor dot mask
+  vec3 applyPhosphorMask(vec3 color, vec2 uv, float intensity) {
+    if (intensity <= 0.0) return color;
+
+    float R = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 0.5));
+    float G = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 - 1.57079)); // Shifted for green
+    float B = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 2.61799)); // Shifted for blue
+    
+    vec3 mask = vec3(R,G,B);
+    // Make the mask effect stronger on brighter areas
+    float brightnessFactor = dot(color, vec3(0.299, 0.587, 0.114));
+    mask = mix(vec3(1.0), mask, brightnessFactor * 0.7);
+
+    return mix(color, color * mask, intensity);
+  }
+
+
   void main() {
     vec2 uv = vUv;
 
-    // Screen Wobble
     if (wobbleIntensity > 0.0001) {
-      float wobbleX = sin(time * wobbleSpeed + uv.y * 8.0) * wobbleIntensity; // Wave-like horizontal wobble
-      float wobbleY = cos(time * wobbleSpeed * 0.65 + uv.x * 6.0) * wobbleIntensity; // Wave-like vertical wobble
+      float wobbleX = sin(time * wobbleSpeed + uv.y * 8.0) * wobbleIntensity; 
+      float wobbleY = cos(time * wobbleSpeed * 0.65 + uv.x * 6.0) * wobbleIntensity; 
       uv.x += wobbleX;
       uv.y += wobbleY;
     }
     
-    uv = curveUV(uv, curvature);
+    vec2 curvedUv = curveUV(uv, curvature); // Use a different variable for curved UVs
     
-    if (curvature > 0.001 && (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); // Output transparent black for areas outside curve
+    if (curvature > 0.001 && (curvedUv.x < 0.0 || curvedUv.x > 1.0 || curvedUv.y < 0.0 || curvedUv.y > 1.0)) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); 
       return;
     }
     
-    vec3 col = texture2D(tDiffuse, uv).rgb;
+    vec3 col;
+    // Apply text blur by sampling neighbors if intensity > 0
+    if (textBlurIntensity > 0.001) {
+        float pixelSizeX = textBlurIntensity / resolution.x;
+        float pixelSizeY = textBlurIntensity / resolution.y;
+        col  = texture2D(tDiffuse, curvedUv).rgb * 0.25;
+        col += texture2D(tDiffuse, curvedUv + vec2(pixelSizeX, 0.0)).rgb * 0.1875;
+        col += texture2D(tDiffuse, curvedUv - vec2(pixelSizeX, 0.0)).rgb * 0.1875;
+        col += texture2D(tDiffuse, curvedUv + vec2(0.0, pixelSizeY)).rgb * 0.1875;
+        col += texture2D(tDiffuse, curvedUv - vec2(0.0, pixelSizeY)).rgb * 0.1875;
+        // Optional diagonal samples for more blur
+        // col += texture2D(tDiffuse, curvedUv + vec2(pixelSizeX, pixelSizeY)).rgb * 0.0625;
+        // col += texture2D(tDiffuse, curvedUv + vec2(-pixelSizeX, pixelSizeY)).rgb * 0.0625;
+        // col += texture2D(tDiffuse, curvedUv + vec2(pixelSizeX, -pixelSizeY)).rgb * 0.0625;
+        // col += texture2D(tDiffuse, curvedUv + vec2(-pixelSizeX, -pixelSizeY)).rgb * 0.0625;
+    } else {
+        col = texture2D(tDiffuse, curvedUv).rgb;
+    }
+
+    // Apply Phosphor Mask
+    col = applyPhosphorMask(col, curvedUv, phosphorIntensity);
     
-    // Scanlines
     if (scanlineIntensity > 0.0 && scanlineDensity > 0.0) {
       float actualScanlineDensity = scanlineDensity * (resolution.y / 1000.0); 
-      float scanlineEffect = sin(uv.y * actualScanlineDensity - time * 5.0); 
+      float scanlineEffect = sin(curvedUv.y * actualScanlineDensity - time * 5.0); 
       scanlineEffect = smoothstep(0.0, 1.0, pow(scanlineEffect * 0.5 + 0.5, 2.5)); 
       col = mix(col, col * (1.0 - scanlineIntensity), scanlineEffect); 
     }
     
-    // RGB shift for chromatic aberration
     if (distortionAmount > 0.001) {
       float shift = 0.0015 * distortionAmount; 
-      // Apply wobble to the base UVs for chromatic aberration samples too
-      vec2 baseUvForShift = vUv;
-      if (wobbleIntensity > 0.0001) {
-        float wobbleX = sin(time * wobbleSpeed + baseUvForShift.y * 8.0) * wobbleIntensity;
-        float wobbleY = cos(time * wobbleSpeed * 0.65 + baseUvForShift.x * 6.0) * wobbleIntensity;
-        baseUvForShift.x += wobbleX;
-        baseUvForShift.y += wobbleY;
-      }
+      vec2 baseUvForShift = uv; // Use original, pre-curved UV for distortion base
 
       vec2 ruv = curveUV(baseUvForShift + vec2(shift, 0.0), curvature); 
       vec2 buv = curveUV(baseUvForShift - vec2(shift, 0.0), curvature);
@@ -93,22 +122,20 @@ const fragmentShader = `
       }
     }
     
-    // Noise
     if (noiseIntensity > 0.001) {
-      float n = random(uv + mod(time * 0.08, 1.0)); 
+      float n = random(curvedUv + mod(time * 0.08, 1.0)); 
       col += (n - 0.5) * noiseIntensity; 
     }
     
-    // Vignette
     if (vignetteStrength > 0.0) {
-      float vignetteDist = distance(uv, vec2(0.5));
+      float vignetteDist = distance(curvedUv, vec2(0.5));
       float vig = smoothstep(vignetteSmoothness, 0.2, vignetteDist); 
       col *= mix(1.0, vig, vignetteStrength);
     }
     
     col *= brightness;
     col = clamp(col, 0.0, 1.0);
-    gl_FragColor = vec4(col, 1.0); // Main content is opaque
+    gl_FragColor = vec4(col, 1.0); 
   }
 `;
 
@@ -127,6 +154,8 @@ interface CRTMeshUniforms {
   vignetteSmoothness: { value: number };
   wobbleIntensity: { value: number };
   wobbleSpeed: { value: number };
+  textBlurIntensity: { value: number };
+  phosphorIntensity: { value: number };
 }
 
 interface CRTMeshProps {
@@ -141,6 +170,8 @@ interface CRTMeshProps {
   vignetteSmoothness?: number;
   wobbleIntensity?: number;
   wobbleSpeed?: number;
+  textBlurIntensity?: number;
+  phosphorIntensity?: number;
 }
 
 function CRTMesh({ 
@@ -155,6 +186,8 @@ function CRTMesh({
   vignetteSmoothness = 0.5,
   wobbleIntensity = 0.0,
   wobbleSpeed = 2.0,
+  textBlurIntensity = 0.0,
+  phosphorIntensity = 0.0,
 }: CRTMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { size, gl } = useThree();
@@ -173,7 +206,9 @@ function CRTMesh({
     vignetteSmoothness: { value: vignetteSmoothness },
     wobbleIntensity: { value: wobbleIntensity },
     wobbleSpeed: { value: wobbleSpeed },
-  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount, vignetteStrength, vignetteSmoothness, wobbleIntensity, wobbleSpeed]);
+    textBlurIntensity: { value: textBlurIntensity },
+    phosphorIntensity: { value: phosphorIntensity },
+  }), [texture, size, gl, curvature, scanlineDensity, scanlineIntensity, noiseIntensity, brightness, distortionAmount, vignetteStrength, vignetteSmoothness, wobbleIntensity, wobbleSpeed, textBlurIntensity, phosphorIntensity]);
   
   const material = useMemo(() => {
     return new ShaderMaterial({
@@ -234,35 +269,39 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
       noiseIntensity: 0.0, brightness: 1.0, distortionAmount: 0.0,
       vignetteStrength: 0.0, vignetteSmoothness: 0.5,
       wobbleIntensity: 0.0, wobbleSpeed: 2.0,
+      textBlurIntensity: 0.0, phosphorIntensity: 0.0,
     };
     switch (theme) {
       case 'mainframe70s':
         return { 
-          ...defaults, curvature: 10.0, scanlineDensity: 600.0, scanlineIntensity: 0.18, 
-          noiseIntensity: 0.06, brightness: 1.1, distortionAmount: 0.1,
+          ...defaults, curvature: 10.0, scanlineDensity: 600.0, scanlineIntensity: 0.20, 
+          noiseIntensity: 0.07, brightness: 1.1, distortionAmount: 0.15,
           vignetteStrength: 1.2, vignetteSmoothness: 0.4,
           wobbleIntensity: 0.002, wobbleSpeed: 1.5,
+          textBlurIntensity: 0.4, phosphorIntensity: 0.25,
         };
       case 'pc80s':
         return { 
-          ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.12, 
-          noiseIntensity: 0.04, brightness: 1.0, distortionAmount: 0.25,
+          ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.15, 
+          noiseIntensity: 0.05, brightness: 1.0, distortionAmount: 0.3,
           vignetteStrength: 1.0, vignetteSmoothness: 0.5,
           wobbleIntensity: 0.0015, wobbleSpeed: 2.5,
+          textBlurIntensity: 0.3, phosphorIntensity: 0.15,
         };
       case 'bbs90s':
         return { 
-          ...defaults, curvature: 15.0, scanlineDensity: 750.0, scanlineIntensity: 0.10, 
-          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.4,
+          ...defaults, curvature: 15.0, scanlineDensity: 750.0, scanlineIntensity: 0.12, 
+          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.45,
           vignetteStrength: 0.8, vignetteSmoothness: 0.6,
-          wobbleIntensity: 0.001, wobbleSpeed: 3.5, // Faster, more jittery wobble
+          wobbleIntensity: 0.001, wobbleSpeed: 3.5, 
+          textBlurIntensity: 0.2, phosphorIntensity: 0.1,
         };
       case 'modern':
       default:
         return { 
           ...defaults, curvature: 0.0, scanlineIntensity: 0.0, 
           noiseIntensity: 0.01, distortionAmount: 0.0, vignetteStrength: 0.2, vignetteSmoothness: 0.7, brightness: 1.0,
-          wobbleIntensity: 0.0, // No wobble for modern
+          wobbleIntensity: 0.0, textBlurIntensity: 0.0, phosphorIntensity: 0.0,
         };
     }
   }, [theme]);
