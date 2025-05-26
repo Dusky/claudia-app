@@ -6,6 +6,7 @@ import { config } from '../config/env';
 import { type ClaudiaDatabase } from '../storage';
 import { type StorageService } from '../storage/types';
 import { DEFAULT_PERSONALITY } from '../types/personality';
+import { SettingsManager } from '../services/settingsManager';
 
 // ConfigSettings type - will be imported from components
 export interface ConfigSettings {
@@ -107,6 +108,10 @@ export interface AppState {
   setConfig: (config: ConfigSettings) => void;
   loadConfig: () => void;
   
+  // Settings manager
+  settingsManager: SettingsManager | null;
+  initializeSettingsManager: (storage: StorageService) => void;
+  
   // Modal actions
   setConfigModalOpen: (open: boolean) => void;
   setHelpModalOpen: (open: boolean, commandName?: string | null) => void;
@@ -155,6 +160,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   config: defaultConfig,
   configLoaded: false,
   
+  // Settings manager
+  settingsManager: null,
+  
   // Modal states
   personalityModalOpen: false,
   configModalOpen: false,
@@ -183,21 +191,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   
   // Config actions
-  setConfig: (config) => {
+  setConfig: async (config) => {
+    const { settingsManager } = get();
     set({ config });
-    // Save config to localStorage for persistence
-    localStorage.setItem('claudia-config', JSON.stringify(config));
+    if (settingsManager) {
+      await settingsManager.setAppConfig(config);
+    } else {
+      // Fallback to localStorage if settings manager not initialized
+      localStorage.setItem('claudia-config', JSON.stringify(config));
+    }
   },
-  loadConfig: () => {
+  loadConfig: async () => {
+    const { settingsManager } = get();
     try {
-      const savedConfig = localStorage.getItem('claudia-config');
+      let savedConfig = null;
+      if (settingsManager) {
+        savedConfig = await settingsManager.getAppConfig();
+      } else {
+        // Fallback to localStorage
+        const saved = localStorage.getItem('claudia-config');
+        savedConfig = saved ? JSON.parse(saved) : null;
+      }
+      
       if (savedConfig) {
-        set({ config: JSON.parse(savedConfig) });
+        set({ config: savedConfig });
       }
     } catch (error) {
       console.warn('Failed to load saved config:', error);
     }
     set({ configLoaded: true });
+  },
+  
+  // Settings manager
+  initializeSettingsManager: (storage) => {
+    const settingsManager = new SettingsManager(storage);
+    set({ settingsManager });
+    
+    // Run migration on first initialization
+    settingsManager.migrateOldSettings().catch(error => {
+      console.warn('Settings migration failed:', error);
+    });
   },
   
   // Modal actions

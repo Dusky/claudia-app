@@ -5,9 +5,9 @@ import type { ImageProviderManager } from '../providers/image/manager';
 import type { MCPProviderManager } from '../providers/mcp/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { ClaudiaDatabase } from '../storage';
-import { config as envConfig, configManager } from '../config/env';
 import { DEFAULT_PERSONALITY } from '../types/personality';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
+import { ProviderManager } from '../services/providerManager';
 
 const addLineWithDelay = (
   storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
@@ -30,6 +30,7 @@ interface UseAppInitializationProps {
   avatarController: AvatarController;
 }
 
+
 export const useAppInitialization = ({
   llmManager,
   imageManager,
@@ -38,6 +39,7 @@ export const useAppInitialization = ({
   avatarController
 }: UseAppInitializationProps) => {
   const effectRan = useRef(false);
+  const providerManager = useRef<ProviderManager | null>(null);
   
   // State selectors
   const isInitialized = useAppStore(state => state.isInitialized);
@@ -53,11 +55,18 @@ export const useAppInitialization = ({
   const initializeActiveConversation = useAppStore(state => state.initializeActiveConversation);
   const loadConversationMessages = useAppStore(state => state.loadConversationMessages);
   const loadConfig = useAppStore(state => state.loadConfig);
+  const initializeSettingsManager = useAppStore(state => state.initializeSettingsManager);
   
-  // Load config on mount
+  // Initialize provider manager
+  if (!providerManager.current) {
+    providerManager.current = new ProviderManager(llmManager, imageManager, mcpManager);
+  }
+  
+  // Initialize settings manager and load config on mount
   useEffect(() => {
+    initializeSettingsManager(database);
     loadConfig();
-  }, [loadConfig]);
+  }, [loadConfig, initializeSettingsManager, database]);
 
   useEffect(() => {
     if (isInitialized || !configLoaded || (import.meta.env.DEV && effectRan.current)) {
@@ -88,20 +97,20 @@ export const useAppInitialization = ({
         // Initialize active conversation
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
         
-        // Initialize providers
-        try {
-          const imageProviderConfig = configManager.getProviderConfig(envConfig.defaultImageProvider);
-          await imageManager.initializeProvider(envConfig.defaultImageProvider, imageProviderConfig);
-          console.log('✅ Image provider initialized:', envConfig.defaultImageProvider);
-        } catch (error) {
-          console.warn('⚠️ Image provider initialization failed:', error);
-        }
-
-        try {
-          await mcpManager.initialize();
-          console.log('✅ MCP provider initialized');
-        } catch (error) {
-          console.warn('⚠️ MCP provider initialization failed:', error);
+        // Initialize all providers using unified manager
+        if (providerManager.current) {
+          const initResults = await providerManager.current.initializeAllProviders();
+          
+          // Log any initialization errors
+          if (!initResults.llm.success && initResults.llm.error) {
+            console.warn('LLM initialization issue:', initResults.llm.error);
+          }
+          if (!initResults.image.success && initResults.image.error) {
+            console.warn('Image provider initialization issue:', initResults.image.error);
+          }
+          if (!initResults.mcp.success && initResults.mcp.error) {
+            console.warn('MCP provider initialization issue:', initResults.mcp.error);
+          }
         }
 
         // Handle boot sequence or load conversation
