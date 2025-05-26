@@ -33,6 +33,7 @@ export interface ConfigSettings {
   screenCurvature: boolean; // Added for screen curvature effect
   enableAppBackground: boolean; // Toggle for the entire app background
   appBackgroundOverride?: string; // User-defined CSS background string
+  enableCRTEffect?: boolean; // New setting for the full-screen CRT shader
   
   // Performance
   reducedAnimations: boolean;
@@ -63,6 +64,7 @@ export const defaultConfig: ConfigSettings = {
   screenCurvature: false, // Default to false, themes or user can enable
   enableAppBackground: true, // App background enabled by default
   appBackgroundOverride: undefined, // No override by default
+  enableCRTEffect: true, // Enable CRT Shader by default, can be set to false if it was causing issues
   
   // Performance
   reducedAnimations: false,
