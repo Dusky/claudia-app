@@ -2,7 +2,6 @@ import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpressi
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
 import { ImagePromptComposer, type PromptModificationContext } from '../providers/image/promptComposer';
-import { configManager } from '../config/env';
 import { imageStorage } from '../utils/imageStorage';
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
@@ -35,13 +34,14 @@ export class AvatarController {
     
     this.state = {
       visible: false,
-      position: 'center',
       expression: 'neutral',
       pose: 'standing',
       action: 'idle',
       scale: 1.0,
       opacity: 1.0,
       isAnimating: false,
+      isGenerating: false,
+      hasError: false,
       lastUpdate: new Date().toISOString()
     };
   }
@@ -180,9 +180,7 @@ export class AvatarController {
       this.state.visible = true;
     }
 
-    if (command.position) {
-      this.state.position = command.position;
-    }
+    // Position is now handled by dedicated panel - removed position logic
 
     if (command.expression && command.expression !== this.state.expression) {
       this.state.expression = command.expression;
@@ -329,6 +327,12 @@ export class AvatarController {
   async generateAvatarFromDescription(description: string, position?: AvatarPosition): Promise<void> {
     console.log('🎨 Generating avatar from AI description:', { description, position });
 
+    // Set loading state and clear any previous errors
+    this.state.isGenerating = true;
+    this.state.hasError = false;
+    this.state.errorMessage = undefined;
+    this.notifyStateChange();
+
     try {
       const provider = this.imageProvider.getActiveProvider();
       if (!provider) {
@@ -336,16 +340,52 @@ export class AvatarController {
         return;
       }
 
-      // Use the AI's description directly as the prompt, but enhance it with configurable style
-      const imageStyle = configManager.getImageStyle();
-      const enhancedPrompt = `Claudia: ${description}. ${imageStyle}.`;
+      // Parse description to extract avatar parameters and use sophisticated prompt composer
+      const extractedParams = this.parseDescriptionToParams(description);
+      
+      // Generate prompt components using the sophisticated prompt composer
+      let promptComponents = this.promptComposer.generatePromptComponents(extractedParams);
+
+      // Get current personality for context-aware modifications
+      try {
+        const activePersonality = await this.database.getActivePersonality();
+        if (activePersonality) {
+          const context = {
+            personality: {
+              name: activePersonality.name,
+              systemPrompt: activePersonality.system_prompt
+            },
+            conversationContext: description
+          };
+
+          // Apply personality-based modifications to prompts
+          promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
+        }
+      } catch (error) {
+        console.warn('Could not get personality for prompt modification:', error);
+      }
+
+      // Blend AI description with sophisticated styling
+      const sophisticatedBase = this.promptComposer.compilePrompt(promptComponents);
+      const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
+      
+      // Create hybrid prompt: AI description + sophisticated styling elements
+      const finalPrompt = `${description}, ${sophisticatedBase}`;
+      
+      console.log('🎨 Generating avatar with sophisticated prompt:', {
+        originalDescription: description,
+        finalPrompt,
+        negativePrompt,
+        extractedParams
+      });
       
       const response = await provider.generateImage({
-        prompt: enhancedPrompt,
+        prompt: finalPrompt,
+        negativePrompt,
         width: 512,
         height: 512,
-        steps: 4, // Fast generation for real-time avatar updates
-        guidance: 3.5
+        steps: 20, // Use higher quality for consistent results
+        guidance: 7.5
       });
 
       // Update avatar state
@@ -353,21 +393,20 @@ export class AvatarController {
       this.state.visible = true;
       this.state.opacity = 0.9;
       
-      if (position) {
-        this.state.position = position;
-      }
+      // Position is now handled by dedicated panel
       
       this.state.lastUpdate = new Date().toISOString();
 
       // Save the image with proper file management
       try {
-        const metadata = imageStorage.createImageMetadata(enhancedPrompt, response.imageUrl, {
+        const metadata = imageStorage.createImageMetadata(finalPrompt, response.imageUrl, {
           description: description,
-          style: imageStyle,
+          style: promptComponents.style,
           model: (provider as any).config?.model || 'unknown',
           provider: provider.name,
           dimensions: { width: 512, height: 512 },
-          tags: ['avatar', 'ai-generated', 'claudia']
+          tags: ['avatar', 'ai-generated', 'claudia'],
+          // Additional metadata stored in prompt field
         });
 
         // Save the image (downloads in browser)
@@ -383,6 +422,9 @@ export class AvatarController {
         console.warn('Failed to save avatar image:', saveError);
       }
 
+      // Clear loading state
+      this.state.isGenerating = false;
+      
       // Notify state change
       this.notifyStateChange();
       
@@ -390,6 +432,12 @@ export class AvatarController {
 
     } catch (error) {
       console.error('Failed to generate avatar from description:', error);
+      
+      // Set error state
+      this.state.isGenerating = false;
+      this.state.hasError = true;
+      this.state.errorMessage = error instanceof Error ? error.message : 'Failed to generate image';
+      this.notifyStateChange();
     }
   }
 
@@ -419,7 +467,7 @@ export class AvatarController {
     // Show avatar if response seems to warrant it
     if (emotionalContext.shouldShow && !this.state.visible) {
       this.state.visible = true;
-      this.state.position = emotionalContext.position || 'bottom-right';
+      // Position is now handled by dedicated panel
       this.state.opacity = 0.9;
       stateChanged = true;
     }
@@ -529,11 +577,78 @@ export class AvatarController {
     }
 
     // Set default position if showing
-    if (result.shouldShow && !result.position) {
-      result.position = 'bottom-right';
-    }
+    // Position is now handled by dedicated panel
 
     return result;
+  }
+
+  // Parse AI description to extract avatar parameters
+  private parseDescriptionToParams(description: string): AvatarGenerationParams {
+    const lowerDesc = description.toLowerCase();
+    
+    // Extract expression from description
+    let expression: AvatarExpression = 'neutral';
+    if (lowerDesc.includes('smil') || lowerDesc.includes('happy') || lowerDesc.includes('joy')) {
+      expression = 'happy';
+    } else if (lowerDesc.includes('curious') || lowerDesc.includes('wonder') || lowerDesc.includes('intrigu')) {
+      expression = 'curious';
+    } else if (lowerDesc.includes('think') || lowerDesc.includes('contempl') || lowerDesc.includes('ponder')) {
+      expression = 'thinking';
+    } else if (lowerDesc.includes('excit') || lowerDesc.includes('energetic') || lowerDesc.includes('enthusiastic')) {
+      expression = 'excited';
+    } else if (lowerDesc.includes('confident') || lowerDesc.includes('determin') || lowerDesc.includes('assertive')) {
+      expression = 'confident';
+    } else if (lowerDesc.includes('mischiev') || lowerDesc.includes('playful') || lowerDesc.includes('sly')) {
+      expression = 'mischievous';
+    } else if (lowerDesc.includes('surprised') || lowerDesc.includes('shock') || lowerDesc.includes('amaz')) {
+      expression = 'surprised';
+    } else if (lowerDesc.includes('confus') || lowerDesc.includes('perplex') || lowerDesc.includes('bewild')) {
+      expression = 'confused';
+    } else if (lowerDesc.includes('focus') || lowerDesc.includes('concentrat') || lowerDesc.includes('intent')) {
+      expression = 'focused';
+    }
+
+    // Extract pose from description
+    let pose: AvatarPose = 'standing';
+    if (lowerDesc.includes('sitting') || lowerDesc.includes('sit ') || lowerDesc.includes('cross-legged')) {
+      pose = 'sitting';
+    } else if (lowerDesc.includes('lean') || lowerDesc.includes('against')) {
+      pose = 'leaning';
+    } else if (lowerDesc.includes('arms crossed') || lowerDesc.includes('crossed arms')) {
+      pose = 'crossed-arms';
+    } else if (lowerDesc.includes('hands on hips') || lowerDesc.includes('hips')) {
+      pose = 'hands-on-hips';
+    } else if (lowerDesc.includes('casual') || lowerDesc.includes('relaxed')) {
+      pose = 'casual';
+    }
+
+    // Extract action from description
+    let action: AvatarAction = 'idle';
+    if (lowerDesc.includes('waving') || lowerDesc.includes('wave')) {
+      action = 'wave';
+    } else if (lowerDesc.includes('typing') || lowerDesc.includes('keyboard')) {
+      action = 'type';
+    } else if (lowerDesc.includes('reading') || lowerDesc.includes('book')) {
+      action = 'read';
+    } else if (lowerDesc.includes('pointing') || lowerDesc.includes('point')) {
+      action = 'point';
+    } else if (lowerDesc.includes('nodding') || lowerDesc.includes('nod')) {
+      action = 'nod';
+    } else if (lowerDesc.includes('shrug') || lowerDesc.includes('uncertain')) {
+      action = 'shrug';
+    } else if (lowerDesc.includes('working') || lowerDesc.includes('busy')) {
+      action = 'work';
+    }
+
+    return {
+      expression,
+      pose,
+      action,
+      style: 'realistic digital art, warm cozy style',
+      background: 'none',
+      lighting: 'soft',
+      quality: 'high'
+    };
   }
 
   private generatePromptHash(params: AvatarGenerationParams): string {
@@ -561,7 +676,7 @@ export class AvatarController {
 
   // Show avatar with default settings
   async show(): Promise<void> {
-    await this.executeCommand({ show: true, expression: 'happy', position: 'center' });
+    await this.executeCommand({ show: true, expression: 'happy' });
   }
 
   // Hide avatar

@@ -1,0 +1,313 @@
+/* TopBar Component Styles */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 1rem;
+  border-bottom: 1px solid #333;
+  background: #1a1a1a;
+  position: relative;
+  z-index: 1000;
+  font-family: inherit;
+  flex-shrink: 0; /* Prevent the top bar from shrinking */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.centerSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.rightSection {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex: 1;
+}
+
+.appTitle {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.placeholder {
+  min-width: 100px;
+}
+
+/* Dropdown Styles */
+.dropdown {
+  position: relative;
+}
+
+.dropdownTrigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  min-width: 200px;
+  transition: all 0.2s ease;
+}
+
+.dropdownTrigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdownTrigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.conversationTitle {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdownArrow {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.dropdownSection {
+  padding: 0.5rem;
+}
+
+.dropdownSection:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sectionLabel {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.newConversationButton {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: #4fc3f7;
+  color: #000;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.newConversationButton:hover:not(:disabled) {
+  background: #29b6f6;
+  transform: translateY(-1px);
+}
+
+.newConversationButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.conversationsList {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.conversationItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 2px;
+}
+
+.conversationItem:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.conversationItem.active {
+  background: rgba(79, 195, 247, 0.2);
+}
+
+.conversationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversationItem .conversationTitle {
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.conversationMeta {
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.conversationActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.conversationItem:hover .conversationActions {
+  opacity: 1;
+}
+
+.actionButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+}
+
+.actionButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.editForm {
+  width: 100%;
+}
+
+.editInput {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #4fc3f7;
+  border-radius: 3px;
+  background: #1a1a1a;
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.editInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.3);
+}
+
+.emptyState {
+  padding: 1rem;
+  text-align: center;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Scrollbar Styles */
+.dropdownMenu::-webkit-scrollbar,
+.conversationsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdownMenu::-webkit-scrollbar-track,
+.conversationsList::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdownMenu::-webkit-scrollbar-thumb,
+.conversationsList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+/* Theme-specific styles */
+.topBar.mainframe70s {
+  border-bottom-color: #00ff00;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 20, 0, 0.9) 100%);
+}
+
+.topBar.mainframe70s .dropdownTrigger {
+  border-color: #00ff00;
+}
+
+.topBar.mainframe70s .dropdownMenu {
+  border-color: #00ff00;
+  background: rgba(0, 20, 0, 0.95);
+}
+
+.topBar.pc80s {
+  border-bottom-color: #0066cc;
+  background: linear-gradient(180deg, rgba(0, 0, 128, 0.8) 0%, rgba(0, 0, 64, 0.9) 100%);
+}
+
+.topBar.pc80s .dropdownTrigger {
+  border-color: #0066cc;
+}
+
+.topBar.pc80s .dropdownMenu {
+  border-color: #0066cc;
+  background: rgba(0, 0, 64, 0.95);
+}
+
+.topBar.bbs90s {
+  border-bottom-color: #ff6600;
+  background: linear-gradient(180deg, rgba(40, 20, 0, 0.9) 0%, rgba(20, 10, 0, 0.9) 100%);
+}
+
+.topBar.bbs90s .dropdownTrigger {
+  border-color: #ff6600;
+}
+
+.topBar.bbs90s .dropdownMenu {
+  border-color: #ff6600;
+  background: rgba(20, 10, 0, 0.95);
+}
+
+.topBar.modern {
+  border-bottom-color: #00d4aa;
+  background: linear-gradient(180deg, rgba(0, 20, 16, 0.9) 0%, rgba(0, 10, 8, 0.9) 100%);
+}
+
+.topBar.modern .dropdownTrigger {
+  border-color: #00d4aa;
+}
+
+.topBar.modern .dropdownMenu {
+  border-color: #00d4aa;
+  background: rgba(0, 10, 8, 0.95);
+}

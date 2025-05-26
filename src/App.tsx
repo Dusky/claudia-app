@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
-import { AvatarDisplay } from './avatar/AvatarDisplay';
+import { AvatarPanel } from './components/AvatarPanel';
 import { PersonalityModal } from './components/PersonalityModal';
 import { ConfigModal, defaultConfig, type ConfigSettings } from './components/ConfigModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageGenerationModal } from './components/ImageGenerationModal';
+import { AIOptionsModal } from './components/AIOptionsModal';
+import { AppSettingsModal } from './components/AppSettingsModal';
 import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
+import { TopBar } from './components/TopBar';
 import { getTheme, type TerminalTheme } from './terminal/themes';
 import { config as envConfig, configManager } from './config/env';
 import { LLMProviderManager } from './providers/llm/manager';
@@ -39,6 +42,8 @@ function App() {
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [helpModalCommandName, setHelpModalCommandName] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [aiOptionsModalOpen, setAiOptionsModalOpen] = useState(false);
+  const [appSettingsModalOpen, setAppSettingsModalOpen] = useState(false);
   const [config, setConfig] = useState<ConfigSettings>(defaultConfig);
   const [configLoaded, setConfigLoaded] = useState(false); // Track if config has been loaded from localStorage
   const [showBootSequence, setShowBootSequence] = useState(false);
@@ -68,6 +73,7 @@ function App() {
   const initializeActiveConversation = useAppStore(state => state.initializeActiveConversation);
   const clearTerminalForNewSession = useAppStore(state => state.clearTerminalForNewSession);
   const resetConversationAndTerminal = useAppStore(state => state.resetConversationAndTerminal); // Get new action
+  const restoreAvatarState = useAppStore(state => state.restoreAvatarState);
   
   const effectRan = useRef(false);
 
@@ -105,6 +111,9 @@ function App() {
           await database.updatePersonality('default', { allowImageGeneration: true });
         }
 
+        // Restore avatar state from previous session
+        await restoreAvatarState();
+
         // initializeActiveConversation is a stable action reference
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
         
@@ -135,9 +144,10 @@ function App() {
           await loadConversationMessages(database, activeConvIdToUse); // loadConversationMessages is stable
         }
 
-        if (imageManager.getActiveProvider() && avatarController) {
+        // Only initialize avatar if no saved state exists
+        if (imageManager.getActiveProvider() && avatarController && !avatarState.imageUrl) {
           await avatarController.executeCommands([{
-            show: true, expression: 'happy', position: 'beside-text', action: 'wave', pose: 'standing'
+            show: true, expression: 'happy', action: 'wave', pose: 'standing'
           }]);
         }
 
@@ -165,10 +175,69 @@ function App() {
   // However, Zustand actions are typically stable by reference.
   // Managers and DB are memoized. isInitialized controls the single run.
   }, [isInitialized, configLoaded, config.enhancedBoot, llmManager, imageManager, database, avatarController, 
-      initializeActiveConversation, addLines, loadConversationMessages]);
+      initializeActiveConversation, addLines, loadConversationMessages, restoreAvatarState, avatarState.imageUrl]);
 
 
   const handleThemeStatusClick = () => handleInput("/themes");
+
+  // TopBar conversation management handlers
+  const handleConversationSwitch = async (conversationId: string) => {
+    try {
+      await setActiveConversationAndLoadMessages(database, conversationId, true);
+    } catch (error) {
+      console.error('Failed to switch conversation:', error);
+    }
+  };
+
+  const handleNewConversation = async () => {
+    try {
+      await resetConversationAndTerminal(database);
+    } catch (error) {
+      console.error('Failed to create new conversation:', error);
+    }
+  };
+
+  const handleConversationDelete = async (conversationId: string) => {
+    try {
+      // Don't allow deleting the active conversation
+      if (conversationId === activeConversationId) {
+        alert('Cannot delete the active conversation. Please switch to another conversation first.');
+        return;
+      }
+      
+      await database.deleteConversation(conversationId);
+      
+      // Add feedback message
+      addLines({
+        id: `delete-${Date.now()}`,
+        type: 'system',
+        content: 'Conversation deleted successfully.',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      });
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+      alert('Failed to delete conversation. Please try again.');
+    }
+  };
+
+  const handleConversationRename = async (conversationId: string, newTitle: string) => {
+    try {
+      await database.updateConversation(conversationId, { title: newTitle });
+      
+      // Add feedback message
+      addLines({
+        id: `rename-${Date.now()}`,
+        type: 'system',
+        content: `Conversation renamed to "${newTitle}".`,
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      });
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+      alert('Failed to rename conversation. Please try again.');
+    }
+  };
 
   const handleBootSequenceComplete = async () => {
     setShowBootSequence(false);
@@ -306,7 +375,7 @@ function App() {
   };
 
   return (
-    <div className="App" style={{ position: 'relative', minHeight: '100vh', paddingBottom: '50px' }}>
+    <div className="App">
       {showBootSequence && (
         <BootSequence
           config={config}
@@ -320,18 +389,31 @@ function App() {
           {themeObject.overlayClassName && (
             <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
           )}
-          <TerminalDisplay
-            theme={themeObject} lines={lines} onInput={handleInput}
-            prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
-            config={config}
+          <TopBar
+            theme={themeObject}
+            storage={database}
+            activeConversationId={activeConversationId}
+            onConversationSwitch={handleConversationSwitch}
+            onNewConversation={handleNewConversation}
+            onConversationDelete={handleConversationDelete}
+            onConversationRename={handleConversationRename}
           />
-          <AvatarDisplay state={avatarState} className="claudia-avatar" />
+          <div className="main-content">
+            <TerminalDisplay
+              theme={themeObject} lines={lines} onInput={handleInput}
+              prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
+              config={config}
+            />
+            <AvatarPanel state={avatarState} theme={themeObject} />
+          </div>
           <StatusBar
             theme={themeObject} currentTheme={currentTheme}
             llmManager={llmManager} imageManager={imageManager} storage={database}
             onThemeClick={handleThemeStatusClick}
             onPersonalityClick={() => openPersonalityEditorModal(database)}
             onImageProviderClick={() => setImageModalOpen(true)}
+            onAIOptionsClick={() => setAiOptionsModalOpen(true)}
+            onAppSettingsClick={() => setAppSettingsModalOpen(true)}
           />
         </>
       )}
@@ -368,6 +450,19 @@ function App() {
         onClose={() => setImageModalOpen(false)}
         imageManager={imageManager}
         avatarController={avatarController}
+        theme={themeObject}
+      />
+
+      <AIOptionsModal
+        isOpen={aiOptionsModalOpen}
+        onClose={() => setAiOptionsModalOpen(false)}
+        storage={database}
+      />
+
+      <AppSettingsModal
+        isOpen={appSettingsModalOpen}
+        onClose={() => setAppSettingsModalOpen(false)}
+        storage={database}
         theme={themeObject}
       />
     </div>

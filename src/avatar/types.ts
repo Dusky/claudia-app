@@ -82,7 +82,6 @@ export interface AvatarGenerationParams {
 
 export interface AvatarState {
   visible: boolean;
-  position: AvatarPosition;
   expression: AvatarExpression;
   pose: AvatarPose;
   action: AvatarAction;
@@ -91,6 +90,9 @@ export interface AvatarState {
   opacity: number;
   imageUrl?: string;
   isAnimating: boolean;
+  isGenerating: boolean;
+  hasError: boolean;
+  errorMessage?: string;
   lastUpdate: string;
 }
 

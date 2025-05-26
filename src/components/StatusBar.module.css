@@ -1,7 +1,5 @@
 .statusBar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
+  /* Remove fixed positioning - now part of flex layout */
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -15,6 +13,7 @@
   color: var(--fg-color, #cccccc);
   font-family: var(--font-family, "Courier New", monospace);
   z-index: 100; /* Ensure it's above terminal content but below modals */
+  flex-shrink: 0; /* Prevent the status bar from shrinking */
   /* Optional: Add a subtle backdrop filter if supported and desired */
   /* backdrop-filter: blur(5px); */
 }

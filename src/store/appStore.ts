@@ -25,6 +25,8 @@ export interface AppState {
   setLines: (lines: TerminalLine[]) => void;
   setLoading: (loading: boolean) => void;
   setAvatarState: (partialState: Partial<AvatarState> | ((prevState: AvatarState) => Partial<AvatarState>)) => void;
+  saveAvatarState: () => void;
+  restoreAvatarState: () => Promise<void>;
   
   openPersonalityEditorModal: (db: ClaudiaDatabase, personalityToEdit?: Personality | null) => Promise<void>;
   closePersonalityModal: () => void;
@@ -46,13 +48,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   avatarState: {
     visible: false,
-    position: 'center',
     expression: 'neutral',
     pose: 'standing',
     action: 'idle',
     scale: 1.0,
     opacity: 1.0,
     isAnimating: false,
+    isGenerating: false,
+    hasError: false,
     lastUpdate: new Date().toISOString(),
   },
   personalityModalOpen: false,
@@ -68,12 +71,71 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setLines: (lines) => set({ lines }),
   setLoading: (loading) => set({ isLoading: loading }),
-  setAvatarState: (partialState) => 
-    set(state => ({ 
-      avatarState: typeof partialState === 'function' 
-        ? { ...state.avatarState, ...partialState(state.avatarState) }
-        : { ...state.avatarState, ...partialState }
-    })),
+  setAvatarState: (partialState) => {
+    const newState = typeof partialState === 'function' 
+      ? (state: AppState) => {
+          const newAvatarState = { ...state.avatarState, ...partialState(state.avatarState) };
+          // Save to localStorage for persistence
+          localStorage.setItem('claudia-avatar-state', JSON.stringify({
+            visible: newAvatarState.visible,
+            expression: newAvatarState.expression,
+            pose: newAvatarState.pose,
+            action: newAvatarState.action,
+            imageUrl: newAvatarState.imageUrl,
+            lastUpdate: newAvatarState.lastUpdate
+          }));
+          return { avatarState: newAvatarState };
+        }
+      : (state: AppState) => {
+          const newAvatarState = { ...state.avatarState, ...partialState };
+          // Save to localStorage for persistence
+          localStorage.setItem('claudia-avatar-state', JSON.stringify({
+            visible: newAvatarState.visible,
+            expression: newAvatarState.expression,
+            pose: newAvatarState.pose,
+            action: newAvatarState.action,
+            imageUrl: newAvatarState.imageUrl,
+            lastUpdate: newAvatarState.lastUpdate
+          }));
+          return { avatarState: newAvatarState };
+        };
+    set(newState);
+  },
+  
+  saveAvatarState: () => {
+    const state = get().avatarState;
+    localStorage.setItem('claudia-avatar-state', JSON.stringify({
+      visible: state.visible,
+      expression: state.expression,
+      pose: state.pose,
+      action: state.action,
+      imageUrl: state.imageUrl,
+      lastUpdate: state.lastUpdate
+    }));
+  },
+  
+  restoreAvatarState: async () => {
+    try {
+      const saved = localStorage.getItem('claudia-avatar-state');
+      if (saved) {
+        const savedState = JSON.parse(saved);
+        set(state => ({
+          avatarState: {
+            ...state.avatarState,
+            visible: savedState.visible || false,
+            expression: savedState.expression || 'neutral',
+            pose: savedState.pose || 'standing',
+            action: savedState.action || 'idle',
+            imageUrl: savedState.imageUrl,
+            lastUpdate: savedState.lastUpdate || new Date().toISOString()
+          }
+        }));
+        console.log('✅ Avatar state restored from localStorage');
+      }
+    } catch (error) {
+      console.warn('Failed to restore avatar state:', error);
+    }
+  },
 
   openPersonalityEditorModal: async (db, personalityToEdit) => {
     const allPs = await db.getAllPersonalities();

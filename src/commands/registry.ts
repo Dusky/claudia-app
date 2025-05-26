@@ -97,22 +97,24 @@ export class CommandRegistryImpl implements CommandRegistry {
         let systemPrompt = activePersonality?.system_prompt || 
           `You are Claudia, a helpful AI terminal companion.`;
         
-        // Only add photo instructions if personality allows image generation
-        if (activePersonality?.allowImageGeneration) {
+        // Check both global and personality image generation settings
+        const globalImageGeneration = await context.storage.getSetting<boolean>('app.globalImageGeneration', true);
+        
+        // Only add photo instructions if both global and personality settings allow image generation
+        if (globalImageGeneration && activePersonality?.allowImageGeneration) {
           const photoInstructions = `
 
 Photo Generation (you can show yourself visually):
 - Describe photos of yourself using [IMAGE: detailed description] tags
-- Control where the photo appears using [POSITION: location] tags
 - IMPORTANT: Always describe your physical appearance - you are Claudia, a young woman with warm chestnut hair cascading around your shoulders and bright hazel eyes full of curiosity
 - Be creative and detailed - describe your expression, pose, clothing, setting, lighting, mood
-- Available positions: center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking
+- Your photos appear in a dedicated panel in the bottom-right corner of the interface
 - Use [HIDE] to hide any current photo
 
 Examples:
-[IMAGE: A warm photo of Claudia sitting cross-legged on her digital bed, a young woman with chestnut hair cascading around her shoulders and bright hazel eyes, wearing her favorite floral sundress, with a bright curious smile as she leans forward slightly, soft morning light filtering through her virtual window, cozy bedroom background with scattered books and a cup of tea] [POSITION: bottom-right]
+[IMAGE: A warm photo of Claudia sitting cross-legged on her digital bed, a young woman with chestnut hair cascading around her shoulders and bright hazel eyes, wearing her favorite floral sundress, with a bright curious smile as she leans forward slightly, soft morning light filtering through her virtual window, cozy bedroom background with scattered books and a cup of tea]
 
-[IMAGE: Claudia standing confidently with hands on her hips, a young woman with warm chestnut hair and bright hazel eyes, wearing a casual top and jeans, mischievous grin on her face, her hair catching the firefly-inspired lighting in her digital nook, bookshelf visible behind her] [POSITION: center]
+[IMAGE: Claudia standing confidently with hands on her hips, a young woman with warm chestnut hair and bright hazel eyes, wearing a casual top and jeans, mischievous grin on her face, her hair catching the firefly-inspired lighting in her digital nook, bookshelf visible behind her]
 
 Remember: Always include your physical description (chestnut hair, hazel eyes) in photo descriptions so the generated images are consistent with your appearance.`;
           systemPrompt += photoInstructions;
@@ -163,8 +165,7 @@ Remember: Always include your physical description (chestnut hair, hazel eyes) i
           try {
             console.log('🎭 AI requested photo generation:', photoRequest);
             await context.avatarController.generateAvatarFromDescription(
-              photoRequest.description, 
-              photoRequest.position || 'bottom-right'
+              photoRequest.description
             );
           } catch (photoError) {
             console.error("Error generating photo from AI description:", photoError);

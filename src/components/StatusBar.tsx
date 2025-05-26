@@ -15,6 +15,8 @@ interface StatusBarProps {
   onThemeClick?: () => void;
   onPersonalityClick?: () => void;
   onImageProviderClick?: () => void;
+  onAIOptionsClick?: () => void;
+  onAppSettingsClick?: () => void;
 }
 
 const StatusBarComponent: React.FC<StatusBarProps> = ({
@@ -25,6 +27,8 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   onThemeClick,
   onPersonalityClick,
   onImageProviderClick,
+  onAIOptionsClick,
+  onAppSettingsClick,
 }) => {
   const [activeLLM, setActiveLLM] = useState(llmManager.getActiveProvider());
   const [activeImage, setActiveImage] = useState(imageManager.getActiveProvider());
@@ -92,9 +96,10 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
         <div className={styles.statusBarItem}>
           <span>💬</span> {/* LLM Icon */}
           <span
-            className={`${styles.providerStatus} ${llmConfigured ? styles.configured : styles.notConfigured}`}
+            onClick={onAIOptionsClick}
+            className={`${styles.providerStatus} ${llmConfigured ? styles.configured : styles.notConfigured} ${onAIOptionsClick ? styles.clickableItem : ''}`}
             data-status={llmConfigured ? 'configured' : 'not-configured'}
-            title={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'}`}
+            title={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'} - Click to configure AI options`}
           >
             {llmProviderId}
           </span>
@@ -112,6 +117,16 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
         </div>
       </div>
       <div className={styles.statusBarSection}>
+        <div className={styles.statusBarItem}>
+          <span>⚙️</span> {/* Settings Icon */}
+          <span
+            onClick={onAppSettingsClick}
+            className={onAppSettingsClick ? styles.clickableItem : ''}
+            title="Click to open app settings"
+          >
+            Settings
+          </span>
+        </div>
         <div className={styles.statusBarItem}>
             <span>{formatTime(currentTime)}</span>
         </div>

@@ -39,7 +39,7 @@ export const avatarCommand: Command = {
       lines.push({
         id: `avatar-status-${timestamp}-position`,
         type: 'output',
-        content: `  Position:    ${state.position}`,
+        content: `  Position:    bottom-right (fixed panel)`,
         timestamp, user: 'claudia'
       });
       

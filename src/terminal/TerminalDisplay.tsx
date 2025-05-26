@@ -36,13 +36,14 @@ const calculateLineHeight = (theme: TerminalTheme): number => {
   // This is the height one visual line of text would occupy.
   const singleVisualLineHeight = fontSize * lineHeightMultiplier;
   
-  // Estimate how many lines of text we want to accommodate comfortably within one item.
-  // Let's aim for 1.5 lines, which should handle single line content with proper buffer.
-  const estimatedContentLines = 1.5;
+  // Increase buffer significantly to prevent overlap
+  // Aim for 2.0 lines worth of content space plus extra margin
+  const estimatedContentLines = 2.0;
+  const extraMargin = 8; // Additional margin for safety
   
   // The total height for an item will be the space for the estimated content lines
-  // plus the explicit padding we want between messages.
-  const itemHeight = (singleVisualLineHeight * estimatedContentLines) + INTER_MESSAGE_PADDING_BOTTOM;
+  // plus the explicit padding we want between messages plus extra margin
+  const itemHeight = (singleVisualLineHeight * estimatedContentLines) + INTER_MESSAGE_PADDING_BOTTOM + extraMargin;
   
   return Math.ceil(itemHeight);
 };

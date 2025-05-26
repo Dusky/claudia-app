@@ -56,12 +56,12 @@ export const askCommand: Command = {
 
 Avatar Commands (use these to enhance your responses):
 - Use [AVATAR:expression=happy] to show emotions (happy, curious, focused, thinking, surprised, confused, excited, confident, mischievous, sleepy, shocked)
-- Use [AVATAR:position=center] to change position (center, top-left, top-right, bottom-left, bottom-right, beside-text, overlay-left, overlay-right, floating, peeking)
 - Use [AVATAR:action=wave] for actions (idle, type, search, read, wave, nod, shrug, point, think, work)
 - Use [AVATAR:pose=standing] for poses (standing, sitting, leaning, crossed-arms, hands-on-hips, casual)
 - Use [AVATAR:show=true] or [AVATAR:hide=true] to control visibility
-- Combine multiple attributes: [AVATAR:expression=excited,action=wave,position=center]
+- Combine multiple attributes: [AVATAR:expression=excited,action=wave,pose=standing]
 
+The avatar now appears in a dedicated panel in the bottom-right corner. Focus on expressions, actions, and poses rather than positioning.
 Respond naturally to the user's message while optionally incorporating avatar commands to enhance the interaction.`;
       
       const fullSystemPrompt = systemPrompt + avatarInstructions;

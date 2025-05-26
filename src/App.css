@@ -10,12 +10,33 @@ html, body, #root {
   background: #000;
 }
 
+/* 
+ * CRITICAL LAYOUT STRUCTURE - DO NOT MODIFY WITHOUT UNDERSTANDING
+ * 
+ * App Layout Architecture:
+ * .App (flexbox column) - Full viewport height
+ *   ├── TopBar (flex-shrink: 0) - Fixed height 48px
+ *   ├── .main-content (flex: 1) - Takes remaining space
+ *   │   └── .terminal-container (flex: 1) - Full main-content space
+ *   │       └── TerminalDisplay - Handles internal scrolling
+ *   └── StatusBar (flex-shrink: 0) - Fixed height 28px
+ * 
+ * This prevents:
+ * - Input being covered by fixed positioned elements
+ * - Content overflow outside viewport
+ * - Layout conflicts when adding new UI elements
+ * 
+ * NEVER use position: fixed for TopBar or StatusBar!
+ * ALWAYS use flex-shrink: 0 for fixed-size elements!
+ */
 .App {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   position: relative;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Animated background effects */
@@ -59,16 +80,33 @@ html, body, #root {
   }
 }
 
-/* Ensure terminal takes full screen and stays above backgrounds */
+/* 
+ * MAIN CONTENT AREA - Takes remaining space between TopBar and StatusBar
+ * This ensures the terminal input is never covered by fixed elements
+ */
+.main-content {
+  flex: 1; /* Take remaining space between TopBar and StatusBar */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden; /* Prevent content from overflowing main area */
+  min-height: 0; /* Allow flex child to shrink below content size */
+}
+
+/* 
+ * TERMINAL CONTAINER - Full space within main-content with proper scrolling
+ * This handles the terminal display and ensures input stays visible
+ */
 .terminal-container {
-  height: 100%; /* Changed from 100vh !important to fill parent's content box */
-  width: 100vw; /* This might be better as 100% if parent controls width */
+  flex: 1; /* Take all available space in main-content */
+  width: 100%;
   overflow-y: auto; /* For internal scrolling of TerminalDisplay */
   position: relative;
   z-index: 2;
   backdrop-filter: blur(0.5px);
-  display: flex; /* Added to ensure TerminalDisplay's internal flex layout works */
-  flex-direction: column; /* Added to ensure TerminalDisplay's internal flex layout works */
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Allow flex child to shrink below content size */
 }
 
 /* Enhanced theme-specific backgrounds */
@@ -193,7 +231,9 @@ html, body, #root {
 /* Terminal text enhancements */
 .terminal-line {
   position: relative;
-  margin-bottom: 4px; /* Additional spacing between messages */
+  margin-bottom: 8px; /* Additional spacing between messages */
+  padding-bottom: 4px; /* Extra bottom padding for safety */
+  min-height: 24px; /* Minimum height to prevent overlap */
 }
 
 /* Glow effect for important lines */

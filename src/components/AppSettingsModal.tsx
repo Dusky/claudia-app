@@ -1,0 +1,359 @@
+import React, { useState, useEffect } from 'react';
+import type { StorageService } from '../storage/types';
+import type { TerminalTheme } from '../terminal/themes';
+import styles from './AppSettingsModal.module.css';
+
+interface AppSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  storage: StorageService;
+  theme: TerminalTheme;
+}
+
+// Settings keys for persistence
+export const APP_SETTINGS_KEYS = {
+  GLOBAL_IMAGE_GENERATION: 'app.globalImageGeneration',
+  AUTO_SAVE_IMAGES: 'app.autoSaveImages',
+  IMAGE_CACHE_SIZE: 'app.imageCacheSize',
+  DEBUG_MODE: 'app.debugMode',
+  BOOT_ANIMATION: 'app.bootAnimation',
+  CONVERSATION_HISTORY_LIMIT: 'app.conversationHistoryLimit',
+  AUTO_SCROLL: 'app.autoScroll',
+  SOUND_EFFECTS: 'app.soundEffects'
+} as const;
+
+// Default values
+const DEFAULT_SETTINGS = {
+  globalImageGeneration: true,
+  autoSaveImages: true,
+  imageCacheSize: 100,
+  debugMode: false,
+  bootAnimation: true,
+  conversationHistoryLimit: 50,
+  autoScroll: true,
+  soundEffects: false
+};
+
+interface AppSettings {
+  globalImageGeneration: boolean;
+  autoSaveImages: boolean;
+  imageCacheSize: number;
+  debugMode: boolean;
+  bootAnimation: boolean;
+  conversationHistoryLimit: number;
+  autoScroll: boolean;
+  soundEffects: boolean;
+}
+
+export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  storage,
+  theme
+}) => {
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Load settings when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadSettings();
+    }
+  }, [isOpen]);
+
+  const loadSettings = async () => {
+    setIsLoading(true);
+    try {
+      const loadedSettings: AppSettings = {
+        globalImageGeneration: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, 
+          DEFAULT_SETTINGS.globalImageGeneration
+        )) ?? DEFAULT_SETTINGS.globalImageGeneration,
+        autoSaveImages: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, 
+          DEFAULT_SETTINGS.autoSaveImages
+        )) ?? DEFAULT_SETTINGS.autoSaveImages,
+        imageCacheSize: (await storage.getSetting<number>(
+          APP_SETTINGS_KEYS.IMAGE_CACHE_SIZE, 
+          DEFAULT_SETTINGS.imageCacheSize
+        )) ?? DEFAULT_SETTINGS.imageCacheSize,
+        debugMode: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.DEBUG_MODE, 
+          DEFAULT_SETTINGS.debugMode
+        )) ?? DEFAULT_SETTINGS.debugMode,
+        bootAnimation: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.BOOT_ANIMATION, 
+          DEFAULT_SETTINGS.bootAnimation
+        )) ?? DEFAULT_SETTINGS.bootAnimation,
+        conversationHistoryLimit: (await storage.getSetting<number>(
+          APP_SETTINGS_KEYS.CONVERSATION_HISTORY_LIMIT, 
+          DEFAULT_SETTINGS.conversationHistoryLimit
+        )) ?? DEFAULT_SETTINGS.conversationHistoryLimit,
+        autoScroll: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.AUTO_SCROLL, 
+          DEFAULT_SETTINGS.autoScroll
+        )) ?? DEFAULT_SETTINGS.autoScroll,
+        soundEffects: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.SOUND_EFFECTS, 
+          DEFAULT_SETTINGS.soundEffects
+        )) ?? DEFAULT_SETTINGS.soundEffects
+      };
+      setSettings(loadedSettings);
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to load app settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateSetting = <K extends keyof AppSettings>(
+    key: K, 
+    value: AppSettings[K]
+  ) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const saveSettings = async () => {
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        storage.setSetting(APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, settings.globalImageGeneration, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, settings.autoSaveImages, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.IMAGE_CACHE_SIZE, settings.imageCacheSize, 'number'),
+        storage.setSetting(APP_SETTINGS_KEYS.DEBUG_MODE, settings.debugMode, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.BOOT_ANIMATION, settings.bootAnimation, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.CONVERSATION_HISTORY_LIMIT, settings.conversationHistoryLimit, 'number'),
+        storage.setSetting(APP_SETTINGS_KEYS.AUTO_SCROLL, settings.autoScroll, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.SOUND_EFFECTS, settings.soundEffects, 'boolean')
+      ]);
+      setHasChanges(false);
+      console.log('✅ App settings saved successfully');
+    } catch (error) {
+      console.error('Failed to save app settings:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetToDefaults = () => {
+    if (confirm('Are you sure you want to reset all settings to default values?')) {
+      setSettings(DEFAULT_SETTINGS);
+      setHasChanges(true);
+    }
+  };
+
+  const handleClose = () => {
+    if (hasChanges) {
+      if (confirm('You have unsaved changes. Are you sure you want to close without saving?')) {
+        onClose();
+        setHasChanges(false);
+      }
+    } else {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={styles.overlay}>
+      <div 
+        className={`${styles.modal} ${styles[theme.id] || ''}`}
+        style={{ 
+          backgroundColor: theme.colors.background,
+          borderColor: theme.colors.foreground || '#333',
+          color: theme.colors.foreground
+        }}
+      >
+        <div className={styles.header}>
+          <h2>App Settings</h2>
+          <button 
+            className={styles.closeButton} 
+            onClick={handleClose}
+            style={{ color: theme.colors.foreground }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className={styles.content}>
+          {isLoading ? (
+            <div className={styles.loading}>Loading settings...</div>
+          ) : (
+            <>
+              {/* Image Generation Section */}
+              <div className={styles.section}>
+                <h3>Image Generation</h3>
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.globalImageGeneration}
+                      onChange={(e) => updateSetting('globalImageGeneration', e.target.checked)}
+                    />
+                    <span>Enable global image generation</span>
+                  </label>
+                  <p className={styles.description}>
+                    Master switch for all image generation features. When disabled, no personalities can generate images.
+                  </p>
+                </div>
+                
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.autoSaveImages}
+                      onChange={(e) => updateSetting('autoSaveImages', e.target.checked)}
+                    />
+                    <span>Auto-save generated images</span>
+                  </label>
+                  <p className={styles.description}>
+                    Automatically save generated images to your downloads folder.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.slider}>
+                    <span>Image cache size: {settings.imageCacheSize}</span>
+                    <input
+                      type="range"
+                      min="10"
+                      max="500"
+                      step="10"
+                      value={settings.imageCacheSize}
+                      onChange={(e) => updateSetting('imageCacheSize', parseInt(e.target.value))}
+                      style={{ backgroundColor: theme.colors.background }}
+                    />
+                  </label>
+                  <p className={styles.description}>
+                    Maximum number of images to keep in cache.
+                  </p>
+                </div>
+              </div>
+
+              {/* Conversation Section */}
+              <div className={styles.section}>
+                <h3>Conversation</h3>
+                <div className={styles.setting}>
+                  <label className={styles.slider}>
+                    <span>History limit: {settings.conversationHistoryLimit}</span>
+                    <input
+                      type="range"
+                      min="5"
+                      max="200"
+                      step="5"
+                      value={settings.conversationHistoryLimit}
+                      onChange={(e) => updateSetting('conversationHistoryLimit', parseInt(e.target.value))}
+                      style={{ backgroundColor: theme.colors.background }}
+                    />
+                  </label>
+                  <p className={styles.description}>
+                    Number of messages to include in AI context.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.autoScroll}
+                      onChange={(e) => updateSetting('autoScroll', e.target.checked)}
+                    />
+                    <span>Auto-scroll to new messages</span>
+                  </label>
+                  <p className={styles.description}>
+                    Automatically scroll to bottom when new messages arrive.
+                  </p>
+                </div>
+              </div>
+
+              {/* Interface Section */}
+              <div className={styles.section}>
+                <h3>Interface</h3>
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.bootAnimation}
+                      onChange={(e) => updateSetting('bootAnimation', e.target.checked)}
+                    />
+                    <span>Show boot animation</span>
+                  </label>
+                  <p className={styles.description}>
+                    Display the startup sequence animation.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.soundEffects}
+                      onChange={(e) => updateSetting('soundEffects', e.target.checked)}
+                    />
+                    <span>Sound effects</span>
+                  </label>
+                  <p className={styles.description}>
+                    Enable audio feedback for actions (coming soon).
+                  </p>
+                </div>
+              </div>
+
+              {/* Advanced Section */}
+              <div className={styles.section}>
+                <h3>Advanced</h3>
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.debugMode}
+                      onChange={(e) => updateSetting('debugMode', e.target.checked)}
+                    />
+                    <span>Debug mode</span>
+                  </label>
+                  <p className={styles.description}>
+                    Show additional debugging information in console.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className={styles.footer}>
+          <button 
+            onClick={resetToDefaults}
+            className={styles.resetButton}
+            disabled={isLoading}
+          >
+            Reset to Defaults
+          </button>
+          <div className={styles.actions}>
+            <button 
+              onClick={handleClose} 
+              className={styles.cancelButton}
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={saveSettings} 
+              className={styles.saveButton}
+              disabled={!hasChanges || isLoading}
+              style={{
+                backgroundColor: hasChanges ? theme.colors.accent : undefined,
+                borderColor: hasChanges ? theme.colors.accent : undefined
+              }}
+            >
+              {isLoading ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
