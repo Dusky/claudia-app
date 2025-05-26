@@ -214,13 +214,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   };
 
   const handleTerminalClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Allow click on app-background-layer to focus input if terminal itself is clicked
     const target = e.target as HTMLElement;
-    if (target === terminalContainerRef.current || 
-        target.closest('.terminal-content-wrapper') || // Click inside content area
-        target.classList.contains('terminal-input-area') ||
-        target.classList.contains('terminal-input-line') ||
-        target.classList.contains('input-prompt')
-    ) {
+    if (target.closest('.terminal-container') || 
+        target.classList.contains('app-background-layer')) { // If background is clicked, and terminal is main element
       setIsInputFocused(true);
       if (inputRef.current) inputRef.current.focus();
     }
@@ -230,7 +227,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     switch (type) {
       case 'error': return theme.colors.error;
       case 'system': return theme.colors.accent;
-      case 'input': return theme.colors.foreground; // Keep input distinct or same as output
+      case 'input': return theme.colors.foreground; 
       case 'output': return theme.colors.foreground;
       default: return theme.colors.foreground;
     }
@@ -243,14 +240,34 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return '';
   }, [prompt]);
 
-  const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      position: 'relative',
-      overflow: 'hidden', // Crucial for border-radius and curvature clipping
+  const appBackgroundStyle = useMemo((): React.CSSProperties => {
+    let background = 'transparent'; // Default if no background is applied
+    if (config?.enableAppBackground) {
+      if (config.appBackgroundOverride) {
+        background = config.appBackgroundOverride;
+      } else if (theme.effects.appBackground) {
+        background = theme.effects.appBackground;
+      }
+    }
+    return {
       width: '100%',
       height: '100%',
-      display: 'flex', // To allow content wrapper to flex grow
+      background: background,
+      position: 'relative', // For stacking context if terminal needs absolute positioning within it
+      display: 'flex', // To center terminal if needed, or just contain it
+      flexDirection: 'column', // Align with terminal-container's flex direction
+    };
+  }, [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
+
+  const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
+    const baseStyle: React.CSSProperties = {
+      position: 'relative', // Stays relative within the new app-background-layer
+      overflow: 'hidden', 
+      width: '100%', // Terminal fills the app-background-layer by default
+      height: '100%',
+      display: 'flex', 
       flexDirection: 'column',
+      // zIndex: 0, // Let natural stacking order prevail initially
     };
     if (config?.terminalBreathing) baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
     if (config?.crtGlow) baseStyle.filter = 'brightness(1.1) contrast(1.1)';
@@ -262,243 +279,251 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     display: 'flex',
     flexDirection: 'column',
     padding: theme.spacing.padding,
-    background: theme.colors.background,
+    background: theme.colors.background, // Terminal's own background
     position: 'relative',
-    zIndex: 2, // Above CRT vignette, below overlays
-    transition: 'transform 0.3s ease-out', // Smooth transition for curvature
+    zIndex: 2, 
+    transition: 'transform 0.3s ease-out', 
   }), [theme.spacing.padding, theme.colors.background]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
-    position: 'relative', // For stacking context if needed
+    position: 'relative', 
     flexGrow: 1,
-    overflowY: 'auto', // Changed from 'auto' to 'auto' for vertical scroll only
-    overflowX: 'hidden', // Prevent horizontal scroll
-    paddingRight: '4px', // Space for scrollbar
-    // zIndex: 2, // Already handled by parent wrapper
+    overflowY: 'auto', 
+    overflowX: 'hidden', 
+    paddingRight: '4px', 
   }), []);
 
   const inputAreaStyle = useMemo((): React.CSSProperties => ({
     position: 'relative',
-    // zIndex: 2, // Already handled by parent wrapper
     paddingTop: theme.spacing.lineSpacing,
     flexShrink: 0,
   }), [theme.spacing.lineSpacing]);
 
 
   return (
-    <div
-      ref={terminalContainerRef}
-      className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''} ${theme.effects.crt ? 'crt-effect' : ''}`}
-      data-theme={theme.id}
-      style={terminalContainerOuterStyle}
-      onClick={handleTerminalClick}
+    <div 
+      className="app-background-layer" 
+      style={appBackgroundStyle}
+      onClick={handleTerminalClick} // Allow clicking background to focus input
     >
-      {(theme.effects.scanlines || config?.scanLines !== 'off') && (
-        <div 
-          className="scanlines-overlay" // Renamed class for clarity
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
-            backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, // Adjust size
-            animation: 'scanmove 10s linear infinite',
-            pointerEvents: 'none', zIndex: 3, // Above content
-            opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
-          }}
-        />
-      )}
-      {(theme.effects.noise || config?.staticOverlay) && (
-        <div 
-          className="noise-overlay" // Renamed class
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
-            pointerEvents: 'none', zIndex: 3, // Above content
-            opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) // Adjusted opacities
-          }}
-        />
-      )}
-      
-      {config?.visualArtifacts && (
-        <div 
-          className="visual-artifacts-overlay" // Renamed class
-          style={{
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            pointerEvents: 'none', zIndex: 3, // Above content
-            animation: 'artifacts 8s ease-in-out infinite'
-          }}
-        />
-      )}
-
       <div
-        className={`terminal-content-wrapper ${(theme.effects.screenCurvature || config?.screenCurvature) ? 'screen-curved' : ''}`}
-        style={terminalContentWrapperStyle}
+        ref={terminalContainerRef}
+        className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''} ${theme.effects.crt ? 'crt-effect' : ''}`}
+        data-theme={theme.id}
+        style={terminalContainerOuterStyle}
+        // onClick prop moved to app-background-layer to catch clicks outside terminal-container too
       >
-        <div 
-          ref={outputRef}
-          className="terminal-output-area"
-          style={outputAreaStyle}
-        >
-          {lines.map((line) => (
-            <LineComponent
-              key={line.id}
-              line={line}
-              theme={theme}
-              getLineTypeColor={getLineTypeColor}
-              getUserPrefix={getUserPrefix}
-            />
-          ))}
-        </div>
+        {(theme.effects.scanlines || config?.scanLines !== 'off') && (
+          <div 
+            className="scanlines-overlay" 
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
+              backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, 
+              animation: 'scanmove 10s linear infinite',
+              pointerEvents: 'none', zIndex: 3, 
+              opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
+            }}
+          />
+        )}
+        {(theme.effects.noise || config?.staticOverlay) && (
+          <div 
+            className="noise-overlay" 
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
+              pointerEvents: 'none', zIndex: 3, 
+              opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) 
+            }}
+          />
+        )}
+        
+        {config?.visualArtifacts && (
+          <div 
+            className="visual-artifacts-overlay" 
+            style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              pointerEvents: 'none', zIndex: 3, 
+              animation: 'artifacts 8s ease-in-out infinite'
+            }}
+          />
+        )}
 
-        <div 
-          className="terminal-input-area"
-          style={inputAreaStyle}
+        <div
+          className={`terminal-content-wrapper ${(theme.effects.screenCurvature || config?.screenCurvature) ? 'screen-curved' : ''}`}
+          style={terminalContentWrapperStyle}
         >
-          {isLoading && (
-            <div 
-              className="terminal-line loading"
-              style={{
-                color: theme.colors.accent, marginBottom: theme.spacing.lineSpacing,
-                display: 'flex', alignItems: 'baseline', opacity: 0.7,
-              }}
-            >
-              <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>claudia{'>'} </span>
-              <span className="loading-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="loading-dots">
-                  <span style={{ animation: 'blink 0.8s infinite' }}>•</span>
-                  <span style={{ animation: 'blink 0.8s infinite 0.27s' }}>•</span>
-                  <span style={{ animation: 'blink 0.8s infinite 0.54s' }}>•</span>
-                </span>
-                <span style={{ fontSize: '0.9em', fontStyle: 'italic' }}>{loadingMessage}{'.'.repeat(loadingDots)}</span>
-              </span>
-            </div>
-          )}
+          <div 
+            ref={outputRef}
+            className="terminal-output-area"
+            style={outputAreaStyle}
+          >
+            {lines.map((line) => (
+              <LineComponent
+                key={line.id}
+                line={line}
+                theme={theme}
+                getLineTypeColor={getLineTypeColor}
+                getUserPrefix={getUserPrefix}
+              />
+            ))}
+          </div>
 
           <div 
-            className="terminal-input-line"
-            style={{ color: theme.colors.foreground, display: 'flex', alignItems: 'center', position: 'relative' }}
+            className="terminal-input-area"
+            style={inputAreaStyle}
           >
-            <span ref={promptRef} className="input-prompt" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>{prompt}{' '}</span>
-            <input
-              ref={inputRef} type="text" value={currentInput}
-              onChange={handleInputChange} onKeyDown={handleKeyDown} 
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => { setIsInputFocused(false); setShowSuggestions(false); }}
-              style={{
-                background: 'transparent', border: 'none', outline: 'none',
-                color: theme.colors.foreground, fontFamily: 'inherit', fontSize: 'inherit',
-                fontWeight: 'inherit', letterSpacing: 'inherit', flex: 1,
-                caretColor: theme.colors.cursor, transition: 'all 0.2s ease-in-out',
-                ...(theme.effects.glow && { textShadow: `0 0 5px ${theme.colors.foreground}60` }),
-                ...(isInputFocused && {
-                  filter: 'brightness(1.1)',
-                  textShadow: theme.effects.glow 
-                    ? `0 0 8px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60` 
-                    : `0 0 2px ${theme.colors.cursor}40`
-                })
-              }}
-              autoComplete="off" spellCheck={false}
-            />
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="suggestions-box" style={{ left: suggestionsLeftOffset }} >
-                {suggestions.map((suggestion, index) => (
-                  <div key={index} className="suggestion-item"
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    onMouseDown={(e) => e.preventDefault()} 
-                  >{suggestion}</div>
-                ))}
+            {isLoading && (
+              <div 
+                className="terminal-line loading"
+                style={{
+                  color: theme.colors.accent, marginBottom: theme.spacing.lineSpacing,
+                  display: 'flex', alignItems: 'baseline', opacity: 0.7,
+                }}
+              >
+                <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>claudia{'>'} </span>
+                <span className="loading-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="loading-dots">
+                    <span style={{ animation: 'blink 0.8s infinite' }}>•</span>
+                    <span style={{ animation: 'blink 0.8s infinite 0.27s' }}>•</span>
+                    <span style={{ animation: 'blink 0.8s infinite 0.54s' }}>•</span>
+                  </span>
+                  <span style={{ fontSize: '0.9em', fontStyle: 'italic' }}>{loadingMessage}{'.'.repeat(loadingDots)}</span>
+                </span>
               </div>
             )}
+
+            <div 
+              className="terminal-input-line"
+              style={{ color: theme.colors.foreground, display: 'flex', alignItems: 'center', position: 'relative' }}
+            >
+              <span ref={promptRef} className="input-prompt" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>{prompt}{' '}</span>
+              <input
+                ref={inputRef} type="text" value={currentInput}
+                onChange={handleInputChange} onKeyDown={handleKeyDown} 
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => { setIsInputFocused(false); setShowSuggestions(false); }}
+                style={{
+                  background: 'transparent', border: 'none', outline: 'none',
+                  color: theme.colors.foreground, fontFamily: 'inherit', fontSize: 'inherit',
+                  fontWeight: 'inherit', letterSpacing: 'inherit', flex: 1,
+                  caretColor: theme.colors.cursor, transition: 'all 0.2s ease-in-out',
+                  ...(theme.effects.glow && { textShadow: `0 0 5px ${theme.colors.foreground}60` }),
+                  ...(isInputFocused && {
+                    filter: 'brightness(1.1)',
+                    textShadow: theme.effects.glow 
+                      ? `0 0 8px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60` 
+                      : `0 0 2px ${theme.colors.cursor}40`
+                  })
+                }}
+                autoComplete="off" spellCheck={false}
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="suggestions-box" style={{ left: suggestionsLeftOffset }} >
+                  {suggestions.map((suggestion, index) => (
+                    <div key={index} className="suggestion-item"
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      onMouseDown={(e) => e.preventDefault()} 
+                    >{suggestion}</div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        <style>{`
+          .app-background-layer {
+            /* Styles applied via appBackgroundStyle prop */
+            /* Ensures it covers the area TerminalDisplay is supposed to occupy */
+          }
+          .terminal-container { 
+            /* Styles applied via terminalContainerOuterStyle and crt-effect class */
+          }
+          .terminal-content-wrapper { 
+            /* Styles applied via terminalContentWrapperStyle */
+          }
+          .terminal-content-wrapper.screen-curved {
+            transform: scale(1.01, 1.025); 
+            border-radius: 5px; 
+          }
+
+          @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
+          @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+          @keyframes terminalBreathe {
+            0%, 100% { transform: scale(1); filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'}; }
+            50% { transform: scale(1.002); filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'}; }
+          }
+          @keyframes artifacts {
+            0%, 100% { opacity: 0; }
+            2% { opacity: 0.3; background: linear-gradient(90deg, transparent 0%, rgba(255,0,0,0.1) 50%, transparent 100%); }
+            4% { opacity: 0; } 85% { opacity: 0; }
+            87% { opacity: 0.2; background: linear-gradient(180deg, transparent 0%, rgba(0,255,255,0.1) 50%, transparent 100%); }
+            89% { opacity: 0; }
+          }
+          .screen-flicker { animation: screenFlicker ${config?.flickerIntensity ? (2 / config.flickerIntensity) : 6}s ease-in-out infinite; }
+          @keyframes screenFlicker {
+            0%, 100% { opacity: 1; filter: brightness(1); } 98% { opacity: 1; filter: brightness(1); }
+            99% { opacity: ${1 - (config?.flickerIntensity || 0.3)}; filter: brightness(0.8); }
+            99.5% { opacity: 1; filter: brightness(1.2); }
+          }
+          .terminal-output-area::-webkit-scrollbar { width: 8px; }
+          .terminal-output-area::-webkit-scrollbar-track { background: ${theme.colors.background}30; }
+          .terminal-output-area::-webkit-scrollbar-thumb { background: ${theme.colors.accent}60; border-radius: 4px; }
+          .terminal-output-area::-webkit-scrollbar-thumb:hover { background: ${theme.colors.accent}80; }
+          .terminal-output-area { scrollbar-width: thin; scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30; }
+          .suggestions-box {
+            position: absolute; bottom: 100%; right: 0; max-height: 150px; overflow-y: auto;
+            background-color: ${theme.colors.background || '#1e1e1e'}EE; 
+            border: 1px solid ${theme.colors.accent || '#00FFFF'}80; border-bottom: none; 
+            border-radius: 4px 4px 0 0; z-index: 100; color: ${theme.colors.foreground || '#FFFFFF'};
+            font-family: ${theme.font.family}; font-size: calc(${theme.font.size} * 0.9); 
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.2); 
+          }
+          .suggestion-item {
+            padding: 6px 10px; cursor: pointer; border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
+            white-space: nowrap; transition: all 0.15s ease-in-out; position: relative; overflow: hidden;
+          }
+          .suggestion-item:last-child { border-bottom: none; }
+          .suggestion-item::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, ${theme.colors.accent}20, transparent);
+            transition: left 0.3s ease-in-out;
+          }
+          .suggestion-item:hover {
+            background-color: ${theme.colors.accent || '#00FFFF'}40; color: ${theme.colors.background};
+            transform: translateX(2px); box-shadow: 0 2px 4px ${theme.colors.accent}30;
+          }
+          .suggestion-item:hover::before { left: 100%; }
+
+          ${theme.effects.flicker ? `
+            .terminal-content-wrapper { 
+              animation: contentFlicker 0.15s infinite linear alternate;
+            }
+            @keyframes contentFlicker { 0% { opacity: 1; } 100% { opacity: 0.98; } }
+          ` : ''}
+
+          ${theme.effects.crt ? `
+            .terminal-container.crt-effect { 
+              border-radius: 15px; 
+              box-shadow: 
+                inset 0 0 30px ${theme.colors.background}99, 
+                inset 0 0 60px rgba(100,100,150,0.15), 
+                0 0 15px rgba(0,0,0,0.5), 
+                0 0 40px ${theme.colors.accent}20; 
+            }
+            .terminal-container.crt-effect::before { 
+              content: '';
+              position: absolute;
+              top: 0; left: 0; right: 0; bottom: 0;
+              border-radius: inherit; 
+              background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.5) 100%);
+              pointer-events: none;
+              z-index: 1; 
+            }
+          ` : ''}
+        `}</style>
       </div>
-
-      <style>{`
-        .terminal-container { /* Base container for shape and overflow */
-          /* Styles applied via terminalContainerOuterStyle and crt-effect class */
-        }
-        .terminal-content-wrapper { /* Contains text, padding, background */
-          /* Styles applied via terminalContentWrapperStyle */
-        }
-        .terminal-content-wrapper.screen-curved {
-          transform: scale(1.01, 1.025); /* Subtle curvature */
-          border-radius: 5px; /* Slight inner rounding if scaled */
-        }
-
-        @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
-        @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
-        @keyframes terminalBreathe {
-          0%, 100% { transform: scale(1); filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'}; }
-          50% { transform: scale(1.002); filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'}; }
-        }
-        @keyframes artifacts {
-          0%, 100% { opacity: 0; }
-          2% { opacity: 0.3; background: linear-gradient(90deg, transparent 0%, rgba(255,0,0,0.1) 50%, transparent 100%); }
-          4% { opacity: 0; } 85% { opacity: 0; }
-          87% { opacity: 0.2; background: linear-gradient(180deg, transparent 0%, rgba(0,255,255,0.1) 50%, transparent 100%); }
-          89% { opacity: 0; }
-        }
-        .screen-flicker { animation: screenFlicker ${config?.flickerIntensity ? (2 / config.flickerIntensity) : 6}s ease-in-out infinite; }
-        @keyframes screenFlicker {
-          0%, 100% { opacity: 1; filter: brightness(1); } 98% { opacity: 1; filter: brightness(1); }
-          99% { opacity: ${1 - (config?.flickerIntensity || 0.3)}; filter: brightness(0.8); }
-          99.5% { opacity: 1; filter: brightness(1.2); }
-        }
-        .terminal-output-area::-webkit-scrollbar { width: 8px; }
-        .terminal-output-area::-webkit-scrollbar-track { background: ${theme.colors.background}30; }
-        .terminal-output-area::-webkit-scrollbar-thumb { background: ${theme.colors.accent}60; border-radius: 4px; }
-        .terminal-output-area::-webkit-scrollbar-thumb:hover { background: ${theme.colors.accent}80; }
-        .terminal-output-area { scrollbar-width: thin; scrollbar-color: ${theme.colors.accent}60 ${theme.colors.background}30; }
-        .suggestions-box {
-          position: absolute; bottom: 100%; right: 0; max-height: 150px; overflow-y: auto;
-          background-color: ${theme.colors.background || '#1e1e1e'}EE; 
-          border: 1px solid ${theme.colors.accent || '#00FFFF'}80; border-bottom: none; 
-          border-radius: 4px 4px 0 0; z-index: 100; color: ${theme.colors.foreground || '#FFFFFF'};
-          font-family: ${theme.font.family}; font-size: calc(${theme.font.size} * 0.9); 
-          box-shadow: 0 -2px 5px rgba(0,0,0,0.2); 
-        }
-        .suggestion-item {
-          padding: 6px 10px; cursor: pointer; border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
-          white-space: nowrap; transition: all 0.15s ease-in-out; position: relative; overflow: hidden;
-        }
-        .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-item::before {
-          content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-          background: linear-gradient(90deg, transparent, ${theme.colors.accent}20, transparent);
-          transition: left 0.3s ease-in-out;
-        }
-        .suggestion-item:hover {
-          background-color: ${theme.colors.accent || '#00FFFF'}40; color: ${theme.colors.background};
-          transform: translateX(2px); box-shadow: 0 2px 4px ${theme.colors.accent}30;
-        }
-        .suggestion-item:hover::before { left: 100%; }
-
-        ${theme.effects.flicker ? `
-          .terminal-content-wrapper { /* Apply flicker to content, not overlays */
-            animation: contentFlicker 0.15s infinite linear alternate;
-          }
-          @keyframes contentFlicker { 0% { opacity: 1; } 100% { opacity: 0.98; } }
-        ` : ''}
-
-        ${theme.effects.crt ? `
-          .terminal-container.crt-effect { 
-            border-radius: 15px; /* Outer CRT bezel rounding */
-            box-shadow: 
-              inset 0 0 30px ${theme.colors.background}99, /* Inner shadow for depth */
-              inset 0 0 60px rgba(100,100,150,0.15), /* Subtle inner color cast */
-              0 0 15px rgba(0,0,0,0.5), /* Outer soft shadow */
-              0 0 40px ${theme.colors.accent}20; /* Outer glow matching accent */
-          }
-          .terminal-container.crt-effect::before { /* Vignette effect */
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border-radius: inherit; /* Match container's rounding */
-            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.5) 100%);
-            pointer-events: none;
-            z-index: 1; /* Behind content wrapper, above container's direct background/shadows */
-          }
-        ` : ''}
-      `}</style>
     </div>
   );
 };

@@ -27,10 +27,12 @@ export interface ConfigSettings {
   
   // Atmosphere
   crtGlow: boolean;
-  backgroundAnimation: boolean;
+  backgroundAnimation: boolean; // This was for terminal breathing, might be repurposed or removed if app background has animation
   colorShifts: boolean;
   staticOverlay: boolean;
   screenCurvature: boolean; // Added for screen curvature effect
+  enableAppBackground: boolean; // Toggle for the entire app background
+  appBackgroundOverride?: string; // User-defined CSS background string
   
   // Performance
   reducedAnimations: boolean;
@@ -55,10 +57,12 @@ export const defaultConfig: ConfigSettings = {
   
   // Atmosphere
   crtGlow: true,
-  backgroundAnimation: true,
+  backgroundAnimation: true, // Keeping for now, relates to terminal breathing
   colorShifts: true,
   staticOverlay: false,
   screenCurvature: false, // Default to false, themes or user can enable
+  enableAppBackground: true, // App background enabled by default
+  appBackgroundOverride: undefined, // No override by default
   
   // Performance
   reducedAnimations: false,

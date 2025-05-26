@@ -27,6 +27,7 @@ export interface TerminalTheme {
     noise: boolean;
     noiseIntensity?: number;
     screenCurvature?: boolean; // Added for barrel distortion effect
+    appBackground?: string; // For the background behind the terminal
   };
   spacing: {
     padding: string;
@@ -65,6 +66,7 @@ export const themes: Record<string, TerminalTheme> = {
       crt: true,
       noise: false,
       screenCurvature: true, // Enabled for this theme
+      appBackground: '#080808 url("data:image/svg+xml,%3Csvg width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L12 12ZM12 0L0 12Z\' stroke=\'%23181818\' stroke-width=\'0.8\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
       padding: '20px',
@@ -102,6 +104,7 @@ export const themes: Record<string, TerminalTheme> = {
       crt: true,
       noise: false,
       screenCurvature: true, // Enabled for this theme
+      appBackground: '#000020 url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect x=\'0\' y=\'0\' width=\'100%25\' height=\'100%25\' fill=\'none\' stroke=\'%23000040\' stroke-width=\'1\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
       padding: '16px',
@@ -140,6 +143,7 @@ export const themes: Record<string, TerminalTheme> = {
       noise: true,
       noiseIntensity: 0.6, // Slightly increased noise intensity
       screenCurvature: false,
+      appBackground: 'radial-gradient(ellipse at center, #200020 0%, #000000 70%)',
     },
     spacing: {
       padding: '12px',
@@ -177,6 +181,7 @@ export const themes: Record<string, TerminalTheme> = {
       crt: false,
       noise: false,
       screenCurvature: false,
+      appBackground: '#101010',
     },
     spacing: {
       padding: '20px',
