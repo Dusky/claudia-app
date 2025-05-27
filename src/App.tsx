@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react'; 
+import { useMemo, useEffect } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarPanel } from './components/AvatarPanel';
 import { PersonalityModal } from './components/PersonalityModal';

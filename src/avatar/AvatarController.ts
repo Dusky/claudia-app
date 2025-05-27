@@ -289,6 +289,19 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       params.metaGeneratedImagePrompt = finalImagePrompt; 
     }
     
+    // Apply personality-specific prompt settings before generating components
+    if (activePersonality) {
+      if (activePersonality.baseCharacterIdentity) {
+        this.promptComposer.setCharacterIdentity(activePersonality.baseCharacterIdentity);
+      }
+      if (activePersonality.styleKeywords || activePersonality.qualityKeywords) {
+        this.promptComposer.setStyleKeywords(
+          activePersonality.styleKeywords || "realistic digital art, cinematic",
+          activePersonality.qualityKeywords || "high quality, detailed, beautiful composition, masterpiece, sharp focus, ultra-realistic photograph"
+        );
+      }
+    }
+
     let promptComponents = this.promptComposer.generatePromptComponents(params);
     
     if (activePersonality) { 
@@ -346,12 +359,20 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
 
       const imageRequest: ImageGenerationRequest = {
         prompt: finalImagePrompt,
-        negativePrompt,
         width: 512, height: 512, steps: 30, guidance: 7.0 
       };
 
+      // Only include negative prompt for providers that support it
+      const providerSupportsNegativePrompts = this.shouldIncludeNegativePrompt(provider);
+      if (providerSupportsNegativePrompts && negativePrompt) {
+        imageRequest.negativePrompt = negativePrompt;
+      }
+
       console.log('Generating avatar with final prompt:', { finalImagePrompt, negativePrompt, params });
       const response = await provider.generateImage(imageRequest);
+      
+      // Log prompt to file if enabled
+      await this.logPromptToFile(finalImagePrompt, negativePrompt, response.imageUrl, params, promptComponents);
       
       if (this.database && typeof this.database.cacheAvatarImage === 'function') {
         try {
@@ -406,7 +427,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
           provider: provider?.name || 'unknown',
           dimensions: { width: 512, height: 512 },
           tags: ['avatar', 'ai-generated', 'claudia', 'description-driven'],
-          parameters: { ...params, prompt: description } // Save original description and other params
+          parameters: { ...parsedParams, prompt: description } // Save original description and other params
         });
         await this.imageStorageManager.saveImage(this.state.imageUrl, metadata); // Use this.imageStorageManager
         console.log('📸 Avatar image from AI description saved:', metadata.filename);
@@ -609,5 +630,132 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
 
   async hide(): Promise<void> {
     await this.executeCommand({ hide: true });
+  }
+
+  /**
+   * Check if the current provider supports negative prompts
+   */
+  private shouldIncludeNegativePrompt(provider: any): boolean {
+    if (!provider) return false;
+    
+    // List of providers/models that support negative prompts
+    const providersWithNegativePrompts = [
+      'replicate',  // Most Replicate models support negative prompts
+      'stability',  // Stability AI models
+      'runpod'      // RunPod typically uses SDXL which supports them
+    ];
+    
+    // Models that specifically don't support negative prompts
+    const modelsWithoutNegativePrompts = [
+      'minimax/video-01',
+      'minimax/image-01', 
+      'flux',
+      'midjourney',
+      'dalle',
+      'imagen'
+    ];
+    
+    const providerId = provider.id?.toLowerCase() || '';
+    const modelName = provider.config?.model?.toLowerCase() || '';
+    
+    // Check if model specifically doesn't support negative prompts
+    if (modelsWithoutNegativePrompts.some(model => modelName.includes(model))) {
+      return false;
+    }
+    
+    // Check if provider generally supports negative prompts
+    return providersWithNegativePrompts.some(p => providerId.includes(p));
+  }
+
+  /**
+   * Log prompt details to file if enabled in provider config
+   */
+  private async logPromptToFile(
+    finalPrompt: string,
+    negativePrompt: string,
+    imageUrl: string,
+    params: InternalAvatarGenerationParams,
+    promptComponents: ImagePromptComponents
+  ): Promise<void> {
+    try {
+      const provider = this.imageProvider.getActiveProvider();
+      if (!provider) return;
+
+      // Check if prompt logging is enabled (we'll need to access this from config)
+      const shouldLog = await this.shouldLogPrompts();
+      if (!shouldLog) return;
+
+      const timestamp = new Date().toISOString();
+      const filename = `prompt_log_${timestamp.replace(/[:.]/g, '-')}.json`;
+      
+      const logData = {
+        timestamp,
+        imageUrl,
+        prompts: {
+          final: finalPrompt,
+          negative: negativePrompt,
+        },
+        parameters: params,
+        promptComponents: {
+          character: promptComponents.character || 'unknown',
+          style: promptComponents.style || 'unknown',
+          quality: promptComponents.quality || 'unknown',
+          situationalDescription: promptComponents.situationalDescription || 'none',
+          expressionKeywords: promptComponents.expressionKeywords || 'none',
+          poseKeywords: promptComponents.poseKeywords || 'none',
+          actionKeywords: promptComponents.actionKeywords || 'none',
+          lightingKeywords: promptComponents.lightingKeywords || 'none',
+          backgroundKeywords: promptComponents.backgroundKeywords || 'none',
+          variationSeed: promptComponents.variationSeed,
+          contextualKeywords: promptComponents.contextualKeywords,
+        },
+        provider: {
+          name: provider.name,
+          id: provider.id,
+        },
+        metadata: {
+          loggedAt: timestamp,
+          version: '1.0.0',
+        }
+      };
+
+      // In a browser environment, we'll use the browser's download functionality
+      const jsonString = JSON.stringify(logData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a temporary download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      URL.revokeObjectURL(url);
+      
+      console.log(`📝 Prompt logged to file: ${filename}`);
+      
+    } catch (error) {
+      console.error('Failed to log prompt to file:', error);
+    }
+  }
+
+  /**
+   * Check if prompt logging is enabled in the current provider config
+   */
+  private async shouldLogPrompts(): Promise<boolean> {
+    try {
+      // We'll need to access the provider config to check the setting
+      // For now, let's get it from app settings or provider settings
+      const setting = await this.database.getSetting<boolean>('image.logPromptsToFile', false);
+      return setting ?? false;
+    } catch (error) {
+      console.warn('Could not check prompt logging setting:', error);
+      return false;
+    }
   }
 }

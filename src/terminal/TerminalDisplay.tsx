@@ -23,12 +23,69 @@ interface TerminalDisplayProps {
   config?: ConfigSettings; // Global config from appStore
 }
 
-const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix, isWebGLShaderActive }: {
+// Helper function to group consecutive messages
+const groupMessages = (lines: TerminalLine[]): Array<{ type: 'single' | 'group'; lines: TerminalLine[]; groupType?: 'claudia' | 'user' | 'system' }> => {
+  const groups: Array<{ type: 'single' | 'group'; lines: TerminalLine[]; groupType?: 'claudia' | 'user' | 'system' }> = [];
+  let currentGroup: TerminalLine[] = [];
+  let currentGroupType: 'claudia' | 'user' | 'system' | null = null;
+
+  for (const line of lines) {
+    // Determine line type with improved logic
+    let lineType: 'claudia' | 'user' | 'system' | null = null;
+    
+    // Explicit user field takes priority
+    if (line.user === 'claudia') {
+      lineType = 'claudia';
+    } else if (line.user === 'user') {
+      lineType = 'user';
+    } else if (line.user === 'system' || line.type === 'system' || line.type === 'error') {
+      // System messages, errors, or anything explicitly marked as system
+      lineType = 'system';
+    } else if (line.type === 'output' && line.isChatResponse) {
+      // AI chat responses should be grouped as claudia even without explicit user field
+      lineType = 'claudia';
+    } else if (line.type === 'output') {
+      // Other output (commands, etc.) - treat as claudia for consistency
+      lineType = 'claudia';
+    } else if (line.type === 'input') {
+      // Input lines should always be user (fallback in case user field missing)
+      lineType = 'user';
+    }
+
+    // Group consecutive messages of same type, with minimum gap consideration
+    const shouldGroup = lineType && lineType === currentGroupType && currentGroup.length > 0;
+    
+    if (shouldGroup) {
+      // Continue the current group
+      currentGroup.push(line);
+    } else {
+      // End current group if it exists
+      if (currentGroup.length > 0) {
+        const groupType = currentGroup.length > 1 ? 'group' : 'single';
+        groups.push({ type: groupType, lines: [...currentGroup], groupType: currentGroupType || undefined });
+      }
+      // Start new group
+      currentGroup = [line];
+      currentGroupType = lineType;
+    }
+  }
+
+  // Handle remaining group
+  if (currentGroup.length > 0) {
+    const groupType = currentGroup.length > 1 ? 'group' : 'single';
+    groups.push({ type: groupType, lines: [...currentGroup], groupType: currentGroupType || undefined });
+  }
+
+  return groups;
+};
+
+const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix, isWebGLShaderActive, isInGroup = false }: {
   line: TerminalLine;
   theme: TerminalTheme;
   getLineTypeColor: (type: TerminalLine['type']) => string;
   getUserPrefix: (line: TerminalLine) => string;
   isWebGLShaderActive: boolean;
+  isInGroup?: boolean;
 }) => {
   let textShadowStyle = {};
   if (theme.effects.glow) {
@@ -49,7 +106,7 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
 
   return (
     <div
-      className={`terminal-line terminal-line-${line.type}`}
+      className={`terminal-line terminal-line-${line.type} ${isInGroup ? 'in-group' : ''}`}
       data-type={line.type}
       style={{
         color: getLineTypeColor(line.type),
@@ -57,16 +114,125 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
         wordBreak: 'break-word',
         display: 'flex',
         alignItems: 'baseline',
-        marginBottom: '8px',
+        marginBottom: isInGroup ? '4px' : '12px',
+        paddingLeft: isInGroup ? '12px' : '0',
         ...textShadowStyle
       }}
     >
-      <span className="line-prefix" style={{ color: theme.colors.accent, marginRight: '0.5em' }}>
-        {getUserPrefix(line)}
+      <span className="line-prefix" style={{ 
+        color: theme.colors.accent, 
+        marginRight: '0.5em',
+        fontSize: isInGroup ? '0.9em' : '1em',
+        opacity: isInGroup ? 0.7 : 1
+      }}>
+        {isInGroup ? '' : getUserPrefix(line)}
       </span>
       <span className="line-content" style={{ flex: 1 }}>
         <ContentRenderer content={line.content} />
       </span>
+    </div>
+  );
+});
+
+const MessageGroup = React.memo(({ group, theme, getLineTypeColor, getUserPrefix, isWebGLShaderActive }: {
+  group: { type: 'single' | 'group'; lines: TerminalLine[]; groupType?: 'claudia' | 'user' | 'system' };
+  theme: TerminalTheme;
+  getLineTypeColor: (type: TerminalLine['type']) => string;
+  getUserPrefix: (line: TerminalLine) => string;
+  isWebGLShaderActive: boolean;
+}) => {
+  if (group.type === 'single') {
+    return (
+      <>
+        {group.lines.map((line) => (
+          <LineComponent 
+            key={line.id} 
+            line={line} 
+            theme={theme} 
+            getLineTypeColor={getLineTypeColor} 
+            getUserPrefix={getUserPrefix} 
+            isWebGLShaderActive={isWebGLShaderActive} 
+          />
+        ))}
+      </>
+    );
+  }
+
+  // Group styling with better theme support
+  const getGroupStyles = () => {
+    const baseStyles = {
+      marginBottom: '16px',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      position: 'relative' as const,
+      background: 'rgba(0, 0, 0, 0.15)',
+      border: `1px solid ${theme.colors.accent}15`,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    };
+
+    if (group.groupType === 'claudia') {
+      return {
+        ...baseStyles,
+        borderLeft: `4px solid ${theme.colors.accent}`,
+        background: `linear-gradient(90deg, ${theme.colors.accent}10, ${theme.colors.accent}05 30%, transparent 70%)`,
+        boxShadow: `0 2px 8px ${theme.colors.accent}20, inset 0 1px 0 ${theme.colors.accent}10`,
+      };
+    } else if (group.groupType === 'user') {
+      return {
+        ...baseStyles,
+        borderLeft: `4px solid ${theme.colors.secondary || theme.colors.foreground}`,
+        background: `linear-gradient(90deg, ${theme.colors.secondary || theme.colors.foreground}08, transparent 50%)`,
+        boxShadow: `0 2px 8px ${theme.colors.secondary || theme.colors.foreground}15`,
+      };
+    } else {
+      return {
+        ...baseStyles,
+        borderLeft: `4px solid ${theme.colors.error}`,
+        background: `linear-gradient(90deg, ${theme.colors.error}08, transparent 50%)`,
+        boxShadow: `0 2px 8px ${theme.colors.error}15`,
+      };
+    }
+  };
+
+  return (
+    <div className={`message-group message-group-${group.groupType}`} style={getGroupStyles()}>
+      {/* Group header */}
+      <div className="group-header" style={{
+        fontSize: '0.75em',
+        color: group.groupType === 'claudia' ? theme.colors.accent 
+             : group.groupType === 'user' ? (theme.colors.secondary || theme.colors.foreground)
+             : theme.colors.error,
+        marginBottom: '10px',
+        opacity: 0.9,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: '1px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}>
+        <span style={{ 
+          width: '6px', 
+          height: '6px', 
+          borderRadius: '50%', 
+          backgroundColor: 'currentColor',
+          opacity: 0.8 
+        }} />
+        {getUserPrefix(group.lines[0]).replace('>', '').trim()}
+      </div>
+      
+      {/* Group content */}
+      {group.lines.map((line) => (
+        <LineComponent 
+          key={line.id} 
+          line={line} 
+          theme={theme} 
+          getLineTypeColor={getLineTypeColor} 
+          getUserPrefix={getUserPrefix} 
+          isWebGLShaderActive={isWebGLShaderActive} 
+          isInGroup={true}
+        />
+      ))}
     </div>
   );
 });
@@ -226,9 +392,9 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [theme.colors]);
 
   const getUserPrefix = useCallback((line: TerminalLine) => {
-    if (line.type === 'input' && line.user === 'user') return `${prompt} `;
-    if (line.type === 'output' && line.user === 'claudia' && line.isChatResponse === true) return 'claudia> ';
-    if (line.type === 'system') return '[system] ';
+    if (line.user === 'user') return `${prompt} `;
+    if (line.user === 'claudia') return 'claudia> ';
+    if (line.type === 'system' || line.type === 'error') return '[system] ';
     return '';
   }, [prompt]);
 
@@ -335,9 +501,20 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           style={terminalContentWrapperStyle}
         >
           <div ref={outputRef} className="terminal-output-area" style={outputAreaStyle}>
-            {lines.map((line) => (
-              <LineComponent key={line.id} line={line} theme={theme} getLineTypeColor={getLineTypeColor} getUserPrefix={getUserPrefix} isWebGLShaderActive={isWebGLShaderActive} />
-            ))}
+            {useMemo(() => {
+              const messageGroups = groupMessages(lines);
+              
+              return messageGroups.map((group, index) => (
+                <MessageGroup 
+                  key={`group-${index}-${group.lines[0]?.id}`}
+                  group={group}
+                  theme={theme}
+                  getLineTypeColor={getLineTypeColor}
+                  getUserPrefix={getUserPrefix}
+                  isWebGLShaderActive={isWebGLShaderActive}
+                />
+              ));
+            }, [lines, theme, getLineTypeColor, getUserPrefix, isWebGLShaderActive])}
           </div>
           <div className="terminal-input-area" style={inputAreaStyle}>
             {isLoading && (
@@ -455,6 +632,50 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             }
             @keyframes contentFlicker { 0% { opacity: 1; } 100% { opacity: 0.98; } }
           ` : ''}
+
+          .message-group {
+            animation: messageGroupAppear 0.3s ease-out;
+            transform-origin: left center;
+          }
+          
+          @keyframes messageGroupAppear {
+            0% { 
+              opacity: 0; 
+              transform: translateX(-10px) scale(0.98);
+            }
+            100% { 
+              opacity: 1; 
+              transform: translateX(0) scale(1);
+            }
+          }
+          
+          .message-group:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            transition: all 0.2s ease-in-out;
+          }
+          
+          .message-group-claudia:hover {
+            box-shadow: 0 4px 12px ${theme.colors.accent}25 !important;
+          }
+          
+          .message-group-user:hover {
+            box-shadow: 0 4px 12px ${theme.colors.secondary || theme.colors.foreground}20 !important;
+          }
+          
+          .message-group-system:hover {
+            box-shadow: 0 4px 12px ${theme.colors.error}20 !important;
+          }
+          
+          .terminal-line.in-group {
+            transition: all 0.15s ease-in-out;
+          }
+          
+          .terminal-line.in-group:hover {
+            padding-left: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+          }
 
           ${theme.effects.crt ? `
             .terminal-container.crt-effect { 

@@ -401,9 +401,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadConversationMessages: async (db: StorageService, id) => {
     const history = await db.getMessages(id, globalAppConfig.conversationHistoryLength + 20); // Use renamed import
     const newLines = history.map(m => ({
-      id: `hist-${m.id}-${m.timestamp}`, type: m.role === 'user' ? 'input' : 'output',
-      content: m.content, timestamp: m.timestamp,
-      user: m.role === 'user' ? 'user' : 'claudia'
+      id: `hist-${m.id}-${m.timestamp}`, 
+      type: m.role === 'user' ? 'input' : 'output',
+      content: m.content, 
+      timestamp: m.timestamp,
+      user: m.role === 'user' ? 'user' : 'claudia',
+      isChatResponse: m.role === 'assistant' ? true : undefined  // Mark AI messages for proper grouping
     } as TerminalLine));
     set({ lines: newLines });
   },
@@ -438,7 +441,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({ lines: [] }); 
     }
     
-    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, false); 
+    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, true); 
 
     return { activeConvId: activeConvIdToUse, playBootAnimation };
   },

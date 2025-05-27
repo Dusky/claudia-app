@@ -218,9 +218,10 @@ export class AIHandler {
       contextMessages.forEach(msg => {
         llmMessages.push({ role: msg.role, content: msg.content });
       });
-    } else {
-      llmMessages.push({ role: 'user', content: userInput });
     }
+    
+    // Always add the current user input
+    llmMessages.push({ role: 'user', content: userInput });
 
     return llmMessages;
   }
@@ -355,21 +356,21 @@ export class AIHandler {
 
   // Helper methods
   private buildToolInstructions(availableTools: any[]): string {
-    return `\n\nTool Usage (you have access to these tools):
-- You can use tools to get real information instead of placeholders
+    return `\n\nTool Usage (you have access to these tools when needed):
 - Use [TOOL:tool_name] or [TOOL:tool_name(arg1="value1", arg2="value2")] to call tools
 - Available tools:
 ${availableTools.map(tool => `  • ${tool.name} - ${tool.description}`).join('\n')}
 
 Examples:
-[TOOL:builtin-time.get_current_time] - Get current time
-[TOOL:builtin-memory.store_memory(key="reminder", value="User testing MCP")] - Store information
-[TOOL:builtin-fetch.fetch_url(url="https://httpbin.org/json")] - Fetch web content
+[TOOL:builtin-time.get_current_time] - When user asks for current time
+[TOOL:builtin-memory.store_memory(key="reminder", value="User testing MCP")] - When storing information
+[TOOL:builtin-fetch.fetch_url(url="https://httpbin.org/json")] - When fetching web content
 
 IMPORTANT: 
-- When users ask for current information (time, web content, etc.), actually use the tools instead of placeholders like "[insert current time here]"
-- Tool execution happens automatically and you'll receive the results to incorporate into your response
-- Speak naturally and incorporate the tool results seamlessly into your conversation`;
+- Only use tools when the user specifically requests information that requires them
+- Don't automatically call tools unless the user's question clearly needs real-time data
+- For general conversation, respond normally without using tools
+- Tool execution happens automatically and you'll receive the results to incorporate into your response`;
   }
 
   private buildImageInstructions(): string {
@@ -464,14 +465,15 @@ Remember: Photo generation should feel natural and purposeful, not mandatory. Ma
   }
 
   private createAssistantLines(content: string, timestamp: string): TerminalLine[] {
-    return content.split('\n').map((line, index) => ({
-      id: `assistant-${timestamp}-${index}`,
-      type: 'output',
-      content: line,
+    // Keep multi-line responses as single lines to preserve grouping
+    return [{
+      id: `assistant-${timestamp}`,
+      type: 'output' as const,
+      content: content,
       timestamp,
-      user: 'claudia',
-      isChatResponse: index === 0
-    }));
+      user: 'claudia' as const,
+      isChatResponse: true
+    }];
   }
 
   private async updateConversationTokenCount(storage: any, conversationId: string, additionalTokens: number): Promise<void> {

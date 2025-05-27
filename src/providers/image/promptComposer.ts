@@ -52,23 +52,23 @@ interface ExtendedAvatarGenerationParams extends AvatarGenerationParams {
 }
 
 export class ImagePromptComposer {
-  private baseCharacterIdentity = "Claudia, a petite woman in her early 20s, softly wavy chestnut hair to her shoulders, bright hazel eyes, light freckles across her cheeks, subtle natural makeup.";
+  private baseCharacterIdentity = "Claudia — early-20s, petite build; softly wavy, shoulder-length chestnut hair; bright hazel eyes; subtle freckles; natural makeup. She wears a flirty, pastel-yellow floral sundress with thin spaghetti straps and a deep-V neckline that reveals graceful collarbones and a hint of space between her small breasts (no push-up effect). The dress drapes lightly at her waist and moves gently with her pose";
   
   private basePrompts: Omit<ImagePromptComponents, 
     'primaryDescription' | 
     'expressionKeywords' | 'poseKeywords' | 'actionKeywords' | 
     'variationSeed' | 'contextualKeywords'
   > = {
-    subjectDescription: `${this.baseCharacterIdentity} She wears a flirty, above-knee floral sundress with a deep but tasteful V-neck (small bust, visible space between breasts, no push-up), thin spaghetti straps, light fabric.`,
-    poseAndExpression: "Standing three-quarters toward camera, gazing calmly into the lens with a faint, knowing smile.",
-    settingDescription: "A cozy digital nook environment, warm comfortable space with soft furnishings, hints of bookshelves or plants.",
-    atmosphereAndStyle: "Warm illustration style, cozy atmosphere, detailed character design. Fine film-grain texture; slight background motion blur and bokeh.",
-    lightingDescription: "Soft warm lighting, cozy ambient glow, gentle highlights. No harsh studio flash.",
-    cameraPerspectiveAndComposition: "Eye-level medium shot, subject centered. Shallow depth of field.",
-    realismAndDetails: "Subtle clothing wrinkles, natural hair strands.",
-    styleKeywords: "realistic digital art, cinematic",
-    qualityKeywords: "high quality, detailed, beautiful composition, masterpiece, sharp focus, ultra-realistic photograph",
-    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, noise, grain, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, over-sharpening, lens distortions, overly saturated colors, invasive text",
+    subjectDescription: `${this.baseCharacterIdentity}`,
+    poseAndExpression: "Standing relaxed, shoulders slightly angled; head tilted a touch; gentle, knowing smile; direct eye contact with the lens. Arms rest loosely at her sides, conveying warmth and approachability.",
+    settingDescription: "A cozy bedroom at golden hour. Sunlight streams through a slightly dusty window, casting warm beams that pick up floating dust motes and create soft lens flare. The background is softly blurred (shallow depth-of-field) but hints at posters on the walls and fairy-lights whose bulbs form circular bokeh.",
+    atmosphereAndStyle: "Subtle film grain, slight vignette, soft highlights, rich midtones. Emphasize a timeless, intimate atmosphere—dreamy yet grounded. Warm, muted color palette reminiscent of Kodak Portra 400 film.",
+    lightingDescription: "Single natural key light from the sunlit window (camera left), balanced with faint ambient fill from the room. No harsh sharpening or digital over-processing; preserve organic textures in skin, fabric, and ambient dust.",
+    cameraPerspectiveAndComposition: "35 mm full-frame mirrorless body, 85 mm prime lens at f/1.8, ISO 200, 1/125 s. Vertical 2:3 aspect ratio. Shallow depth-of-field to isolate Claudia from the environment.",
+    realismAndDetails: "Subtle film grain, organic textures in skin and fabric, floating dust motes, authentic lighting effects, no digital over-processing.",
+    styleKeywords: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
+    qualityKeywords: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
+    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect",
     baseCharacterReference: "Claudia" 
   };
 
@@ -219,6 +219,12 @@ export class ImagePromptComposer {
   compilePrompt = (components: ImagePromptComponents): string => {
     if (components.primaryDescription && components.primaryDescription.trim().length > 0) {
       let finalPrompt = components.primaryDescription;
+      
+      // Limit AI description length to prevent overwhelming the prompt
+      if (finalPrompt.length > 300) {
+        finalPrompt = finalPrompt.substring(0, 300) + "...";
+      }
+      
       // Ensure core character identity is present and append style/quality
       finalPrompt = this.ensureBaseCharacter(finalPrompt);
       finalPrompt += `, ${components.styleKeywords}, ${components.qualityKeywords}`;
@@ -253,6 +259,23 @@ export class ImagePromptComposer {
   setBasePrompts = (newBasePrompts: Partial<typeof this.basePrompts>): void => {
     this.basePrompts = { ...this.basePrompts, ...newBasePrompts };
     if (newBasePrompts.character) this.baseCharacterIdentity = newBasePrompts.character;
+  }
+
+  /**
+   * Override style and quality keywords for different image styles
+   */
+  setStyleKeywords = (styleKeywords: string, qualityKeywords?: string): void => {
+    this.basePrompts.styleKeywords = styleKeywords;
+    if (qualityKeywords) {
+      this.basePrompts.qualityKeywords = qualityKeywords;
+    }
+  }
+
+  /**
+   * Set a completely custom base character identity
+   */
+  setCharacterIdentity = (identity: string): void => {
+    this.baseCharacterIdentity = identity;
   }
   
   addExpressionPrompt = (expression: AvatarExpression, details: string): void => {

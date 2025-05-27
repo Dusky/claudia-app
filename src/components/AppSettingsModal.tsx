@@ -14,6 +14,7 @@ interface AppSettingsModalProps {
 export const APP_SETTINGS_KEYS = {
   GLOBAL_IMAGE_GENERATION: 'app.globalImageGeneration',
   USE_META_PROMPTING_FOR_IMAGES: 'app.useMetaPromptingForImages', // New key
+  LOG_PROMPTS_TO_FILE: 'image.logPromptsToFile', // New key for prompt logging
   AUTO_SAVE_IMAGES: 'app.autoSaveImages',
   IMAGE_CACHE_SIZE: 'app.imageCacheSize',
   DEBUG_MODE: 'app.debugMode',
@@ -33,6 +34,7 @@ export const APP_SETTINGS_KEYS = {
 const DEFAULT_SETTINGS = {
   globalImageGeneration: true,
   useMetaPromptingForImages: false, // New default
+  logPromptsToFile: false, // New default for prompt logging
   autoSaveImages: true,
   imageCacheSize: 100,
   debugMode: false,
@@ -50,6 +52,7 @@ const DEFAULT_SETTINGS = {
 interface AppSettings {
   globalImageGeneration: boolean;
   useMetaPromptingForImages: boolean; // New setting
+  logPromptsToFile: boolean; // New setting for prompt logging
   autoSaveImages: boolean;
   imageCacheSize: number;
   debugMode: boolean;
@@ -93,6 +96,10 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
           APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES,
           DEFAULT_SETTINGS.useMetaPromptingForImages
         )) ?? DEFAULT_SETTINGS.useMetaPromptingForImages,
+        logPromptsToFile: (await storage.getSetting<boolean>( // Load prompt logging setting
+          APP_SETTINGS_KEYS.LOG_PROMPTS_TO_FILE,
+          DEFAULT_SETTINGS.logPromptsToFile
+        )) ?? DEFAULT_SETTINGS.logPromptsToFile,
         autoSaveImages: (await storage.getSetting<boolean>(
           APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, 
           DEFAULT_SETTINGS.autoSaveImages
@@ -139,10 +146,14 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
           DEFAULT_SETTINGS.mcpToolConfirmation
         )) ?? DEFAULT_SETTINGS.mcpToolConfirmation
       };
-      setSettings(loadedSettings);
+      // Ensure all properties are defined by merging with defaults
+      const safeLoadedSettings = { ...DEFAULT_SETTINGS, ...loadedSettings };
+      setSettings(safeLoadedSettings);
       setHasChanges(false);
     } catch (error) {
       console.error('Failed to load app settings:', error);
+      // On error, reset to defaults to ensure controlled components
+      setSettings({ ...DEFAULT_SETTINGS });
     } finally {
       setIsLoading(false);
     }
@@ -162,6 +173,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
       await Promise.all([
         storage.setSetting(APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, settings.globalImageGeneration, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES, settings.useMetaPromptingForImages, 'boolean'), // Save new setting
+        storage.setSetting(APP_SETTINGS_KEYS.LOG_PROMPTS_TO_FILE, settings.logPromptsToFile, 'boolean'), // Save prompt logging setting
         storage.setSetting(APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, settings.autoSaveImages, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.IMAGE_CACHE_SIZE, settings.imageCacheSize, 'number'),
         storage.setSetting(APP_SETTINGS_KEYS.DEBUG_MODE, settings.debugMode, 'boolean'),
@@ -265,6 +277,21 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                     Allow an AI to rewrite and enrich image prompts for more creative results. May increase latency and cost.
                   </p>
                 </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.logPromptsToFile}
+                      onChange={(e) => updateSetting('logPromptsToFile', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
+                    />
+                    <span>Log prompts to file (Development)</span>
+                  </label>
+                  <p className={styles.description}>
+                    Save detailed prompt information as downloadable JSON files for debugging and analysis. Includes full prompts, parameters, and metadata.
+                  </p>
+                </div>
                 
                 <div className={styles.setting}>
                   <label className={styles.checkbox}>
@@ -289,7 +316,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       min="10"
                       max="500"
                       step="10"
-                      value={settings.imageCacheSize}
+                      value={settings.imageCacheSize || DEFAULT_SETTINGS.imageCacheSize}
                       onChange={(e) => updateSetting('imageCacheSize', parseInt(e.target.value))}
                       style={{ backgroundColor: theme.colors.background }}
                     />
@@ -311,7 +338,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       min="5"
                       max="200"
                       step="5"
-                      value={settings.conversationHistoryLimit}
+                      value={settings.conversationHistoryLimit || DEFAULT_SETTINGS.conversationHistoryLimit}
                       onChange={(e) => updateSetting('conversationHistoryLimit', parseInt(e.target.value))}
                       style={{ backgroundColor: theme.colors.background }}
                     />
@@ -408,7 +435,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       min="5000"
                       max="60000"
                       step="1000"
-                      value={settings.mcpTimeout}
+                      value={settings.mcpTimeout || DEFAULT_SETTINGS.mcpTimeout}
                       onChange={(e) => updateSetting('mcpTimeout', parseInt(e.target.value))}
                       disabled={!settings.mcpEnabled}
                       style={{ backgroundColor: theme.colors.background }}

@@ -41,6 +41,7 @@ export interface ImageProviderConfig {
   baseURL?: string;
   model?: string;
   defaultParameters?: Record<string, any>;
+  logPromptsToFile?: boolean; // New setting to enable prompt logging
   [key: string]: any;
 }
 

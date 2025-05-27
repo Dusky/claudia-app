@@ -36,6 +36,9 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
     preferredClothingStyle: DEFAULT_PERSONALITY.preferredClothingStyle || '',
     typicalEnvironmentKeywords: DEFAULT_PERSONALITY.typicalEnvironmentKeywords || '',
     artStyleModifiers: DEFAULT_PERSONALITY.artStyleModifiers || '',
+    baseCharacterIdentity: DEFAULT_PERSONALITY.baseCharacterIdentity || '',
+    styleKeywords: DEFAULT_PERSONALITY.styleKeywords || '',
+    qualityKeywords: DEFAULT_PERSONALITY.qualityKeywords || '',
   });
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isDefault, setIsDefault] = useState<boolean>(false);
@@ -83,6 +86,9 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       preferredClothingStyle: p.preferredClothingStyle || '',
       typicalEnvironmentKeywords: p.typicalEnvironmentKeywords || '',
       artStyleModifiers: p.artStyleModifiers || '',
+      baseCharacterIdentity: p.baseCharacterIdentity || '',
+      styleKeywords: p.styleKeywords || '',
+      qualityKeywords: p.qualityKeywords || '',
     });
     setCurrentId(p.id);
     setIsDefault(p.isDefault || false);
@@ -99,6 +105,9 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       preferredClothingStyle: DEFAULT_PERSONALITY.preferredClothingStyle || '',
       typicalEnvironmentKeywords: DEFAULT_PERSONALITY.typicalEnvironmentKeywords || '',
       artStyleModifiers: DEFAULT_PERSONALITY.artStyleModifiers || '',
+      baseCharacterIdentity: DEFAULT_PERSONALITY.baseCharacterIdentity || '',
+      styleKeywords: DEFAULT_PERSONALITY.styleKeywords || '',
+      qualityKeywords: DEFAULT_PERSONALITY.qualityKeywords || '',
     });
     setCurrentId(null);
     setIsDefault(false);
@@ -123,6 +132,9 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       preferredClothingStyle: formData.preferredClothingStyle?.trim(),
       typicalEnvironmentKeywords: formData.typicalEnvironmentKeywords?.trim(),
       artStyleModifiers: formData.artStyleModifiers?.trim(),
+      baseCharacterIdentity: formData.baseCharacterIdentity?.trim(),
+      styleKeywords: formData.styleKeywords?.trim(),
+      qualityKeywords: formData.qualityKeywords?.trim(),
       created_at: createdAt,
       updated_at: new Date().toISOString(),
       usage_count: usageCount
@@ -276,6 +288,61 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
               />
             </div>
 
+            <div className={styles.field}>
+              <label>Base Character Identity:</label>
+              <textarea
+                value={formData.baseCharacterIdentity || ''}
+                onChange={(e) => updateFormData('baseCharacterIdentity', e.target.value)}
+                placeholder="e.g., A petite woman in her early 20s, wavy hair, bright eyes..."
+                rows={3}
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground,
+                  fontFamily: 'monospace',
+                  fontSize: '0.9em'
+                }}
+              />
+              <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
+                Core physical description used as the foundation for all generated images
+              </small>
+            </div>
+
+            <div className={styles.field}>
+              <label>Style Keywords:</label>
+              <input
+                type="text"
+                value={formData.styleKeywords || ''}
+                onChange={(e) => updateFormData('styleKeywords', e.target.value)}
+                placeholder="e.g., realistic digital art, cinematic, anime style"
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+              />
+              <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
+                Art style keywords that define the visual aesthetic
+              </small>
+            </div>
+
+            <div className={styles.field}>
+              <label>Quality Keywords:</label>
+              <input
+                type="text"
+                value={formData.qualityKeywords || ''}
+                onChange={(e) => updateFormData('qualityKeywords', e.target.value)}
+                placeholder="e.g., high quality, detailed, masterpiece, sharp focus"
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+              />
+              <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
+                Quality and rendering keywords for improved image generation
+              </small>
+            </div>
 
             <div className={styles.checkbox}>
               <label>

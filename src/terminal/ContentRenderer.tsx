@@ -8,6 +8,21 @@ interface ContentRendererProps {
 
 // Parse content with markdown and HTML support
 const parseContent = (content: string): React.ReactNode => {
+  // First, split content into paragraphs and handle them separately
+  const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
+  
+  if (paragraphs.length > 1) {
+    return paragraphs.map((paragraph, paragraphIndex) => (
+      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? '16px' : '0' }}>
+        {parseContentSegment(paragraph.trim())}
+      </div>
+    ));
+  }
+  
+  return parseContentSegment(content);
+};
+
+const parseContentSegment = (content: string): React.ReactNode => {
   const elements: React.ReactNode[] = [];
   let remaining = content;
   let index = 0;
@@ -64,11 +79,14 @@ const parseContent = (content: string): React.ReactNode => {
           <code 
             key={index++}
             style={{ 
-              fontFamily: 'monospace',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              padding: '2px 4px',
-              borderRadius: '2px',
-              fontSize: '0.9em'
+              fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
+              backgroundColor: 'rgba(0, 255, 255, 0.08)',
+              color: 'rgba(0, 255, 255, 0.9)',
+              padding: '3px 6px',
+              borderRadius: '3px',
+              fontSize: '0.9em',
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
             }}
           >
             {codeMatch[1]}
@@ -152,11 +170,14 @@ const parseContent = (content: string): React.ReactNode => {
           <code 
             key={index++}
             style={{ 
-              fontFamily: 'monospace',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              padding: '2px 4px',
-              borderRadius: '2px',
-              fontSize: '0.9em'
+              fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
+              backgroundColor: 'rgba(0, 255, 255, 0.08)',
+              color: 'rgba(0, 255, 255, 0.9)',
+              padding: '3px 6px',
+              borderRadius: '3px',
+              fontSize: '0.9em',
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
             }}
           >
             {codeMatch[1]}
