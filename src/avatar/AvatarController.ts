@@ -4,6 +4,8 @@ import { ClaudiaDatabase } from '../storage';
 import { ImagePromptComposer, type PromptModificationContext, type ImagePromptComponents } from '../providers/image/promptComposer';
 import { imageStorage } from '../utils/imageStorage';
 import type { Personality } from '../types/personality';
+import type { LLMProviderManager } from '../providers/llm/manager'; // Import LLM Manager
+import { useAppStore } from '../store/appStore'; // To access config
 
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
@@ -27,22 +29,26 @@ interface InternalAvatarGenerationParams extends AvatarGenerationParams {
   aiDescription?: string; // For AI-driven descriptions
   variationSeed?: number;
   contextualKeywords?: string[];
+  metaGeneratedImagePrompt?: string; // To store the prompt from the meta-LLM
 }
 
 
 export class AvatarController {
   private state: AvatarState;
   private imageProvider: ImageProviderManager;
+  private llmManager: LLMProviderManager; 
   private database: ClaudiaDatabase;
   private promptComposer: ImagePromptComposer;
   private onStateChange?: (state: AvatarState) => void;
 
   constructor(
     imageProvider: ImageProviderManager, 
+    llmManager: LLMProviderManager, 
     database: ClaudiaDatabase,
     onStateChange?: (state: AvatarState) => void
   ) {
     this.imageProvider = imageProvider;
+    this.llmManager = llmManager; 
     this.database = database;
     this.promptComposer = new ImagePromptComposer();
     this.onStateChange = onStateChange;
@@ -152,7 +158,7 @@ export class AvatarController {
       this.state.pose = command.pose;
       needsNewImage = true;
     }
-    if (command.action) this.state.action = command.action; // Action change doesn't always need new image if minor
+    if (command.action) this.state.action = command.action; 
     if (command.gesture) this.state.gesture = command.gesture;
     if (command.scale) this.state.scale = command.scale;
     if (command.fade) this.state.opacity = 0.5;
@@ -162,7 +168,7 @@ export class AvatarController {
     }
 
     this.state.lastUpdate = new Date().toISOString();
-    this.state.isAnimating = true; // For CSS animations or transitions
+    this.state.isAnimating = true; 
     this.notifyStateChange();
     setTimeout(() => {
       this.state.isAnimating = false;
@@ -170,13 +176,79 @@ export class AvatarController {
     }, command.duration || 500);
   }
 
+  private async generateMetaPrompt(
+    baseParams: InternalAvatarGenerationParams,
+    personality: Personality | null,
+    conversationContext?: string
+  ): Promise<string> {
+    const appConfig = useAppStore.getState().config;
+    // Ensure llmManager and its active provider exist before trying to use them
+    if (!appConfig.useMetaPromptingForImages || !this.llmManager || !this.llmManager.getActiveProvider()) {
+      const components = this.promptComposer.generatePromptComponents(baseParams);
+      const modifiedComponents = personality 
+        ? await this.promptComposer.applyPersonalityModifications(components, {
+            personality: { name: personality.name, systemPrompt: personality.system_prompt },
+            conversationContext,
+            isAIDescription: !!baseParams.aiDescription,
+            isMetaPrompted: false, // Not meta-prompted in this fallback
+            variationSeed: baseParams.variationSeed,
+            contextualKeywords: baseParams.contextualKeywords,
+          })
+        : components;
+      return this.promptComposer.compilePrompt(modifiedComponents);
+    }
+
+    let metaInputContext = `Claudia's current state: Expression is ${baseParams.expression}, Pose is ${baseParams.pose}, Action is ${baseParams.action}.`;
+    if (baseParams.aiDescription) {
+      metaInputContext += `\nAI's specific image request: "${baseParams.aiDescription}"`;
+    }
+    if (conversationContext) {
+      metaInputContext += `\nRecent conversation context: "${conversationContext.substring(0, 200)}..."`;
+    }
+    if (personality) {
+      metaInputContext += `\nClaudia's current personality: ${personality.name} (${personality.description.substring(0,100)}...). Style preference: ${baseParams.style}.`;
+    } else {
+      metaInputContext += `\nDefault style preference: ${baseParams.style}.`;
+    }
+    if (baseParams.contextualKeywords && baseParams.contextualKeywords.length > 0) {
+      metaInputContext += `\nRelevant keywords: ${baseParams.contextualKeywords.join(', ')}.`;
+    }
+
+    const metaSystemPrompt = `You are an expert creative assistant specializing in writing vivid, detailed, and artistic prompts for a text-to-image AI.
+The main subject is always Claudia. Claudia is a young woman with warm chestnut hair cascading around her shoulders and bright hazel eyes full of curiosity.
+Ensure Claudia's core features (chestnut hair, hazel eyes) are consistently represented.
+Based on the provided situation, generate a single, cohesive, and highly descriptive image prompt.
+The prompt should be rich in visual detail, including atmosphere, lighting, composition, and specific actions or objects if relevant.
+If an AI's specific image request is provided, prioritize its theme and intent while ensuring Claudia is the main subject and her core features are maintained.
+If no specific AI request is provided, create a scene that best reflects Claudia's current state, personality, and the conversation context.
+The final prompt should be a comma-separated list of descriptive phrases.
+Output ONLY the generated image prompt. Do not include any preambles, apologies, or explanations.`;
+
+    console.log("🤖 Generating image prompt via meta-LLM with context:", metaInputContext);
+
+    try {
+      const llmResponse = await this.llmManager.generateText(
+        metaInputContext,
+        { systemMessage: metaSystemPrompt, temperature: 0.7, maxTokens: 150 } 
+      );
+      console.log("✨ Meta-LLM generated image prompt:", llmResponse);
+      return llmResponse.trim();
+    } catch (error) {
+      console.error("Meta-prompting LLM call failed:", error);
+      const components = this.promptComposer.generatePromptComponents(baseParams);
+      return this.promptComposer.compilePrompt(components);
+    }
+  }
+
+
   private async generateAvatarImage(
     conversationContext?: string,
     variationOptions?: VariationOptions,
-    aiProvidedDescription?: string // New: For AI's direct description
+    aiProvidedDescription?: string 
   ): Promise<void> {
     const { configManager } = await import('../config/env');
     const configuredStyle = configManager.getImageStyle();
+    const appConfig = useAppStore.getState().config; 
     
     const params: InternalAvatarGenerationParams = {
       expression: this.state.expression,
@@ -186,40 +258,59 @@ export class AvatarController {
       background: 'none', 
       lighting: 'soft',
       quality: 'high',
-      aiDescription: aiProvidedDescription, // Pass AI description if available
+      aiDescription: aiProvidedDescription, 
       variationSeed: variationOptions?.seed,
       contextualKeywords: variationOptions?.contextualKeywords,
     };
 
-    let promptComponents = this.promptComposer.generatePromptComponents(params);
     let activePersonality: Personality | null = null;
-
     try {
       activePersonality = await this.database.getActivePersonality();
-      if (activePersonality) {
-        const context: PromptModificationContext = {
-          personality: { name: activePersonality.name, systemPrompt: activePersonality.system_prompt },
-          conversationContext,
-          isAIDescription: !!aiProvidedDescription,
-          variationSeed: variationOptions?.seed,
-          contextualKeywords: variationOptions?.contextualKeywords,
-        };
-        promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
-      }
     } catch (error) {
-      console.warn('Could not get personality for prompt modification:', error);
+      console.warn('Could not get active personality for image generation:', error);
     }
 
-    const finalPrompt = this.promptComposer.compilePrompt(promptComponents);
+    let finalImagePrompt: string;
+    let promptComponents: ImagePromptComponents;
+
+    if (appConfig.useMetaPromptingForImages && this.llmManager) { // Check if llmManager is available
+      finalImagePrompt = await this.generateMetaPrompt(params, activePersonality, conversationContext);
+      params.metaGeneratedImagePrompt = finalImagePrompt; 
+      // Generate components based on the meta-prompt for negative prompt and potential refinement
+      promptComponents = this.promptComposer.generatePromptComponents(params);
+    } else {
+      promptComponents = this.promptComposer.generatePromptComponents(params);
+      if (activePersonality) { 
+          const context: PromptModificationContext = {
+            personality: { name: activePersonality.name, systemPrompt: activePersonality.system_prompt },
+            conversationContext,
+            isAIDescription: !!aiProvidedDescription,
+            isMetaPrompted: false,
+            variationSeed: variationOptions?.seed,
+            contextualKeywords: variationOptions?.contextualKeywords,
+          };
+          promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
+      }
+      finalImagePrompt = this.promptComposer.compilePrompt(promptComponents);
+    }
+    
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
     
-    const promptHash = this.generatePromptHash({ ...params, prompt: finalPrompt, negativePrompt });
+    const currentParamsForHash = { ...params, prompt: finalImagePrompt, negativePrompt };
+    // Remove undefined keys before hashing to ensure consistency
+    Object.keys(currentParamsForHash).forEach(key => (currentParamsForHash as any)[key] === undefined && delete (currentParamsForHash as any)[key]);
+    const promptHash = this.generatePromptHash(currentParamsForHash as InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string });
     
-    const cached = await this.database.getCachedAvatar(promptHash);
-    if (cached) {
-      this.state.imageUrl = cached.imageUrl;
-      this.notifyStateChange(); 
-      return;
+    // Defensive check for getCachedAvatar
+    if (this.database && typeof this.database.getCachedAvatar === 'function') {
+      const cached = await this.database.getCachedAvatar(promptHash);
+      if (cached) {
+        this.state.imageUrl = cached.imageUrl;
+        this.notifyStateChange(); 
+        return;
+      }
+    } else {
+      console.warn('AvatarController: this.database.getCachedAvatar is not a function or database not available. Skipping cache check.');
     }
 
     this.state.isGenerating = true;
@@ -236,15 +327,19 @@ export class AvatarController {
       }
 
       const imageRequest: ImageGenerationRequest = {
-        prompt: finalPrompt,
+        prompt: finalImagePrompt,
         negativePrompt,
         width: 512, height: 512, steps: 25, guidance: 7.0 
       };
 
-      console.log('Generating avatar with prompt:', { finalPrompt, negativePrompt, params });
+      console.log('Generating avatar with final prompt:', { finalImagePrompt, negativePrompt, params });
       const response = await provider.generateImage(imageRequest);
       
-      this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
+      if (this.database && typeof this.database.cacheAvatarImage === 'function') {
+        this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
+      } else {
+        console.warn('AvatarController: this.database.cacheAvatarImage is not a function or database not available. Skipping caching.');
+      }
       this.state.imageUrl = response.imageUrl;
     } catch (error) {
       console.error('Failed to generate avatar image:', error);
@@ -268,7 +363,6 @@ export class AvatarController {
   async generateAvatarFromDescription(description: string, position?: AvatarPosition): Promise<void> {
     console.log('🎨 Generating avatar from AI description:', { description, position });
 
-    // Update internal state based on description for consistency, even if image prompt is different
     const parsedParams = await this.parseDescriptionToParams(description);
     if (parsedParams.expression) this.state.expression = parsedParams.expression;
     if (parsedParams.pose) this.state.pose = parsedParams.pose;
@@ -277,18 +371,15 @@ export class AvatarController {
     this.state.visible = true;
     this.state.opacity = 0.9;
     this.state.lastUpdate = new Date().toISOString();
-    // Position is handled by AvatarPanel
 
-    // Call generateAvatarImage, passing the AI's description directly
     await this.generateAvatarImage(description, { seed: Date.now() }, description);
 
-    // Save the image with metadata (this part can remain similar)
     if (this.state.imageUrl && !this.state.hasError) {
       try {
         const provider = this.imageProvider.getActiveProvider();
         const metadata = imageStorage.createImageMetadata(description, this.state.imageUrl, {
-          description: description, // The AI's original description
-          style: parsedParams.style, // Style used for generation
+          description: description, 
+          style: parsedParams.style, 
           model: (provider as any)?.config?.model || 'unknown',
           provider: provider?.name || 'unknown',
           dimensions: { width: 512, height: 512 },
@@ -301,8 +392,7 @@ export class AvatarController {
         console.warn('Failed to save avatar image from AI description:', saveError);
       }
     }
-    // Note: isGenerating and hasError states are handled within generateAvatarImage
-    this.notifyStateChange(); // Ensure final state is notified
+    this.notifyStateChange(); 
   }
   
   async generateAvatarFromResponse(aiResponse: string, _personality?: Personality): Promise<void> {
@@ -315,7 +405,7 @@ export class AvatarController {
     }
     if (emotionalContext.action && emotionalContext.action !== this.state.action) {
       this.state.action = emotionalContext.action;
-      stateChanged = true; // Action changes might warrant a new image
+      stateChanged = true; 
     }
     if (emotionalContext.pose && emotionalContext.pose !== this.state.pose) {
       this.state.pose = emotionalContext.pose;
@@ -332,7 +422,6 @@ export class AvatarController {
       console.log('🎭 Generating avatar for response:', { ...this.state, shouldShow: emotionalContext.shouldShow });
       const contextString = `Claudia responding: ${aiResponse.substring(0, 150)}...`;
       const keywords = aiResponse.toLowerCase().match(/\b(\w{4,})\b/g)?.slice(0, 5) || [];
-      // Generate image based on current state, no AI description here
       await this.generateAvatarImage(contextString, { seed: Date.now(), contextualKeywords: keywords });
     }
     

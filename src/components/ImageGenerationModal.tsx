@@ -4,7 +4,7 @@ import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { StorageService } from '../storage/types';
 import type { ImagePromptComponents } from '../providers/image/types';
-import type { ModelConfig } from '../providers/image/replicate';
+import type { ModelConfig, ReplicateProvider } from '../providers/image/replicate'; // Import ReplicateProvider for type check
 import { configManager } from '../config/env';
 import styles from './ImageGenerationModal.module.css';
 
@@ -25,76 +25,83 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   storage,
   theme
 }) => {
-  const [activeProvider, setActiveProvider] = useState<string>('');
+  const [activeProviderId, setActiveProviderId] = useState<string>('');
   const [availableProviders, setAvailableProviders] = useState<Array<{ id: string; name: string; configured: boolean }>>([]);
-  const [selectedModel, setSelectedModel] = useState<string>('black-forest-labs/flux-schnell');
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<Record<string, ModelConfig>>({});
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const [imageStyle, setImageStyle] = useState<string>('realistic digital photography, warm natural lighting, detailed, beautiful composition');
   const [promptComponents, setPromptComponents] = useState<ImagePromptComponents>({
     character: '',
-    expression: '',
-    pose: '',
-    action: '',
+    expressionKeywords: '',
+    poseKeywords: '',
+    actionKeywords: '',
     style: '',
-    lighting: '',
-    background: '',
+    lightingKeywords: '',
+    backgroundKeywords: '',
     quality: '',
-    negativePrompt: ''
+    negativePrompt: '',
+    situationalDescription: ''
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedImage, setLastGeneratedImage] = useState<string>('');
   const [customPrompt, setCustomPrompt] = useState('');
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (isOpen) {
-      loadSettings();
+      console.log("ImageGenerationModal: Opening, attempting to load settings.");
+      setModalError(null); // Clear previous errors
+      loadSettings().catch(err => {
+        console.error("ImageGenerationModal: Critical error during loadSettings:", err);
+        setModalError("Failed to load modal settings. Please try again or check console.");
+      });
     }
-  }, [isOpen, imageManager, avatarController, storage]);
+  }, [isOpen]); // Removed other dependencies to prevent re-loading if they change while modal is open
 
   const loadSettings = async () => {
-    // Load current settings
-    const provider = imageManager.getActiveProvider();
-    setActiveProvider(provider?.id || '');
-    setAvailableProviders(imageManager.getAvailableProviders());
-    
-    // Load current image style
-    setImageStyle(configManager.getImageStyle());
-    
-    // Load model configurations if provider is Replicate
-    if (provider?.id === 'replicate') {
-      try {
-        // Type assertion to access Replicate-specific methods
-        const replicateProvider = provider as any;
-        if (replicateProvider.getAllModelConfigs) {
-          const models = replicateProvider.getAllModelConfigs();
-          setAvailableModels(models);
-          
-          // Get current model config
-          const currentConfig = replicateProvider.getModelConfig();
-          setModelConfig(currentConfig);
-          
-          // Set current model if available
-          if (replicateProvider.config?.model) {
-            setSelectedModel(replicateProvider.config.model);
-          }
-        }
-      } catch (error) {
-        console.warn('Could not load model configurations:', error);
-      }
-    }
-    
-    // Load saved prompt components from storage
+    console.log("ImageGenerationModal: loadSettings started.");
     try {
+      const currentActiveProvider = imageManager.getActiveProvider();
+      setActiveProviderId(currentActiveProvider?.id || '');
+      setAvailableProviders(imageManager.getAvailableProviders() || []);
+      
+      setImageStyle(configManager.getImageStyle());
+      
+      setAvailableModels({});
+      setModelConfig(null);
+      setSelectedModel('');
+
+      if (currentActiveProvider?.id === 'replicate') {
+        const replicateProvider = currentActiveProvider as ReplicateProvider; // Assuming it's Replicate if id matches
+        if (typeof replicateProvider.getAllModelConfigs === 'function') {
+          const models = replicateProvider.getAllModelConfigs();
+          setAvailableModels(models || {});
+          
+          if (typeof replicateProvider.getModelConfig === 'function') {
+            const currentModelConfig = replicateProvider.getModelConfig();
+            setModelConfig(currentModelConfig || null);
+          }
+
+          const currentProviderModel = (replicateProvider as any).config?.model; // Access config if available
+          if (currentProviderModel) {
+            setSelectedModel(currentProviderModel);
+          } else if (models && Object.keys(models).length > 0) {
+            setSelectedModel(Object.keys(models)[0]);
+          }
+        } else {
+          console.warn("Replicate provider instance does not have getAllModelConfigs method.");
+        }
+      }
+      
       const savedComponents = await storage.getSetting<ImagePromptComponents>('image.promptComponents');
       if (savedComponents) {
         setPromptComponents(savedComponents);
       } else {
-        // Load default prompt components from avatar controller
         const composer = avatarController.getPromptComposer();
         const avatarState = avatarController.getState();
-        
         const components = composer.generatePromptComponents({
           expression: avatarState.expression,
           pose: avatarState.pose,
@@ -104,50 +111,31 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           lighting: 'soft',
           quality: 'high'
         });
-        
         setPromptComponents(components);
       }
-    } catch (error) {
-      console.warn('Could not load saved prompt components:', error);
-      // Fallback to defaults
-      const composer = avatarController.getPromptComposer();
-      const avatarState = avatarController.getState();
-      
-      const components = composer.generatePromptComponents({
-        expression: avatarState.expression,
-        pose: avatarState.pose,
-        action: avatarState.action,
-        style: configManager.getImageStyle(),
-        background: 'none',
-        lighting: 'soft',
-        quality: 'high'
-      });
-      
-      setPromptComponents(components);
-    }
 
-    // Load other saved settings
-    try {
-      const savedUseCustomPrompt = await storage.getSetting('image.useCustomPrompt');
-      const savedCustomPrompt = await storage.getSetting('image.customPrompt');
+      const savedUseCustomPrompt = await storage.getSetting<boolean>('image.useCustomPrompt');
+      const savedCustomPrompt = await storage.getSetting<string>('image.customPrompt');
       
-      if (savedUseCustomPrompt !== null) {
-        setUseCustomPrompt(Boolean(savedUseCustomPrompt));
-      }
-      if (savedCustomPrompt !== null) {
-        setCustomPrompt(String(savedCustomPrompt));
-      }
+      setUseCustomPrompt(savedUseCustomPrompt ?? false);
+      setCustomPrompt(savedCustomPrompt ?? '');
+      console.log("ImageGenerationModal: loadSettings finished successfully.");
+
     } catch (error) {
-      console.warn('Could not load custom prompt settings:', error);
+      console.error('ImageGenerationModal: Failed to load settings:', error);
+      setModalError(`Error loading settings: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  const handleProviderChange = (providerId: string) => {
+  const handleProviderChange = async (providerId: string) => {
     try {
       imageManager.setActiveProvider(providerId);
-      setActiveProvider(providerId);
+      setActiveProviderId(providerId);
+      // Reload model specific settings when provider changes
+      await loadSettings(); 
     } catch (error) {
       console.error('Failed to switch provider:', error);
+      setModalError(`Error switching provider: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -155,35 +143,32 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     try {
       const provider = imageManager.getActiveProvider();
       if (provider?.id === 'replicate') {
-        // Reinitialize provider with new model
-        await provider.initialize({
-          apiKey: (provider as any).config.apiKey,
-          model: modelId,
-          baseURL: (provider as any).config.baseURL,
-          useOfficialModels: (provider as any).config.useOfficialModels
-        });
-        
-        setSelectedModel(modelId);
-        
-        // Update model config
-        const replicateProvider = provider as any;
-        if (replicateProvider.getModelConfig) {
+        const replicateProvider = provider as ReplicateProvider;
+        if (typeof replicateProvider.initialize === 'function' && 
+            typeof replicateProvider.getModelConfig === 'function' &&
+            (replicateProvider as any).config) { // Check if config exists
+          
+          await replicateProvider.initialize({
+            ...(replicateProvider as any).config, // Spread existing config
+            model: modelId, // Override model
+          });
+          
+          setSelectedModel(modelId);
           const newConfig = replicateProvider.getModelConfig();
-          setModelConfig(newConfig);
+          setModelConfig(newConfig || null);
+        } else {
+          console.warn("Replicate provider methods or config not available for model change.");
         }
       }
     } catch (error) {
       console.error('Failed to switch model:', error);
+      setModalError(`Error switching model: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
   const handleStyleSave = () => {
-    // Save style to localStorage for persistence
     localStorage.setItem('claudia-image-style', imageStyle);
-    
-    // Update the config manager (for this session)
     (configManager as any).config.imageStyle = imageStyle;
-    
     console.log('💾 Image style saved:', imageStyle);
   };
 
@@ -206,9 +191,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     const provider = imageManager.getActiveProvider();
     if (!provider) {
       console.error('No active provider');
+      setModalError("No active image provider selected.");
       return;
     }
-
+    setModalError(null);
     setIsGenerating(true);
     try {
       const composer = avatarController.getPromptComposer();
@@ -228,11 +214,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         negativePrompt,
         width: 512,
         height: 512,
-        steps: 20,
-        guidance: 7.5
+        steps: modelConfig?.defaultSteps || 20,
+        guidance: modelConfig?.defaultGuidance || 7.5
       });
 
-      // Update avatar with new image
       const avatarState = avatarController.getState();
       avatarController.setState({
         ...avatarState,
@@ -243,6 +228,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       setLastGeneratedImage(response.imageUrl);
     } catch (error) {
       console.error('Failed to generate image:', error);
+      setModalError(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsGenerating(false);
     }
@@ -250,19 +236,14 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
 
   const saveSettings = async () => {
     try {
-      // Save prompt components
-      await storage.setSetting('image.promptComponents', promptComponents);
-      
-      // Save custom prompt settings
-      await storage.setSetting('image.useCustomPrompt', useCustomPrompt);
-      await storage.setSetting('image.customPrompt', customPrompt);
-      
-      // Save image style to localStorage (for configManager compatibility)
+      await storage.setSetting('image.promptComponents', promptComponents, 'json');
+      await storage.setSetting('image.useCustomPrompt', useCustomPrompt, 'boolean');
+      await storage.setSetting('image.customPrompt', customPrompt, 'string');
       localStorage.setItem('claudia-image-style', imageStyle);
-      
       console.log('✅ Image settings saved successfully');
     } catch (error) {
       console.error('Failed to save image settings:', error);
+      setModalError(`Failed to save settings: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -274,7 +255,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       expression: avatarState.expression,
       pose: avatarState.pose,
       action: avatarState.action,
-      style: configManager.getImageStyle(),
+      style: configManager.getImageStyle(), // Use current global style
       background: 'none',
       lighting: 'soft',
       quality: 'high'
@@ -283,17 +264,16 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     setPromptComponents(defaultComponents);
     setUseCustomPrompt(false);
     setCustomPrompt('');
+    setImageStyle(configManager.getImageStyle()); // Reset style field to global
     
-    // Save the reset state
     await saveSettings();
   };
 
-  // Auto-save when settings change
   useEffect(() => {
     if (isOpen) {
       const timeoutId = setTimeout(() => {
         saveSettings();
-      }, 1000); // Auto-save after 1 second of inactivity
+      }, 1000); 
       
       return () => clearTimeout(timeoutId);
     }
@@ -326,6 +306,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         </div>
 
         <div className={styles.content}>
+          {modalError && <div className={styles.modalError}>{modalError}</div>}
           {/* Provider Selection */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
@@ -334,7 +315,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             <div className={styles.providerSection}>
               <label className={styles.label}>Active Provider:</label>
               <select 
-                value={activeProvider}
+                value={activeProviderId}
                 onChange={(e) => handleProviderChange(e.target.value)}
                 className={styles.select}
                 style={{
@@ -352,8 +333,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
               </select>
             </div>
             
-            {/* Model Selection for Replicate */}
-            {activeProvider === 'replicate' && Object.keys(availableModels).length > 0 && (
+            {activeProviderId === 'replicate' && Object.keys(availableModels).length > 0 && (
               <div className={styles.modelSection}>
                 <label className={styles.label}>Model:</label>
                 <select 
@@ -373,13 +353,12 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
                   ))}
                 </select>
                 
-                {/* Model Info */}
                 {modelConfig && (
                   <div className={styles.modelInfo}>
                     <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
                       Max Steps: {modelConfig.maxSteps} | 
                       Max Guidance: {modelConfig.maxGuidance} | 
-                      Negative Prompt: {modelConfig.supportsNegativePrompt ? 'Yes' : 'No'}
+                      Neg Prompt: {modelConfig.supportsNegativePrompt ? 'Yes' : 'No'}
                     </small>
                   </div>
                 )}
@@ -390,7 +369,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           {/* Image Style Settings */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Image Style
+              Global Image Style
             </h3>
             <div className={styles.inputGroup}>
               <label className={styles.label}>Style Description:</label>
@@ -407,8 +386,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
                 rows={3}
               />
               <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
-                This style will be applied to all AI-generated photos of Claudia. 
-                Examples: "realistic photography, warm lighting", "anime art style", "oil painting style"
+                This style is used by default. Changes here are saved immediately.
               </small>
               <button
                 onClick={handleStyleSave}
@@ -419,7 +397,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
                   marginTop: '8px'
                 }}
               >
-                Save Style
+                Save Global Style
               </button>
             </div>
           </div>
@@ -427,12 +405,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           {/* Prompt Mode Toggle */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Prompt Mode
+              Prompt Mode (For this Modal)
             </h3>
             <div className={styles.toggleGroup}>
               <label className={styles.radioLabel}>
                 <input
                   type="radio"
+                  name="promptMode"
                   checked={!useCustomPrompt}
                   onChange={() => setUseCustomPrompt(false)}
                 />
@@ -441,6 +420,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
               <label className={styles.radioLabel}>
                 <input
                   type="radio"
+                  name="promptMode"
                   checked={useCustomPrompt}
                   onChange={() => setUseCustomPrompt(true)}
                 />
@@ -449,7 +429,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             </div>
           </div>
 
-          {/* Custom Prompt */}
           {useCustomPrompt && (
             <div className={styles.section}>
               <label className={styles.label}>Custom Prompt:</label>
@@ -468,145 +447,35 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             </div>
           )}
 
-          {/* Component-based Settings */}
           {!useCustomPrompt && (
             <>
               <div className={styles.section}>
                 <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Character & Expression
+                  Prompt Components
                 </h3>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Character:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.character}
-                    onChange={(e) => handleComponentChange('character', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Expression:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.expression}
-                    onChange={(e) => handleComponentChange('expression', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
+                {Object.keys(promptComponents).filter(k => k !== 'negativePrompt' && k !== 'variationSeed' && k !== 'contextualKeywords').map((key) => (
+                  <div className={styles.inputGroup} key={key}>
+                    <label className={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:</label>
+                    <input
+                      type="text"
+                      value={(promptComponents as any)[key] || ''}
+                      onChange={(e) => handleComponentChange(key as keyof ImagePromptComponents, e.target.value)}
+                      className={styles.input}
+                      style={{
+                        backgroundColor: theme.colors.background,
+                        borderColor: theme.colors.foreground || '#333',
+                        color: theme.colors.foreground
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
 
               <div className={styles.section}>
                 <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Pose & Action
+                  Negative Prompt
                 </h3>
                 <div className={styles.inputGroup}>
-                  <label className={styles.label}>Pose:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.pose}
-                    onChange={(e) => handleComponentChange('pose', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Action:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.action}
-                    onChange={(e) => handleComponentChange('action', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.section}>
-                <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Style & Environment
-                </h3>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Style:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.style}
-                    onChange={(e) => handleComponentChange('style', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Lighting:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.lighting}
-                    onChange={(e) => handleComponentChange('lighting', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Background:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.background}
-                    onChange={(e) => handleComponentChange('background', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.section}>
-                <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Quality & Negative Prompt
-                </h3>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Quality:</label>
-                  <input
-                    type="text"
-                    value={promptComponents.quality}
-                    onChange={(e) => handleComponentChange('quality', e.target.value)}
-                    className={styles.input}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                  />
-                </div>
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Negative Prompt:</label>
                   <textarea
                     value={promptComponents.negativePrompt || ''}
                     onChange={(e) => handleComponentChange('negativePrompt', e.target.value)}
@@ -623,7 +492,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             </>
           )}
 
-          {/* Preview */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
               Preview
@@ -641,7 +509,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             </div>
           </div>
 
-          {/* Last Generated Image */}
           {lastGeneratedImage && (
             <div className={styles.section}>
               <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
@@ -673,13 +540,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             </button>
             <button
               onClick={handleGenerate}
-              disabled={isGenerating || !activeProvider}
+              disabled={isGenerating || !activeProviderId}
               className={`${styles.button} ${styles.primaryButton}`}
               style={{
                 backgroundColor: theme.colors.accent,
                 borderColor: theme.colors.accent,
                 color: theme.colors.background,
-                opacity: (isGenerating || !activeProvider) ? 0.5 : 1
+                opacity: (isGenerating || !activeProviderId) ? 0.5 : 1
               }}
             >
               {isGenerating ? 'Generating...' : 'Generate Avatar'}
