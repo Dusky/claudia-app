@@ -26,8 +26,8 @@ const fragmentShader = `
   uniform float vignetteSmoothness; 
   uniform float wobbleIntensity; 
   uniform float wobbleSpeed;
-  uniform float textBlurIntensity; // New: For slight text blurring. 0 to disable. e.g., 0.5 to 1.0 for pixelated blur
-  uniform float phosphorIntensity; // New: For phosphor dot mask effect. 0 to disable. e.g., 0.1 to 0.5
+  uniform float textBlurIntensity; 
+  uniform float phosphorIntensity; 
   
   varying vec2 vUv;
   
@@ -44,22 +44,16 @@ const fragmentShader = `
     return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
   }
 
-  // Function to simulate phosphor dot mask
   vec3 applyPhosphorMask(vec3 color, vec2 uv, float intensity) {
     if (intensity <= 0.0) return color;
-
     float R = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 0.5));
-    float G = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 - 1.57079)); // Shifted for green
-    float B = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 2.61799)); // Shifted for blue
-    
+    float G = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 - 1.57079)); 
+    float B = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 2.61799)); 
     vec3 mask = vec3(R,G,B);
-    // Make the mask effect stronger on brighter areas
     float brightnessFactor = dot(color, vec3(0.299, 0.587, 0.114));
     mask = mix(vec3(1.0), mask, brightnessFactor * 0.7);
-
     return mix(color, color * mask, intensity);
   }
-
 
   void main() {
     vec2 uv = vUv;
@@ -71,7 +65,7 @@ const fragmentShader = `
       uv.y += wobbleY;
     }
     
-    vec2 curvedUv = curveUV(uv, curvature); // Use a different variable for curved UVs
+    vec2 curvedUv = curveUV(uv, curvature); 
     
     if (curvature > 0.001 && (curvedUv.x < 0.0 || curvedUv.x > 1.0 || curvedUv.y < 0.0 || curvedUv.y > 1.0)) {
       gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0); 
@@ -79,7 +73,6 @@ const fragmentShader = `
     }
     
     vec3 col;
-    // Apply text blur by sampling neighbors if intensity > 0
     if (textBlurIntensity > 0.001) {
         float pixelSizeX = textBlurIntensity / resolution.x;
         float pixelSizeY = textBlurIntensity / resolution.y;
@@ -88,16 +81,10 @@ const fragmentShader = `
         col += texture2D(tDiffuse, curvedUv - vec2(pixelSizeX, 0.0)).rgb * 0.1875;
         col += texture2D(tDiffuse, curvedUv + vec2(0.0, pixelSizeY)).rgb * 0.1875;
         col += texture2D(tDiffuse, curvedUv - vec2(0.0, pixelSizeY)).rgb * 0.1875;
-        // Optional diagonal samples for more blur
-        // col += texture2D(tDiffuse, curvedUv + vec2(pixelSizeX, pixelSizeY)).rgb * 0.0625;
-        // col += texture2D(tDiffuse, curvedUv + vec2(-pixelSizeX, pixelSizeY)).rgb * 0.0625;
-        // col += texture2D(tDiffuse, curvedUv + vec2(pixelSizeX, -pixelSizeY)).rgb * 0.0625;
-        // col += texture2D(tDiffuse, curvedUv + vec2(-pixelSizeX, -pixelSizeY)).rgb * 0.0625;
     } else {
         col = texture2D(tDiffuse, curvedUv).rgb;
     }
 
-    // Apply Phosphor Mask
     col = applyPhosphorMask(col, curvedUv, phosphorIntensity);
     
     if (scanlineIntensity > 0.0 && scanlineDensity > 0.0) {
@@ -109,11 +96,9 @@ const fragmentShader = `
     
     if (distortionAmount > 0.001) {
       float shift = 0.0015 * distortionAmount; 
-      vec2 baseUvForShift = uv; // Use original, pre-curved UV for distortion base
-
+      vec2 baseUvForShift = uv; 
       vec2 ruv = curveUV(baseUvForShift + vec2(shift, 0.0), curvature); 
       vec2 buv = curveUV(baseUvForShift - vec2(shift, 0.0), curvature);
-
       if (ruv.x >= 0.0 && ruv.x <= 1.0 && ruv.y >= 0.0 && ruv.y <= 1.0) {
         col.r = texture2D(tDiffuse, ruv).r;
       }
@@ -375,19 +360,27 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
   
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      {/* The contentRef div is always visible. The shader canvas will overlay it. */}
       <div 
         ref={contentRef} 
         style={{ 
           width: '100%', height: '100%',
-          visibility: currentTextureForMesh ? 'hidden' : 'visible',
+          // visibility: currentTextureForMesh ? 'hidden' : 'visible', // REMOVED: This caused re-capture loop
         }}
       >
         {children}
       </div>
+      
+      {/* The WebGL Canvas for rendering the shader effect. Only rendered if texture is available. */}
       {currentTextureForMesh && (
         <div style={{ 
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-          zIndex: 1, pointerEvents: 'none',
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          zIndex: 1, // Ensure it overlays the original content div (contentRef)
+          pointerEvents: 'none', 
         }}>
           <Canvas 
             gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}

@@ -34,7 +34,7 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
   if (theme.effects.glow) {
     if (isWebGLShaderActive) {
       // Subtle glow/halo when WebGL shader is active, slightly more visible
-      textShadowStyle = { textShadow: `0 0 5px ${getLineTypeColor(line.type)}35, 0 0 2px ${getLineTypeColor(line.type)}20` };
+      textShadowStyle = { textShadow: `0 0 4px ${getLineTypeColor(line.type)}50, 0 0 1.5px ${getLineTypeColor(line.type)}30` };
     } else {
       // More pronounced CSS glow/blur if WebGL shader is off
       if (theme.id === 'mainframe70s') {
@@ -236,14 +236,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     width: '100%', height: '100%',
     background: (config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground)) || 'transparent',
     position: 'relative', display: 'flex', flexDirection: 'column',
-    zIndex: 0, // Explicit zIndex for the base wallpaper layer
+    zIndex: 0, 
   }), [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
 
   const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       position: 'relative', overflow: 'hidden', width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column',
-      zIndex: 1, // Above app-background-layer, contains overlays and bezel
+      zIndex: 1, 
     };
     if (config?.terminalBreathing) baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
     if (config?.crtGlow) baseStyle.filter = 'brightness(1.1) contrast(1.1)';
@@ -251,17 +251,17 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [config?.terminalBreathing, config?.crtGlow]);
 
   const terminalContentWrapperStyle = useMemo((): React.CSSProperties => {
-    const showAppBackground = config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground);
+    const showAppBackground = !!(config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground));
     return {
       flex: 1, display: 'flex', flexDirection: 'column',
       padding: theme.spacing.padding, 
       background: showAppBackground ? 'transparent' : theme.colors.background,
-      position: 'relative', zIndex: 2, // Above terminal-container's direct pseudo-elements (like CSS vignette)
+      position: 'relative', zIndex: 2, 
       transition: 'transform 0.3s ease-out',
       transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
       borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
     };
-  }, [theme, config?.enableAppBackground, config?.appBackgroundOverride, config?.screenCurvature, isWebGLShaderActive]);
+  }, [theme.colors.background, theme.spacing.padding, theme.effects.appBackground, theme.effects.screenCurvature, config?.enableAppBackground, config?.appBackgroundOverride, config?.screenCurvature, isWebGLShaderActive]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
     position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px', 
@@ -287,7 +287,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
               backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, 
               animation: 'scanmove 10s linear infinite',
-              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
+              pointerEvents: 'none', zIndex: 3, 
               opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
             }}
           />
@@ -298,7 +298,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
-              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
+              pointerEvents: 'none', zIndex: 3, 
               opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) 
             }}
           />
@@ -309,7 +309,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             className="visual-artifacts-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
+              pointerEvents: 'none', zIndex: 3, 
               animation: 'artifacts 8s ease-in-out infinite'
             }}
           />
@@ -354,12 +354,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                      textShadow: theme.id === 'mainframe70s' ? `0 0 1px ${theme.colors.foreground}90, 0 0 3px ${theme.colors.foreground}50` : `0 0 2px ${theme.colors.foreground}60`
                   }),
                   ...(theme.effects.glow && isWebGLShaderActive && { 
-                     textShadow: `0 0 5px ${theme.colors.foreground}35, 0 0 2px ${theme.colors.foreground}20` // Adjusted for WebGL active
+                     textShadow: `0 0 5px ${theme.colors.foreground}45, 0 0 2px ${theme.colors.foreground}30` 
                   }),
                   ...(isInputFocused && {
                     filter: 'brightness(1.1)',
                     textShadow: theme.effects.glow 
-                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}40, 0 0 2px ${theme.colors.cursor}30` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
+                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}50, 0 0 2px ${theme.colors.cursor}35` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
                       : `0 0 2px ${theme.colors.cursor}40`
                   })
                 }}
