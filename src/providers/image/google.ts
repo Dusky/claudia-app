@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { ImageProvider, ImageGenerationRequest, ImageGenerationResponse, ImageProviderConfig } from './types';
 import { getApiKey, config } from '../../config/env';
+import { ApiKeySecurity } from '../../config/security';
 
 export interface GoogleImageProviderConfig extends ImageProviderConfig {
   model?: string;
@@ -20,6 +21,14 @@ export class GoogleImageProvider implements ImageProvider {
 
   async initialize(providerConfig?: GoogleImageProviderConfig): Promise<void> {
     const apiKey = providerConfig?.apiKey || getApiKey('google-image');
+    
+    // Validate API key security
+    if (apiKey) {
+      const validation = ApiKeySecurity.validateApiKey('google-image', apiKey);
+      if (!validation.valid) {
+        console.warn(`Google Image API key validation failed: ${validation.message}`);
+      }
+    }
     
     this.config = {
       apiKey,

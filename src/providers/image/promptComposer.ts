@@ -1,5 +1,6 @@
-import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction, Personality } from '../../avatar/types'; // Added Personality
-import type { Personality as PersonalityData } from '../../types/personality'; // Import full Personality type
+import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction } from '../../avatar/types';
+import type { Personality } from '../../types/personality';
+import type { ImagePromptComponents, PromptModificationContext } from './types';
 
 // Helper for simple seeded random number (0 to 1)
 function seededRandom(seed: number): number {
@@ -9,40 +10,6 @@ function seededRandom(seed: number): number {
   return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
 
-export interface ImagePromptComponents {
-  subjectDescription: string;        
-  poseAndExpression: string;       
-  settingDescription: string;      
-  atmosphereAndStyle: string;      
-  lightingDescription: string;     
-  cameraPerspectiveAndComposition: string; 
-  realismAndDetails: string;       
-  
-  styleKeywords: string;           
-  qualityKeywords: string;         
-  negativePrompt: string;
-
-  primaryDescription?: string; 
-
-  baseCharacterReference: string; 
-  expressionKeywords: string;
-  poseKeywords: string;
-  actionKeywords: string;
-
-  variationSeed?: number;
-  contextualKeywords?: string[];
-}
-
-export interface PromptModificationContext {
-  personality: PersonalityData; // Use the full Personality type
-  currentMood?: string;
-  previousActions?: string[];
-  conversationContext?: string;
-  isAIDescription?: boolean; 
-  isMetaPrompted?: boolean; 
-  variationSeed?: number;
-  contextualKeywords?: string[];
-}
 
 interface ExtendedAvatarGenerationParams extends AvatarGenerationParams {
   aiDescription?: string; 
@@ -55,21 +22,16 @@ export class ImagePromptComposer {
   private baseCharacterIdentity = "Claudia — early-20s, petite build; softly wavy, shoulder-length chestnut hair; bright hazel eyes; subtle freckles; natural makeup. She wears a flirty, pastel-yellow floral sundress with thin spaghetti straps and a deep-V neckline that reveals graceful collarbones and a hint of space between her small breasts (no push-up effect). The dress drapes lightly at her waist and moves gently with her pose";
   
   private basePrompts: Omit<ImagePromptComponents, 
-    'primaryDescription' | 
     'expressionKeywords' | 'poseKeywords' | 'actionKeywords' | 
     'variationSeed' | 'contextualKeywords'
   > = {
-    subjectDescription: `${this.baseCharacterIdentity}`,
-    poseAndExpression: "Standing relaxed, shoulders slightly angled; head tilted a touch; gentle, knowing smile; direct eye contact with the lens. Arms rest loosely at her sides, conveying warmth and approachability.",
+    character: `${this.baseCharacterIdentity}`,
+    style: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
+    quality: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
     settingDescription: "A cozy bedroom at golden hour. Sunlight streams through a slightly dusty window, casting warm beams that pick up floating dust motes and create soft lens flare. The background is softly blurred (shallow depth-of-field) but hints at posters on the walls and fairy-lights whose bulbs form circular bokeh.",
-    atmosphereAndStyle: "Subtle film grain, slight vignette, soft highlights, rich midtones. Emphasize a timeless, intimate atmosphere—dreamy yet grounded. Warm, muted color palette reminiscent of Kodak Portra 400 film.",
-    lightingDescription: "Single natural key light from the sunlit window (camera left), balanced with faint ambient fill from the room. No harsh sharpening or digital over-processing; preserve organic textures in skin, fabric, and ambient dust.",
-    cameraPerspectiveAndComposition: "35 mm full-frame mirrorless body, 85 mm prime lens at f/1.8, ISO 200, 1/125 s. Vertical 2:3 aspect ratio. Shallow depth-of-field to isolate Claudia from the environment.",
-    realismAndDetails: "Subtle film grain, organic textures in skin and fabric, floating dust motes, authentic lighting effects, no digital over-processing.",
-    styleKeywords: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
-    qualityKeywords: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
-    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect",
-    baseCharacterReference: "Claudia" 
+    lightingKeywords: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting",
+    backgroundKeywords: "cozy bedroom, golden hour sunlight, floating dust motes, soft lens flare, blurred background",
+    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect"
   };
 
   private expressionDetailsMap: Record<AvatarExpression, string> = {
@@ -124,7 +86,7 @@ export class ImagePromptComposer {
     }
     components.poseAndExpression = poseExpr;
 
-    if (params.style) components.styleKeywords = params.style;
+    if (params.style) components.style = params.style;
     if (params.lighting) components.lightingDescription = `Lighting: ${params.lighting}. ${this.basePrompts.lightingDescription}`;
     if (params.background && params.background !== 'none') {
       components.settingDescription = `Setting: ${params.background}. ${this.basePrompts.settingDescription}`;
@@ -265,9 +227,9 @@ export class ImagePromptComposer {
    * Override style and quality keywords for different image styles
    */
   setStyleKeywords = (styleKeywords: string, qualityKeywords?: string): void => {
-    this.basePrompts.styleKeywords = styleKeywords;
+    this.basePrompts.style = styleKeywords;
     if (qualityKeywords) {
-      this.basePrompts.qualityKeywords = qualityKeywords;
+      this.basePrompts.quality = qualityKeywords;
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { StorageService } from '../storage/types';
 import type { TerminalTheme } from '../terminal/themes';
+import { APIKeyManager } from './APIKeyManager';
 import styles from './AppSettingsModal.module.css';
 
 interface AppSettingsModalProps {
@@ -267,6 +268,11 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
             <div className={styles.loading}>Loading settings...</div>
           ) : (
             <>
+              {/* API Keys Section */}
+              <div className={styles.section}>
+                <APIKeyManager theme={theme} />
+              </div>
+
               {/* Image Generation Section */}
               <div className={styles.section}>
                 <h3>Image Generation</h3>

@@ -1,4 +1,6 @@
 // Image storage utilities for saving generated images
+import { memoryManager } from './memoryManager';
+
 export interface ImageMetadata {
   id: string;
   filename: string;
@@ -132,8 +134,8 @@ export class ImageStorageManager {
       savedImages.push(metadata);
       localStorage.setItem('claudia-saved-images', JSON.stringify(savedImages));
       
-      // Create object URL for local reference
-      const localUrl = URL.createObjectURL(blob);
+      // Create managed object URL for local reference
+      const localUrl = memoryManager.createObjectURL(blob, 'ImageStorage.saveImageBrowser');
       
       // Also trigger automatic download
       this.downloadImage(blob, metadata.filename);
@@ -161,14 +163,15 @@ export class ImageStorageManager {
    * Trigger download of image blob
    */
   private downloadImage(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
+    const url = memoryManager.createObjectURL(blob, 'ImageStorage.downloadImage');
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Use managed cleanup
+    memoryManager.revokeObjectURL(url);
   }
 
   /**

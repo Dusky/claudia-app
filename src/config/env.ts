@@ -1,4 +1,5 @@
 // Environment configuration with type safety and validation
+import { SecureStorage, ApiKeySecurity } from './security';
 
 export interface AppConfig {
   // API Keys
@@ -41,13 +42,37 @@ class ConfigManager {
   }
 
   private loadConfig(): AppConfig {
+    // Load API keys securely - prefer stored keys over environment
+    const anthropicApiKey = SecureStorage.getApiKey('anthropic') || import.meta.env.VITE_ANTHROPIC_API_KEY;
+    const googleApiKey = SecureStorage.getApiKey('google') || import.meta.env.VITE_GOOGLE_API_KEY;
+    const googleImageApiKey = SecureStorage.getApiKey('google-image') || import.meta.env.VITE_GOOGLE_IMAGE_API_KEY;
+    const openaiApiKey = SecureStorage.getApiKey('openai') || import.meta.env.VITE_OPENAI_API_KEY;
+    const replicateApiToken = SecureStorage.getApiKey('replicate') || import.meta.env.VITE_REPLICATE_API_TOKEN;
+    
+    // Store environment keys securely if they exist
+    if (import.meta.env.VITE_ANTHROPIC_API_KEY && !SecureStorage.getApiKey('anthropic')) {
+      SecureStorage.setApiKey('anthropic', import.meta.env.VITE_ANTHROPIC_API_KEY);
+    }
+    if (import.meta.env.VITE_GOOGLE_API_KEY && !SecureStorage.getApiKey('google')) {
+      SecureStorage.setApiKey('google', import.meta.env.VITE_GOOGLE_API_KEY);
+    }
+    if (import.meta.env.VITE_GOOGLE_IMAGE_API_KEY && !SecureStorage.getApiKey('google-image')) {
+      SecureStorage.setApiKey('google-image', import.meta.env.VITE_GOOGLE_IMAGE_API_KEY);
+    }
+    if (import.meta.env.VITE_OPENAI_API_KEY && !SecureStorage.getApiKey('openai')) {
+      SecureStorage.setApiKey('openai', import.meta.env.VITE_OPENAI_API_KEY);
+    }
+    if (import.meta.env.VITE_REPLICATE_API_TOKEN && !SecureStorage.getApiKey('replicate')) {
+      SecureStorage.setApiKey('replicate', import.meta.env.VITE_REPLICATE_API_TOKEN);
+    }
+    
     return {
       // API Keys
-      anthropicApiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-      googleImageApiKey: import.meta.env.VITE_GOOGLE_IMAGE_API_KEY,
-      openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY,
-      replicateApiToken: import.meta.env.VITE_REPLICATE_API_TOKEN,
+      anthropicApiKey,
+      googleApiKey,
+      googleImageApiKey,
+      openaiApiKey,
+      replicateApiToken,
       
       // Provider Configuration
       defaultLLMProvider: import.meta.env.VITE_DEFAULT_LLM_PROVIDER || 'anthropic',
@@ -161,20 +186,21 @@ class ConfigManager {
   }
 
   public getProviderConfig(provider: string): Record<string, any> {
+    // Use secure API key retrieval
     switch (provider) {
       case 'anthropic':
         return {
-          apiKey: this.config.anthropicApiKey,
+          apiKey: SecureStorage.getApiKey('anthropic') || this.config.anthropicApiKey,
           timeout: this.config.llmTimeout
         };
       case 'google':
         return {
-          apiKey: this.config.googleApiKey,
+          apiKey: SecureStorage.getApiKey('google') || this.config.googleApiKey,
           timeout: this.config.llmTimeout
         };
       case 'google-image':
         return {
-          apiKey: this.config.googleImageApiKey,
+          apiKey: SecureStorage.getApiKey('google-image') || this.config.googleImageApiKey,
           timeout: this.config.imageTimeout
         };
       case 'local':
@@ -185,7 +211,7 @@ class ConfigManager {
         };
       case 'replicate':
         return {
-          apiKey: this.config.replicateApiToken,
+          apiKey: SecureStorage.getApiKey('replicate') || this.config.replicateApiToken,
           timeout: this.config.imageTimeout
         };
       default:
@@ -207,11 +233,18 @@ class ConfigManager {
     console.log('Image Timeout:', this.config.imageTimeout + 'ms');
     
     console.group('🔑 API Key Status');
-    console.log('Anthropic:', this.hasApiKey('anthropic') ? '✅ Configured' : '❌ Missing');
-    console.log('Google LLM:', this.hasApiKey('google') ? '✅ Configured' : '❌ Missing');
-    console.log('Google Image:', this.hasApiKey('google-image') ? '✅ Configured' : '❌ Missing');
-    console.log('OpenAI:', this.hasApiKey('openai') ? '✅ Configured' : '❌ Missing');
-    console.log('Replicate:', this.hasApiKey('replicate') ? '✅ Configured' : '❌ Missing');
+    console.log('Anthropic:', this.hasApiKey('anthropic') ? `✅ Configured (${ApiKeySecurity.maskApiKey(SecureStorage.getApiKey('anthropic') || '')})` : '❌ Missing');
+    console.log('Google LLM:', this.hasApiKey('google') ? `✅ Configured (${ApiKeySecurity.maskApiKey(SecureStorage.getApiKey('google') || '')})` : '❌ Missing');
+    console.log('Google Image:', this.hasApiKey('google-image') ? `✅ Configured (${ApiKeySecurity.maskApiKey(SecureStorage.getApiKey('google-image') || '')})` : '❌ Missing');
+    console.log('OpenAI:', this.hasApiKey('openai') ? `✅ Configured (${ApiKeySecurity.maskApiKey(SecureStorage.getApiKey('openai') || '')})` : '❌ Missing');
+    console.log('Replicate:', this.hasApiKey('replicate') ? `✅ Configured (${ApiKeySecurity.maskApiKey(SecureStorage.getApiKey('replicate') || '')})` : '❌ Missing');
+    
+    // Security audit
+    const auditResults = ApiKeySecurity.auditApiKeyExposure();
+    if (auditResults.exposed.length > 0) {
+      console.warn('🚨 Security Alert - Exposed API Keys:', auditResults.exposed);
+      console.warn('💡 Recommendations:', auditResults.recommendations);
+    }
     console.groupEnd();
     
     console.group('🛠️ Development Settings');
@@ -230,8 +263,15 @@ export const configManager = new ConfigManager();
 // Export config for easy access
 export const config = configManager.getConfig();
 
-// Helper functions
+// Helper functions - now using secure storage
 export const getApiKey = (provider: string): string | undefined => {
+  // Always use secure storage first, fallback to config
+  const secureKey = SecureStorage.getApiKey(provider);
+  if (secureKey) {
+    return secureKey;
+  }
+  
+  // Fallback to config for backward compatibility
   switch (provider) {
     case 'anthropic':
       return config.anthropicApiKey;
@@ -249,7 +289,8 @@ export const getApiKey = (provider: string): string | undefined => {
 };
 
 export const isProviderConfigured = (provider: string): boolean => {
-  return configManager.hasApiKey(provider);
+  // Check both secure storage and config
+  return !!SecureStorage.getApiKey(provider) || configManager.hasApiKey(provider);
 };
 
 export const getProviderConfig = (provider: string): Record<string, any> => {

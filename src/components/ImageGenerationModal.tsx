@@ -7,7 +7,6 @@ import type { ModelConfig, ReplicateProvider } from '../providers/image/replicat
 import { configManager } from '../config/env';
 import { useAppStore } from '../store/appStore'; // For accessing useMetaPromptingForImages config
 import styles from './ImageGenerationModal.module.css';
-import type { AvatarExpression, AvatarPose, AvatarAction } from '../avatar/types';
 
 interface ImageGenerationModalProps {
   isOpen: boolean;
@@ -218,7 +217,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   const handleGlobalStyleSave = () => {
     localStorage.setItem('claudia-image-style', globalImageStyle);
     (configManager as any).config.imageStyle = globalImageStyle; // Directly update runtime config
-    avatarController.getPromptComposer().setBasePrompts({ style: globalImageStyle }); // Update composer's base
+    avatarController.getPromptComposer().setBasePrompts({ styleKeywords: globalImageStyle }); // Update composer's base
     console.log('💾 Global Image style saved:', globalImageStyle);
     updatePreviewPrompt(); // Refresh preview
   };
@@ -273,7 +272,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           await avatarController.generateAvatarFromDescription(sceneDescription);
         } else { // currentState
           // Ensure current state is used by calling generateAvatarImage without specific description
-          await avatarController.generateAvatarImage(undefined, { seed: Date.now() });
+          await avatarController.generateAvatarWithContext();
         }
         
         (avatarController as any).onStateChange = originalOnStateChange; // Restore original

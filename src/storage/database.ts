@@ -192,22 +192,15 @@ export class ClaudiaDatabase implements StorageService {
   }
 
   async updateConversation(id: string, updates: Partial<Omit<Conversation, 'id' | 'createdAt'>>): Promise<boolean> {
-    const fields = [];
-    const values = [];
+    const fields: string[] = [];
+    const values: any[] = [];
     
-    if (updates.title) {
+    // Use explicit field validation for security
+    if (updates.title !== undefined) {
       fields.push('title = ?');
       values.push(updates.title);
     }
     
-    if (fields.length > 0 || updates.updatedAt) {
-        fields.push('updated_at = ?');
-        values.push(updates.updatedAt || new Date().toISOString());
-    } else if (updates.updatedAt) { 
-        fields.push('updated_at = ?');
-        values.push(updates.updatedAt);
-    }
-
     if (updates.metadata !== undefined) { 
       fields.push('metadata = ?');
       values.push(updates.metadata);
@@ -218,9 +211,16 @@ export class ClaudiaDatabase implements StorageService {
       values.push(updates.totalTokens);
     }
     
+    // Always update the updated_at timestamp when making changes
+    if (fields.length > 0) {
+      fields.push('updated_at = ?');
+      values.push(updates.updatedAt || new Date().toISOString());
+    }
+    
     if (fields.length === 0) {
       return false; 
     }
+    
     values.push(id);
     const stmt = this.db.prepare(`UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`);
     const result = stmt.run(...values);
@@ -573,24 +573,42 @@ export class ClaudiaDatabase implements StorageService {
   }
 
   async updatePersonality(id: string, updates: Partial<Personality>): Promise<boolean> {
+    // Whitelist of valid personality fields mapped to database column names
+    const VALID_PERSONALITY_FIELDS: Record<string, string> = {
+      'name': 'name',
+      'description': 'description',
+      'isDefault': 'is_default',
+      'allowImageGeneration': 'allow_image_generation',
+      'system_prompt': 'system_prompt',
+      'preferredClothingStyle': 'preferred_clothing_style',
+      'typicalEnvironmentKeywords': 'typical_environment_keywords',
+      'artStyleModifiers': 'art_style_modifiers',
+      'usage_count': 'usage_count'
+    };
+
     const fields: string[] = [];
     const values: any[] = [];
     const now = new Date().toISOString();
 
+    // Never allow updating created_at
     if ('created_at' in updates) delete updates.created_at;
 
     for (const key in updates) {
-      if (Object.prototype.hasOwnProperty.call(updates, key) && key !== 'id') {
-        const value = (updates as any)[key];
-        const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase(); // camelCase to snake_case
+      if (!Object.prototype.hasOwnProperty.call(updates, key) || key === 'id') continue;
+      
+      const value = (updates as any)[key];
+      const dbColumnName = VALID_PERSONALITY_FIELDS[key];
+      
+      if (dbColumnName) {
         if (key === 'isDefault' || key === 'allowImageGeneration') {
-          fields.push(`${dbKey} = ?`);
+          fields.push(`${dbColumnName} = ?`);
           values.push(value ? 1 : 0);
         } else {
-          fields.push(`${dbKey} = ?`);
+          fields.push(`${dbColumnName} = ?`);
           values.push(value);
         }
       }
+      // Silently ignore unknown fields to prevent injection
     }
     
     if (fields.length === 0) return false;
@@ -664,13 +682,31 @@ export class ClaudiaDatabase implements StorageService {
     filterTags?: string[];
     searchTerm?: string;
   }): Promise<ImageMetadata[]> {
+    // Whitelist of valid sort columns mapped to actual database column names
+    const VALID_SORT_COLUMNS: Record<keyof ImageMetadata, string> = {
+      'id': 'id',
+      'filename': 'filename',
+      'prompt': 'prompt',
+      'description': 'description',
+      'style': 'style',
+      'model': 'model',
+      'provider': 'provider',
+      'dimensions': 'dimensions_width', // Default to width for sorting
+      'generatedAt': 'generated_at',
+      'tags': 'tags',
+      'originalUrl': 'original_url',
+      'localPath': 'local_path',
+      'thumbnailUrl': 'thumbnail_url',
+      'isFavorite': 'is_favorite',
+      'parameters': 'parameters'
+    };
+
     let query = 'SELECT * FROM image_metadata';
     const params: any[] = [];
     const whereClauses: string[] = [];
 
+    // Build WHERE clauses with parameterized queries only
     if (options?.filterTags && options.filterTags.length > 0) {
-      // This is a simplified tag filter; for robust JSON array search, SQLite's JSON1 extension is better
-      // For now, we'll use LIKE for each tag.
       options.filterTags.forEach(tag => {
         whereClauses.push(`tags LIKE ?`);
         params.push(`%${tag}%`); 
@@ -686,21 +722,21 @@ export class ClaudiaDatabase implements StorageService {
       query += ' WHERE ' + whereClauses.join(' AND ');
     }
 
+    // Secure ORDER BY with whitelisted columns
     const sortBy = options?.sortBy || 'generatedAt';
     const sortOrder = options?.sortOrder || 'desc';
-    // Sanitize sortBy to prevent SQL injection if it were user-provided directly
-    const validSortColumns: (keyof ImageMetadata)[] = ['filename', 'prompt', 'model', 'provider', 'generatedAt', 'isFavorite'];
-    const safeSortBy = validSortColumns.includes(sortBy) ? sortBy : 'generatedAt';
+    const dbColumnName = VALID_SORT_COLUMNS[sortBy] || VALID_SORT_COLUMNS['generatedAt'];
     const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    query += ` ORDER BY ${safeSortBy} ${safeSortOrder}`;
+    query += ` ORDER BY ${dbColumnName} ${safeSortOrder}`;
     
+    // Add LIMIT and OFFSET with parameterized queries
     if (options?.limit !== undefined) {
       query += ' LIMIT ?';
-      params.push(options.limit);
+      params.push(Math.max(0, Math.min(options.limit, 10000))); // Cap at 10000 for safety
     }
     if (options?.offset !== undefined) {
       query += ' OFFSET ?';
-      params.push(options.offset);
+      params.push(Math.max(0, options.offset));
     }
     
     const stmt = this.db.prepare(query);
@@ -742,38 +778,70 @@ export class ClaudiaDatabase implements StorageService {
   }
 
   async updateImageMetadata(id: string, updates: Partial<Omit<ImageMetadata, 'id' | 'generatedAt'>>): Promise<boolean> {
+    // Whitelist of valid update fields mapped to database column names
+    const VALID_UPDATE_FIELDS: Record<string, string> = {
+      'filename': 'filename',
+      'prompt': 'prompt',
+      'description': 'description',
+      'style': 'style',
+      'model': 'model',
+      'provider': 'provider',
+      'tags': 'tags',
+      'originalUrl': 'original_url',
+      'localPath': 'local_path',
+      'thumbnailUrl': 'thumbnail_url',
+      'isFavorite': 'is_favorite',
+      'parameters': 'parameters'
+    };
+
     const fields: string[] = [];
     const values: any[] = [];
 
     for (const key in updates) {
-      if (Object.prototype.hasOwnProperty.call(updates, key)) {
-        const value = (updates as any)[key];
-        let dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        if (key === 'dimensions') { // Special handling for dimensions object
-          fields.push('dimensions_width = ?', 'dimensions_height = ?');
-          values.push((value as {width: number, height: number}).width, (value as {width: number, height: number}).height);
-          continue;
-        }
-        if (key === 'tags') {
-          fields.push('tags = ?');
-          values.push(JSON.stringify(value || []));
-          continue;
-        }
-        if (key === 'parameters') {
-          fields.push('parameters = ?');
-          values.push(JSON.stringify(value || {}));
-          continue;
-        }
-         if (key === 'isFavorite') {
-          fields.push('is_favorite = ?');
-          values.push(value ? 1 : 0);
-          continue;
-        }
-        fields.push(`${dbKey} = ?`);
+      if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+      
+      const value = (updates as any)[key];
+      
+      // Handle special cases first
+      if (key === 'dimensions' && value && typeof value === 'object') {
+        // Special handling for dimensions object
+        fields.push('dimensions_width = ?', 'dimensions_height = ?');
+        values.push(
+          (value as {width: number, height: number}).width || 0, 
+          (value as {width: number, height: number}).height || 0
+        );
+        continue;
+      }
+      
+      if (key === 'tags') {
+        fields.push('tags = ?');
+        values.push(JSON.stringify(Array.isArray(value) ? value : []));
+        continue;
+      }
+      
+      if (key === 'parameters') {
+        fields.push('parameters = ?');
+        values.push(JSON.stringify(value || {}));
+        continue;
+      }
+      
+      if (key === 'isFavorite') {
+        fields.push('is_favorite = ?');
+        values.push(value ? 1 : 0);
+        continue;
+      }
+      
+      // Use whitelist for all other fields
+      const dbColumnName = VALID_UPDATE_FIELDS[key];
+      if (dbColumnName) {
+        fields.push(`${dbColumnName} = ?`);
         values.push(value);
       }
+      // Silently ignore unknown fields to prevent injection
     }
+    
     if (fields.length === 0) return false;
+    
     values.push(id);
     const stmt = this.db.prepare(`UPDATE image_metadata SET ${fields.join(', ')} WHERE id = ?`);
     return stmt.run(...values).changes > 0;

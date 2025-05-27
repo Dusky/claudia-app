@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Personality, PersonalityFormData } from '../types/personality';
 import { DEFAULT_PERSONALITY } from '../types/personality';
 import type { TerminalTheme } from '../terminal/themes';
+import { InputValidator } from '../utils/inputValidation';
 import styles from './PersonalityModal.module.css';
 
 interface PersonalityModalProps {
@@ -154,8 +155,45 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
   };
 
   const updateFormData = (field: keyof PersonalityFormData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
+    let sanitizedValue = value;
+    
+    // Validate and sanitize string inputs
+    if (typeof value === 'string') {
+      let validationResult;
+      
+      switch (field) {
+        case 'name':
+          validationResult = InputValidator.validateName(value);
+          break;
+        case 'description':
+        case 'preferredClothingStyle':
+        case 'typicalEnvironmentKeywords':
+        case 'artStyleModifiers':
+        case 'baseCharacterIdentity':
+        case 'styleKeywords':
+        case 'qualityKeywords':
+          validationResult = InputValidator.validateText(value, 500);
+          break;
+        case 'system_prompt':
+          validationResult = InputValidator.validatePrompt(value);
+          break;
+        default:
+          validationResult = InputValidator.validateText(value);
+      }
+      
+      sanitizedValue = validationResult.sanitizedValue;
+      
+      // Show warnings if validation failed
+      if (!validationResult.isValid) {
+        setError(`${field}: ${validationResult.errors.join(', ')}`);
+        return; // Don't update if validation failed
+      } else if (validationResult.warnings.length > 0) {
+        console.warn(`Input validation warnings for ${field}:`, validationResult.warnings);
+      }
+    }
+    
+    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
+    // Clear error when user makes valid input
     if (error) setError('');
   };
 

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
 import { getApiKey, config } from '../../config/env';
+import { ApiKeySecurity } from '../../config/security';
 
 export class AnthropicProvider implements LLMProvider {
   name = 'Anthropic Claude';
@@ -8,8 +9,18 @@ export class AnthropicProvider implements LLMProvider {
   private config: LLMProviderConfig = {};
 
   async initialize(providerConfig?: LLMProviderConfig): Promise<void> {
+    const apiKey = providerConfig?.apiKey || getApiKey('anthropic');
+    
+    // Validate API key security
+    if (apiKey) {
+      const validation = ApiKeySecurity.validateApiKey('anthropic', apiKey);
+      if (!validation.valid) {
+        console.warn(`Anthropic API key validation failed: ${validation.message}`);
+      }
+    }
+    
     this.config = {
-      apiKey: providerConfig?.apiKey || getApiKey('anthropic'),
+      apiKey,
       model: providerConfig?.model || 'claude-3-sonnet-20240229',
       baseURL: providerConfig?.baseURL || 'https://api.anthropic.com',
       timeout: config.llmTimeout,

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import type { TerminalTheme } from './themes';
 import type { CommandRegistry } from '../commands/types';
 import type { ConfigSettings } from '../store/appStore';
-import { ContentRenderer } from './ContentRenderer';
+import { SecureContentRenderer } from './SecureContentRenderer';
 
 export interface TerminalLine {
   id: string;
@@ -143,7 +143,7 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
         {isInGroup ? '' : getUserPrefix(line)}
       </span>
       <span className="line-content" style={{ flex: 1 }}>
-        <ContentRenderer content={line.content} />
+        <SecureContentRenderer content={line.content} />
       </span>
     </div>
   );

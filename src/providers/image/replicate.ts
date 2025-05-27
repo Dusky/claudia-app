@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { ImageProvider, ImageGenerationRequest, ImageGenerationResponse, ImageProviderConfig, PredictionStatus } from './types';
 import { getApiKey, config } from '../../config/env';
+import { ApiKeySecurity } from '../../config/security';
 
 export interface ReplicateModel {
   id: string;
@@ -209,6 +210,14 @@ export class ReplicateProvider implements ImageProvider {
 
   async initialize(providerConfig?: ReplicateProviderConfig): Promise<void> {
     const apiKey = providerConfig?.apiKey || getApiKey('replicate');
+    
+    // Validate API key security
+    if (apiKey) {
+      const validation = ApiKeySecurity.validateApiKey('replicate', apiKey);
+      if (!validation.valid) {
+        console.warn(`Replicate API key validation failed: ${validation.message}`);
+      }
+    }
     
     // Use proxy in development to avoid CORS issues
     const isDevelopment = import.meta.env.DEV;

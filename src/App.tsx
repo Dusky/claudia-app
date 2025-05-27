@@ -27,6 +27,9 @@ import { useAppInitialization } from './hooks/useAppInitialization';
 import { useEventListeners } from './hooks/useEventListeners';
 // import { useCRTGradient } from './hooks/useCRTGradient'; 
 import { ImageStorageManager } from './utils/imageStorage'; // Import ImageStorageManager
+import { InputValidator } from './utils/inputValidation'; // Import input validation
+import { initializeSecurity } from './utils/csp'; // Import security initialization
+import { MemoryManager } from './utils/memoryManager'; // Import memory management
 import './App.css';
 import './styles/overlays.css';
 
@@ -57,6 +60,22 @@ const ComponentLoader: React.FC<{ type?: string }> = ({ type = "component" }) =>
 
 
 function App() {
+  // Initialize security measures and memory management on app startup
+  useEffect(() => {
+    initializeSecurity();
+    
+    // Configure memory manager for app
+    const memoryManager = MemoryManager.getInstance();
+    memoryManager.configure({
+      maxAge: 10 * 60 * 1000, // 10 minutes for app-level resources
+      maxConcurrentUrls: 100   // Allow more URLs for full app
+    });
+    
+    return () => {
+      // Cleanup memory manager on app unmount
+      memoryManager.destroy();
+    };
+  }, []);
 
   // Zustand store selectors for state
   const currentTheme = useAppStore(state => state.currentTheme);
@@ -117,7 +136,7 @@ function App() {
   const imageManager = useMemo(() => new ImageProviderManager(), []);
   const mcpManager = useMemo(() => new MCPProviderManager(), []);
   const database = useMemo(() => new ClaudiaDatabase(), []);
-  const imageStorageManager = useMemo(() => new ImageStorageManager(database), [database]); // Instantiate ImageStorageManager
+  const imageStorageManager = useMemo(() => new ImageStorageManager(), []);
   
   const avatarController = useMemo(() =>
     new AvatarController(imageManager, llmManager, database, imageStorageManager, setAvatarState), // Pass imageStorageManager
@@ -271,9 +290,35 @@ function App() {
 
 
   const handleInput = async (input: string) => {
+    // Validate and sanitize user input to prevent XSS attacks
+    const validationResult = InputValidator.validatePrompt(input);
+    
+    if (!validationResult.isValid) {
+      const errorLine: TerminalLine = {
+        id: `error-${Date.now()}`,
+        type: 'error',
+        content: `Input validation failed: ${validationResult.errors.join(', ')}`,
+        timestamp: new Date().toISOString(),
+user: 'claudia' // Use claudia instead of system for type compatibility
+      };
+      addLines(errorLine);
+      return;
+    }
+    
+    // Show warnings if any
+    if (validationResult.warnings.length > 0) {
+      console.warn('Input validation warnings:', validationResult.warnings);
+    }
+    
+    // Use sanitized input
+    const sanitizedInput = validationResult.sanitizedValue;
+    
     const userLine: TerminalLine = {
-      id: `user-${Date.now()}`, type: 'input', content: input,
-      timestamp: new Date().toISOString(), user: 'user'
+      id: `user-${Date.now()}`, 
+      type: 'input', 
+      content: sanitizedInput,
+      timestamp: new Date().toISOString(), 
+      user: 'user'
     };
     addLines(userLine);
 
@@ -303,12 +348,12 @@ function App() {
 
     try {
       setLoading(true);
-      const result = await commandRegistry.execute(input.trim(), context);
+      const result = await commandRegistry.execute(sanitizedInput.trim(), context);
       
       if (result.lines && result.lines.length > 0) addLines(result.lines);
 
-      if (result.success && input.trim().startsWith('/')) {
-        const cmdName = input.trim().split(' ')[0];
+      if (result.success && sanitizedInput.trim().startsWith('/')) {
+        const cmdName = sanitizedInput.trim().split(' ')[0];
         const silentCommands = ['/clear', '/conversation-new', '/conversation-load'];
         if (!silentCommands.includes(cmdName)) {
           setTimeout(() => {
@@ -326,7 +371,7 @@ function App() {
       }
 
       if (result.shouldContinue === false) {
-        const commandName = input.trim().toLowerCase().split(' ')[0];
+        const commandName = sanitizedInput.trim().toLowerCase().split(' ')[0];
         if (commandName === '/conversation-clearhist') {
           await clearTerminalForNewSession(); 
         }

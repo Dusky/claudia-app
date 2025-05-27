@@ -6,7 +6,8 @@ import { ImagePromptComposer, type PromptModificationContext, type ImagePromptCo
 import type { ImageStorageManager } from '../utils/imageStorage'; // Import type
 import type { Personality } from '../types/personality';
 import type { LLMProviderManager } from '../providers/llm/manager'; 
-import { useAppStore } from '../store/appStore'; 
+import { useAppStore } from '../store/appStore';
+import { memoryManager } from '../utils/memoryManager'; 
 
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
@@ -41,6 +42,7 @@ export class AvatarController {
   private promptComposer: ImagePromptComposer;
   private imageStorageManager: ImageStorageManager; // Add imageStorageManager instance
   private onStateChange?: (state: AvatarState) => void;
+  private previousImageUrl: string | null = null; // Track previous image for cleanup
 
   constructor(
     imageProvider: ImageProviderManager, 
@@ -336,7 +338,13 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
         console.error("Error fetching cached avatar:", dbError);
       }
       if (cachedImage) {
+        // Cleanup previous image URL if it's a blob URL
+        if (this.previousImageUrl && this.previousImageUrl.startsWith('blob:')) {
+          memoryManager.revokeObjectURL(this.previousImageUrl);
+        }
+        
         this.state.imageUrl = cachedImage.imageUrl;
+        this.previousImageUrl = cachedImage.imageUrl;
         this.notifyStateChange(); 
         return;
       }
@@ -383,7 +391,13 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       } else {
         console.warn('AvatarController: this.database.cacheAvatarImage is not a function or database not available. Skipping caching.');
       }
+      // Cleanup previous image URL if it's a blob URL
+      if (this.previousImageUrl && this.previousImageUrl.startsWith('blob:')) {
+        memoryManager.revokeObjectURL(this.previousImageUrl);
+      }
+      
       this.state.imageUrl = response.imageUrl;
+      this.previousImageUrl = response.imageUrl;
     } catch (error) {
       console.error('Failed to generate avatar image:', error);
       this.state.hasError = true;
@@ -427,7 +441,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
           provider: provider?.name || 'unknown',
           dimensions: { width: 512, height: 512 },
           tags: ['avatar', 'ai-generated', 'claudia', 'description-driven'],
-          parameters: { ...parsedParams, prompt: description } // Save original description and other params
+          // parameters: { ...parsedParams, prompt: description } // Temporarily disabled
         });
         await this.imageStorageManager.saveImage(this.state.imageUrl, metadata); // Use this.imageStorageManager
         console.log('📸 Avatar image from AI description saved:', metadata.filename);
@@ -697,15 +711,15 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
         },
         parameters: params,
         promptComponents: {
-          character: promptComponents.character || 'unknown',
-          style: promptComponents.style || 'unknown',
-          quality: promptComponents.quality || 'unknown',
-          situationalDescription: promptComponents.situationalDescription || 'none',
+          character: promptComponents.baseCharacterReference || 'unknown',
+          style: promptComponents.styleKeywords || 'unknown',
+          quality: promptComponents.qualityKeywords || 'unknown',
+          situationalDescription: promptComponents.settingDescription || 'none',
           expressionKeywords: promptComponents.expressionKeywords || 'none',
           poseKeywords: promptComponents.poseKeywords || 'none',
           actionKeywords: promptComponents.actionKeywords || 'none',
-          lightingKeywords: promptComponents.lightingKeywords || 'none',
-          backgroundKeywords: promptComponents.backgroundKeywords || 'none',
+          lightingKeywords: promptComponents.lightingDescription || 'none',
+          backgroundKeywords: promptComponents.settingDescription || 'none',
           variationSeed: promptComponents.variationSeed,
           contextualKeywords: promptComponents.contextualKeywords,
         },
@@ -757,5 +771,23 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       console.warn('Could not check prompt logging setting:', error);
       return false;
     }
+  }
+
+  /**
+   * Cleanup method for memory management
+   */
+  cleanup(): void {
+    // Cleanup current image URL if it's a blob URL
+    if (this.previousImageUrl && this.previousImageUrl.startsWith('blob:')) {
+      memoryManager.revokeObjectURL(this.previousImageUrl);
+      this.previousImageUrl = null;
+    }
+    
+    if (this.state.imageUrl && this.state.imageUrl.startsWith('blob:')) {
+      memoryManager.revokeObjectURL(this.state.imageUrl);
+      this.state.imageUrl = undefined;
+    }
+    
+    console.log('🧹 AvatarController cleanup completed');
   }
 }

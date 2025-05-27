@@ -175,6 +175,11 @@ export const useAppInitialization = ({
     initializeSystem();
 
     return () => {
+      // Cleanup avatar controller on unmount
+      if (avatarController && typeof avatarController.cleanup === 'function') {
+        avatarController.cleanup();
+      }
+      
       if (import.meta.env.DEV) {
         effectRan.current = true;
       }

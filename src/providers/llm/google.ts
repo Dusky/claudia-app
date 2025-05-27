@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { LLMProvider, LLMMessage, LLMResponse, LLMGenerationOptions, LLMProviderConfig } from './types';
 import { getApiKey, config } from '../../config/env';
+import { ApiKeySecurity } from '../../config/security';
 
 export class GoogleProvider implements LLMProvider {
   name = 'Google Gemini';
@@ -8,8 +9,18 @@ export class GoogleProvider implements LLMProvider {
   private config: LLMProviderConfig = {};
 
   async initialize(providerConfig?: LLMProviderConfig): Promise<void> {
+    const apiKey = providerConfig?.apiKey || getApiKey('google');
+    
+    // Validate API key security
+    if (apiKey) {
+      const validation = ApiKeySecurity.validateApiKey('google', apiKey);
+      if (!validation.valid) {
+        console.warn(`Google API key validation failed: ${validation.message}`);
+      }
+    }
+    
     this.config = {
-      apiKey: providerConfig?.apiKey || getApiKey('google'),
+      apiKey,
       model: providerConfig?.model || 'gemini-1.5-flash',
       baseURL: providerConfig?.baseURL || 'https://generativelanguage.googleapis.com',
       timeout: config.llmTimeout,

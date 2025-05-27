@@ -69,7 +69,7 @@ export interface ImagePromptComponents {
   negativePrompt?: string;
 
   // Fields for dynamic prompting
-  situationalDescription: string; // Main description, either AI-provided or generated from state
+  settingDescription: string; // Main description, either AI-provided or generated from state
   expressionKeywords: string; // Keywords for current expression
   poseKeywords: string; // Keywords for current pose
   actionKeywords: string; // Keywords for current action
@@ -82,14 +82,11 @@ export interface ImagePromptComponents {
 }
 
 export interface PromptModificationContext {
-  personality: {
-    name: string;
-    systemPrompt: string;
-  };
+  personality: import('../../types/personality').Personality; // Use the full Personality type
   currentMood?: string;
   previousActions?: string[];
   conversationContext?: string;
-  isAIDescription?: boolean; // True if situationalDescription comes directly from AI's [IMAGE:] tag
+  isAIDescription?: boolean; // True if settingDescription comes directly from AI's [IMAGE:] tag
   isMetaPrompted?: boolean; // True if using meta-prompting
   variationSeed?: number;
   contextualKeywords?: string[];

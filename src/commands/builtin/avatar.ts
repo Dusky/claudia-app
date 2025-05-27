@@ -336,10 +336,7 @@ export const imagineCommand: Command = {
         const activePersonality = await context.storage.getActivePersonality();
         if (activePersonality) {
           const modContext = {
-            personality: {
-              name: activePersonality.name,
-              systemPrompt: activePersonality.system_prompt
-            },
+            personality: activePersonality, // Pass the full personality object
             conversationContext: `Custom avatar request: ${description}`
           };
           

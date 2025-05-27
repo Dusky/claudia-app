@@ -1,126 +1,251 @@
 # Claudia
 
-An AI terminal companion built with React and TypeScript, featuring customizable retro themes, avatar interactions, and multiple LLM provider support.
+An AI terminal companion application built with React and TypeScript, featuring customizable retro terminal themes, interactive avatar system, and support for multiple AI providers.
+
+## Overview
+
+Claudia is a sophisticated terminal-style interface that combines the nostalgia of retro computing with modern AI capabilities. Users can interact with various AI providers through a command-line interface, customize their experience with authentic terminal themes from different computing eras, and engage with an AI-controlled avatar companion.
 
 ## Features
 
-- **Retro Terminal Interface** - Four authentic terminal themes from different computing eras
-- **AI Conversation** - Support for Anthropic Claude, Google Gemini, and local LLMs
-- **Interactive Avatar** - AI-controlled companion with expressions, poses, and image generation
-- **Persistent Storage** - SQLite database for conversations, settings, and cache
-- **Extensible Architecture** - Plugin system for adding new providers and themes
+- **Multi-Provider AI Integration**: Support for Anthropic Claude, Google Gemini, and local LLM providers
+- **Interactive Avatar System**: AI-controlled companion with dynamic expressions, poses, and image generation
+- **Retro Terminal Themes**: Authentic themes from mainframe (70s), PC (80s), BBS (90s), and modern eras
+- **Extensible Command System**: 30+ built-in commands with support for custom extensions
+- **Persistent Storage**: Conversation history, settings, and avatar cache with browser-compatible storage
+- **Advanced UI**: Lazy-loaded components, theme transitions, and CRT-style visual effects
 
-## Quick Start
+## Installation
 
-1. **Install dependencies**
+### Prerequisites
+
+- Node.js 18.x or higher
+- npm or yarn package manager
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Dusky/claudia-app.git
+   cd claudia-app
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
+3. **Configure environment variables**
    
-   Edit `.env` and add your API keys:
+   Create a `.env` file in the project root:
    ```env
-   VITE_ANTHROPIC_API_KEY=your_key_here
-   VITE_REPLICATE_API_TOKEN=your_token_here
+   # Required for AI functionality
+   VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+   VITE_REPLICATE_API_TOKEN=r8_your-token-here
+   
+   # Optional providers
+   VITE_GOOGLE_API_KEY=your-google-api-key
+   VITE_GOOGLE_IMAGE_API_KEY=your-google-image-key
+   
+   # Local LLM configuration (optional)
+   VITE_OLLAMA_BASE_URL=http://localhost:11434
+   VITE_LOCAL_LLM_MODEL=llama2
+   
+   # Application settings (optional)
+   VITE_DEFAULT_THEME=mainframe70s
+   VITE_DEBUG_MODE=false
    ```
 
-3. **Start development server**
+4. **Start the development server**
    ```bash
    npm run dev
    ```
 
-## Commands
+   The application will be available at `http://localhost:5173`
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Show available commands |
-| `/theme <name>` | Switch terminal theme |
-| `/clear` | Clear terminal history |
-| `/avatar <action>` | Control avatar display |
-| `/ask <question>` | Ask AI directly |
+## Usage
 
-## Available Themes
+### Basic Commands
 
-- **mainframe70s** - Green on black with scanlines
-- **pc80s** - Blue retro PC interface  
-- **bbs90s** - Colorful ANSI-style terminal
-- **modern** - Clean contemporary design
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/help` | Display available commands | `/help` |
+| `/theme <name>` | Switch terminal theme | `/theme pc80s` |
+| `/themes` | List available themes | `/themes` |
+| `/clear` | Clear terminal history | `/clear` |
+| `/avatar <action>` | Control avatar display | `/avatar show` |
+| `/imagine <prompt>` | Generate custom avatar image | `/imagine happy waving` |
+| `/ask <question>` | Direct AI question | `/ask explain quantum computing` |
 
-## API Providers
+### Natural Conversation
 
-### LLM Providers
-- **Anthropic Claude** - Primary AI provider
-- **Google Gemini** - Alternative LLM option
-- **Local LLM** - Ollama/OpenAI-compatible servers
+Any input that doesn't start with `/` is sent directly to the active AI provider for natural conversation. The AI can control the avatar through special commands embedded in responses.
 
-### Image Generation
-- **Replicate** - Avatar image generation
+### Theme System
 
-## Project Structure
+Choose from four authentic terminal themes:
+- **mainframe70s**: Green phosphor display with scanlines
+- **pc80s**: Blue IBM PC-style interface
+- **bbs90s**: Colorful ANSI-style bulletin board system
+- **modern**: Clean contemporary design
 
+### Avatar Interaction
+
+The avatar responds to AI commands automatically embedded in chat responses:
 ```
-src/
-├── avatar/          # Avatar system and controls
-├── commands/        # Command registry and built-ins
-├── components/      # React UI components
-├── providers/       # LLM and image provider integrations
-├── storage/         # SQLite database layer
-├── terminal/        # Terminal display and themes
-└── types/           # TypeScript definitions
+[AVATAR:expression=happy,action=wave,position=center]
 ```
 
 ## Development
 
+### Available Scripts
+
 ```bash
-# Start dev server
-npm run dev
+# Development
+npm run dev          # Start Vite dev server
+npm run build        # TypeScript compilation + Vite build
+npm run preview      # Preview production build
 
-# Build for production
-npm run build
+# Code Quality
+npm run lint         # ESLint code linting
+npm run typecheck    # TypeScript type checking
 
-# Run linter
-npm run lint
+# Testing
+npm run test         # Run test suite with Vitest
+npm run test:ui      # Run tests with UI interface
+```
+
+### Project Structure
+
+```
+src/
+├── avatar/           # Avatar system and image generation
+├── commands/         # Extensible command registry
+│   ├── builtin/      # Built-in commands
+│   ├── core/         # Command execution engine
+│   └── ai/           # AI integration handlers
+├── components/       # React UI components
+├── providers/        # Multi-provider architecture
+│   ├── llm/          # LLM providers (Anthropic, Google, Local)
+│   ├── image/        # Image generation providers
+│   └── mcp/          # Model Context Protocol
+├── storage/          # Data persistence layer
+├── terminal/         # Terminal display and themes
+├── store/            # Zustand state management
+├── hooks/            # Custom React hooks
+├── utils/            # Utility functions
+└── types/            # TypeScript type definitions
+```
+
+### Adding New Commands
+
+1. Create a command file in `src/commands/builtin/`
+2. Implement the `Command` interface:
+   ```typescript
+   export const myCommand: Command = {
+     name: 'mycommand',
+     description: 'Description of the command',
+     usage: '/mycommand <args>',
+     async execute(args: string[], context: CommandContext) {
+       // Command implementation
+       return { success: true, lines: [] };
+     }
+   };
+   ```
+3. Register the command in `src/commands/index.ts`
+
+### Adding New Providers
+
+Implement the provider interface for LLM, Image, or MCP providers:
+
+```typescript
+export class MyLLMProvider implements LLMProvider {
+  readonly id = 'my-provider';
+  readonly name = 'My Provider';
+  
+  async initialize(config?: LLMProviderConfig): Promise<void> {
+    // Provider initialization
+  }
+  
+  async generateText(prompt: string, options?: any): Promise<string> {
+    // Text generation implementation
+  }
+}
 ```
 
 ## Configuration
 
-Environment variables are loaded from `.env`:
+### Environment Variables
 
-```env
-# Required for AI functionality
-VITE_ANTHROPIC_API_KEY=sk-ant-api03-...
-VITE_REPLICATE_API_TOKEN=r8_...
+The application uses environment variables for configuration:
 
-# Optional providers
-VITE_GOOGLE_API_KEY=AIzaSy...
+- **Required**: `VITE_ANTHROPIC_API_KEY` for Claude AI integration
+- **Image Generation**: `VITE_REPLICATE_API_TOKEN` for avatar images
+- **Optional**: Additional provider API keys for extended functionality
 
-# Local LLM setup
-VITE_OLLAMA_BASE_URL=http://localhost:11434
-VITE_LOCAL_LLM_MODEL=llama2
+### Storage
 
-# Application settings
-VITE_DEFAULT_THEME=mainframe70s
-VITE_DEBUG_MODE=true
-```
+- **Conversations**: Stored in browser localStorage with SQLite fallback
+- **Settings**: Persistent user preferences and configuration
+- **Avatar Cache**: Efficient image caching with automatic cleanup
 
-## Documentation
+## Architecture
 
-- [Setup Guide](docs/SETUP.md) - Detailed installation and configuration
-- [Environment Configuration](docs/ENVIRONMENT.md) - API keys and settings
-- [API Reference](docs/API_REFERENCE.md) - Complete API documentation
+### Core Principles
 
-## Tech Stack
+- **Provider-Based Architecture**: Pluggable providers for AI, image generation, and protocols
+- **Command-Driven Interface**: Extensible command system with natural language fallback
+- **Theme-Centric Design**: Visual themes that define the entire user experience
+- **State-Driven UI**: Centralized state management with Zustand
 
-- React 18 + TypeScript
-- Vite (build tool)
-- Zustand (state management)
-- SQLite (better-sqlite3)
-- CSS Modules
+### Key Technologies
+
+- **Frontend**: React 19 with TypeScript 5.8
+- **Build System**: Vite 6.3 with hot module replacement
+- **State Management**: Zustand for predictable state updates
+- **Styling**: CSS Modules with theme-based architecture
+- **Storage**: Better-sqlite3 with localStorage fallback
+- **Testing**: Vitest with React Testing Library
+
+## Contributing
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes following the existing code style
+4. Add tests for new functionality
+5. Run the full test suite: `npm run test`
+6. Submit a pull request with a clear description
+
+### Code Standards
+
+- **TypeScript**: Strict type checking enabled
+- **ESLint**: Follow the configured linting rules
+- **Testing**: Maintain or improve test coverage
+- **Documentation**: Update documentation for new features
+
+### Pull Request Guidelines
+
+- Include a clear description of changes
+- Reference any related issues
+- Ensure all tests pass
+- Follow the existing code style and conventions
 
 ## License
 
-MIT
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For questions, issues, or feature requests:
+
+- **Issues**: [GitHub Issues](https://github.com/Dusky/claudia-app/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Dusky/claudia-app/discussions)
+- **Documentation**: Check the `docs/` directory for additional guides
+
+## Acknowledgments
+
+- Inspired by retro computing aesthetics and terminal interfaces
+- Built with modern web technologies and AI integration
+- Community contributions and feedback are greatly appreciated
