@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { RealMCPClient } from './realClient';
 import { BuiltinServerRegistry } from './builtin';
+import { getIndexedDBCache, MCP_CACHE_KEYS } from '../../utils/indexedDbCache';
 
 export class MCPProviderManager implements MCPProvider {
   public readonly id = 'mcp';
@@ -21,6 +22,7 @@ export class MCPProviderManager implements MCPProvider {
   private cachedTools: MCPTool[] = [];
   private lastToolsUpdate = 0;
   private readonly toolsCacheTimeout = 30000; // 30 seconds
+  private cache = getIndexedDBCache();
 
   isConfigured(): boolean {
     // Always configured due to built-in servers
@@ -68,9 +70,16 @@ export class MCPProviderManager implements MCPProvider {
         }
 
         try {
+          // Try to restore cached capabilities first
+          await this.loadCachedCapabilities(server);
+          
           const client = new RealMCPClient(server);
           await client.connect();
           this.clients.set(server.id, client);
+          
+          // Cache the new capabilities after successful connection
+          await this.cacheServerCapabilities(server);
+          
           console.log(`✅ Connected to MCP server: ${server.name}`);
         } catch (error) {
           console.error(`❌ Failed to connect to MCP server ${server.name}:`, error);
@@ -103,21 +112,52 @@ export class MCPProviderManager implements MCPProvider {
       console.error('Error listing builtin tools:', error);
     }
     
-    // Add external server tools
-    for (const [serverId, client] of this.clients) {
+    // Add external server tools in parallel
+    const toolPromises = Array.from(this.clients.entries()).map(async ([serverId, client]) => {
       try {
+        // Try to get cached tools first
+        const cachedTools = await this.getCachedTools(serverId);
+        if (cachedTools) {
+          console.log(`📋 Using cached tools for server ${serverId}`);
+          return cachedTools.map(tool => ({
+            ...tool,
+            name: `${serverId}.${tool.name}`,
+            description: `[${serverId}] ${tool.description}`
+          }));
+        }
+
+        // Fetch fresh tools if no cache
         const tools = await client.listTools();
+        
+        // Cache the fresh tools
+        await this.cacheServerTools(serverId, tools);
+        
         // Prefix tool names with server ID to avoid conflicts
-        const prefixedTools = tools.map(tool => ({
+        return tools.map(tool => ({
           ...tool,
           name: `${serverId}.${tool.name}`,
           description: `[${serverId}] ${tool.description}`
         }));
-        allTools.push(...prefixedTools);
       } catch (error) {
         console.error(`Error listing tools from server ${serverId}:`, error);
+        
+        // Try to fall back to cached tools even if they might be stale
+        const cachedTools = await this.getCachedTools(serverId);
+        if (cachedTools) {
+          console.log(`📋 Falling back to cached tools for server ${serverId}`);
+          return cachedTools.map(tool => ({
+            ...tool,
+            name: `${serverId}.${tool.name}`,
+            description: `[${serverId}] ${tool.description}`
+          }));
+        }
+        
+        return [];
       }
-    }
+    });
+
+    const toolResults = await Promise.all(toolPromises);
+    toolResults.forEach(tools => allTools.push(...tools));
 
     this.cachedTools = allTools;
     this.lastToolsUpdate = Date.now();
@@ -162,23 +202,54 @@ export class MCPProviderManager implements MCPProvider {
     }
   }
 
+  async callToolsParallel(toolCalls: MCPToolCall[]): Promise<MCPToolResult[]> {
+    // Execute all tool calls in parallel
+    const promises = toolCalls.map(async (toolCall, index) => {
+      try {
+        const result = await this.callTool(toolCall);
+        return { index, result };
+      } catch (error) {
+        return {
+          index,
+          result: {
+            content: [{
+              type: 'text' as const,
+              text: `Error calling tool ${toolCall.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }],
+            isError: true
+          }
+        };
+      }
+    });
+
+    // Wait for all to complete and restore order
+    const results = await Promise.all(promises);
+    return results
+      .sort((a, b) => a.index - b.index)
+      .map(r => r.result);
+  }
+
   async listResources(): Promise<MCPResource[]> {
     const allResources: MCPResource[] = [];
     
-    for (const [serverId, client] of this.clients) {
+    // Fetch resources from all servers in parallel
+    const resourcePromises = Array.from(this.clients.entries()).map(async ([serverId, client]) => {
       try {
         const resources = await client.listResources();
         // Prefix resource URIs with server ID
-        const prefixedResources = resources.map(resource => ({
+        return resources.map(resource => ({
           ...resource,
           uri: `${serverId}://${resource.uri}`,
           name: `[${serverId}] ${resource.name}`
         }));
-        allResources.push(...prefixedResources);
       } catch (error) {
         console.error(`Error listing resources from server ${serverId}:`, error);
+        return [];
       }
-    }
+    });
+
+    const resourceResults = await Promise.all(resourcePromises);
+    resourceResults.forEach(resources => allResources.push(...resources));
 
     return allResources;
   }
@@ -202,20 +273,24 @@ export class MCPProviderManager implements MCPProvider {
   async listPrompts(): Promise<MCPPrompt[]> {
     const allPrompts: MCPPrompt[] = [];
     
-    for (const [serverId, client] of this.clients) {
+    // Fetch prompts from all servers in parallel
+    const promptPromises = Array.from(this.clients.entries()).map(async ([serverId, client]) => {
       try {
         const prompts = await client.listPrompts();
         // Prefix prompt names with server ID
-        const prefixedPrompts = prompts.map(prompt => ({
+        return prompts.map(prompt => ({
           ...prompt,
           name: `${serverId}.${prompt.name}`,
           description: `[${serverId}] ${prompt.description}`
         }));
-        allPrompts.push(...prefixedPrompts);
       } catch (error) {
         console.error(`Error listing prompts from server ${serverId}:`, error);
+        return [];
       }
-    }
+    });
+
+    const promptResults = await Promise.all(promptPromises);
+    promptResults.forEach(prompts => allPrompts.push(...prompts));
 
     return allPrompts;
   }
@@ -293,5 +368,79 @@ export class MCPProviderManager implements MCPProvider {
     
     // Refresh tools cache
     await this.refreshToolsCache();
+  }
+
+  // Cache management methods
+  private async loadCachedCapabilities(server: MCPServer): Promise<void> {
+    try {
+      const cachedCapabilities = await this.cache.get(MCP_CACHE_KEYS.CAPABILITIES(server.id));
+      const cachedServerInfo = await this.cache.get(MCP_CACHE_KEYS.SERVER_INFO(server.id));
+      
+      if (cachedCapabilities) {
+        server.capabilities = cachedCapabilities;
+        console.log(`📋 Restored capabilities for ${server.name} from cache`);
+      }
+      
+      if (cachedServerInfo) {
+        Object.assign(server, cachedServerInfo);
+        console.log(`📋 Restored server info for ${server.name} from cache`);
+      }
+    } catch (error) {
+      console.warn(`Failed to load cached capabilities for ${server.name}:`, error);
+    }
+  }
+
+  private async cacheServerCapabilities(server: MCPServer): Promise<void> {
+    try {
+      // Cache capabilities for 24 hours
+      const ttl = 24 * 60 * 60 * 1000;
+      
+      if (server.capabilities) {
+        await this.cache.set(MCP_CACHE_KEYS.CAPABILITIES(server.id), server.capabilities, ttl);
+      }
+      
+      // Cache server info (excluding sensitive data)
+      const serverInfo = {
+        id: server.id,
+        name: server.name,
+        type: server.type,
+        url: server.url,
+        connected: server.connected
+      };
+      await this.cache.set(MCP_CACHE_KEYS.SERVER_INFO(server.id), serverInfo, ttl);
+      
+      console.log(`💾 Cached capabilities for ${server.name}`);
+    } catch (error) {
+      console.warn(`Failed to cache capabilities for ${server.name}:`, error);
+    }
+  }
+
+  private async cacheServerTools(serverId: string, tools: MCPTool[]): Promise<void> {
+    try {
+      // Cache tools for 1 hour
+      const ttl = 60 * 60 * 1000;
+      await this.cache.set(MCP_CACHE_KEYS.TOOLS(serverId), tools, ttl);
+      console.log(`💾 Cached ${tools.length} tools for server ${serverId}`);
+    } catch (error) {
+      console.warn(`Failed to cache tools for ${serverId}:`, error);
+    }
+  }
+
+  private async getCachedTools(serverId: string): Promise<MCPTool[] | null> {
+    try {
+      return await this.cache.get<MCPTool[]>(MCP_CACHE_KEYS.TOOLS(serverId));
+    } catch (error) {
+      console.warn(`Failed to get cached tools for ${serverId}:`, error);
+      return null;
+    }
+  }
+
+  async clearCache(): Promise<void> {
+    try {
+      await this.cache.clear();
+      console.log('🧹 MCP cache cleared');
+    } catch (error) {
+      console.warn('Failed to clear MCP cache:', error);
+    }
   }
 }

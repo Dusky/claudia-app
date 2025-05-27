@@ -1,20 +1,91 @@
 // Token counting utilities for cost tracking and context management
+import { get_encoding, type Tiktoken } from 'tiktoken';
+
+// Cache encodings to avoid repeated initialization
+let cl100kEncoding: Tiktoken | null = null;
+let p50kEncoding: Tiktoken | null = null;
 
 /**
- * Rough token estimation based on character count
- * This is an approximation - different models have different tokenization
- * Generally: 1 token ≈ 4 characters for English text
+ * Initialize tiktoken encodings lazily
  */
-export function estimateTokens(text: string): number {
+function getOrCreateEncoding(encodingName: 'cl100k_base' | 'p50k_base'): Tiktoken {
+  try {
+    if (encodingName === 'cl100k_base') {
+      if (!cl100kEncoding) {
+        cl100kEncoding = get_encoding('cl100k_base');
+      }
+      return cl100kEncoding!;
+    } else {
+      if (!p50kEncoding) {
+        p50kEncoding = get_encoding('p50k_base');
+      }
+      return p50kEncoding!;
+    }
+  } catch (error) {
+    console.warn('Failed to initialize tiktoken encoding:', error);
+    throw error;
+  }
+}
+
+/**
+ * Count tokens accurately using tiktoken
+ */
+export function estimateTokens(text: string, model?: string): number {
   if (!text) return 0;
   
+  try {
+    // Determine encoding based on model
+    const encodingName = getEncodingForModel(model);
+    const encoding = getOrCreateEncoding(encodingName);
+    
+    const tokens = encoding.encode(text);
+    return tokens.length;
+  } catch (error) {
+    console.warn('Tiktoken encoding failed, falling back to estimation:', error);
+    // Fallback to character-based estimation
+    return estimateTokensFallback(text);
+  }
+}
+
+/**
+ * Determine the appropriate encoding for a model
+ */
+function getEncodingForModel(model?: string): 'cl100k_base' | 'p50k_base' {
+  if (!model) return 'cl100k_base'; // Default for GPT-4/Claude
+  
+  const modelLower = model.toLowerCase();
+  
+  // GPT-4, GPT-3.5-turbo, and Claude use cl100k_base
+  if (modelLower.includes('gpt-4') || 
+      modelLower.includes('gpt-3.5') || 
+      modelLower.includes('claude')) {
+    return 'cl100k_base';
+  }
+  
+  // Older GPT-3 models use p50k_base
+  if (modelLower.includes('gpt-3') || 
+      modelLower.includes('davinci') || 
+      modelLower.includes('curie') || 
+      modelLower.includes('babbage') || 
+      modelLower.includes('ada')) {
+    return 'p50k_base';
+  }
+  
+  // Default to cl100k_base for unknown models
+  return 'cl100k_base';
+}
+
+/**
+ * Fallback token estimation when tiktoken fails
+ */
+function estimateTokensFallback(text: string): number {
   // More accurate estimation accounting for spaces and common patterns
   // Most tokenizers count spaces, punctuation, etc. differently
   const baseEstimate = Math.ceil(text.length / 4);
   
   // Adjust for common patterns
   const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
-  const punctuationCount = (text.match(/[.,!?;:()[\]{}'"]/g) || []).length;
+  const punctuationCount = (text.match(/[.,!?;:()[\]{}'"]]/g) || []).length;
   
   // Better estimate: average of character-based and word-based counting
   const wordBasedEstimate = wordCount + punctuationCount;
@@ -23,12 +94,33 @@ export function estimateTokens(text: string): number {
 }
 
 /**
+ * Clean up tiktoken encodings
+ */
+export function cleanupTokenCounter(): void {
+  try {
+    if (cl100kEncoding) {
+      cl100kEncoding.free();
+      cl100kEncoding = null;
+    }
+    if (p50kEncoding) {
+      p50kEncoding.free();
+      p50kEncoding = null;
+    }
+  } catch (error) {
+    console.warn('Error cleaning up tiktoken encodings:', error);
+  }
+}
+
+/**
  * Calculate total tokens for a conversation thread
  */
-export function calculateConversationTokens(messages: Array<{ content: string; tokens?: number }>): number {
+export function calculateConversationTokens(
+  messages: Array<{ content: string; tokens?: number; role?: string }>, 
+  model?: string
+): number {
   return messages.reduce((total, message) => {
     // Use stored token count if available, otherwise estimate
-    const tokens = message.tokens ?? estimateTokens(message.content);
+    const tokens = message.tokens ?? estimateTokens(message.content, model);
     return total + tokens;
   }, 0);
 }
@@ -69,14 +161,17 @@ export interface TokenStats {
   formattedTotal: string;
 }
 
-export function getTokenStats(messages: Array<{ content: string; role: string; tokens?: number }>): TokenStats {
+export function getTokenStats(
+  messages: Array<{ content: string; role: string; tokens?: number }>, 
+  model?: string
+): TokenStats {
   let total = 0;
   let userTokens = 0;
   let assistantTokens = 0;
   let systemTokens = 0;
   
   messages.forEach(message => {
-    const tokens = message.tokens ?? estimateTokens(message.content);
+    const tokens = message.tokens ?? estimateTokens(message.content, model);
     total += tokens;
     
     switch (message.role) {

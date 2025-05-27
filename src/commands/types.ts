@@ -24,6 +24,7 @@ export interface CommandContext {
   setTheme: (theme: string) => void;
   openPersonalityEditor: (personality?: Personality | null | undefined) => void; 
   openConfigModal?: () => void; // Function to open config modal
+  showModal?: (modalType: string, data?: unknown) => void; // Function to show modals
   commandRegistry: CommandRegistry; // Provide access to the registry itself for sub-commands or help
   activeConversationId: string | null;
   setActiveConversationId: (id: string | null, loadMessages?: boolean) => Promise<void>;

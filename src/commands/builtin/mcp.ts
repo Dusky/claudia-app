@@ -1,6 +1,7 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
 import type { MCPServer } from '../../providers/mcp/types';
+import type { MCPProviderManager } from '../../providers/mcp/manager';
 
 export const mcpCommand: Command = {
   name: 'mcp',
@@ -38,6 +39,16 @@ export const mcpCommand: Command = {
       
       case 'status':
         return await serverStatus(subArgs, context, timestamp);
+      
+      case 'perms':
+      case 'permissions':
+        return await openPermissionsModal(context, timestamp);
+      
+      case 'tools':
+        return await listTools(subArgs, context, timestamp);
+      
+      case 'cache':
+        return await cacheCommand(subArgs, context, timestamp);
       
       case 'help':
       default:
@@ -94,6 +105,27 @@ function showMCPHelp(timestamp: string): CommandResult {
       id: `mcp-help-7-${timestamp}`,
       type: 'output',
       content: '  /mcp status [id]             - Show server status',
+      timestamp,
+      user: 'claudia'
+    },
+    {
+      id: `mcp-help-7b-${timestamp}`,
+      type: 'output',
+      content: '  /mcp perms                   - Manage server permissions',
+      timestamp,
+      user: 'claudia'
+    },
+    {
+      id: `mcp-help-7c-${timestamp}`,
+      type: 'output',
+      content: '  /mcp tools [server]          - List available tools',
+      timestamp,
+      user: 'claudia'
+    },
+    {
+      id: `mcp-help-7d-${timestamp}`,
+      type: 'output',
+      content: '  /mcp cache clear             - Clear cached data',
       timestamp,
       user: 'claudia'
     },
@@ -531,6 +563,239 @@ async function serverStatus(args: string[], context: CommandContext, timestamp: 
       id: `mcp-status-exception-${timestamp}`,
       type: 'error',
       content: `❌ Error getting server status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timestamp,
+      user: 'claudia'
+    };
+    return { success: false, lines: [errorLine] };
+  }
+}
+
+async function openPermissionsModal(context: CommandContext, timestamp: string): Promise<CommandResult> {
+  try {
+    // Trigger modal opening via context callback if available
+    if (context.showModal) {
+      context.showModal('mcp-permissions');
+      
+      const successLine: TerminalLine = {
+        id: `mcp-perms-opened-${timestamp}`,
+        type: 'output',
+        content: '🛡️ MCP Permissions modal opened.',
+        timestamp,
+        user: 'claudia'
+      };
+      
+      return { success: true, lines: [successLine] };
+    } else {
+      const errorLine: TerminalLine = {
+        id: `mcp-perms-error-${timestamp}`,
+        type: 'error',
+        content: '❌ Modal functionality not available. Use /mcp list to view servers.',
+        timestamp,
+        user: 'claudia'
+      };
+      
+      return { success: false, lines: [errorLine] };
+    }
+  } catch (error) {
+    const errorLine: TerminalLine = {
+      id: `mcp-perms-exception-${timestamp}`,
+      type: 'error',
+      content: `❌ Error opening permissions modal: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timestamp,
+      user: 'claudia'
+    };
+    return { success: false, lines: [errorLine] };
+  }
+}
+
+async function listTools(args: string[], context: CommandContext, timestamp: string): Promise<CommandResult> {
+  try {
+    const mcpProvider = context.mcpManager;
+    
+    if (!mcpProvider || !mcpProvider.isConfigured()) {
+      const errorLine: TerminalLine = {
+        id: `mcp-tools-error-${timestamp}`,
+        type: 'error',
+        content: '❌ No MCP provider configured.',
+        timestamp,
+        user: 'claudia'
+      };
+      return { success: false, lines: [errorLine] };
+    }
+
+    const allTools = await mcpProvider.listTools();
+    
+    if (allTools.length === 0) {
+      const noToolsLine: TerminalLine = {
+        id: `mcp-tools-empty-${timestamp}`,
+        type: 'output',
+        content: '📭 No MCP tools available.',
+        timestamp,
+        user: 'claudia'
+      };
+      return { success: true, lines: [noToolsLine] };
+    }
+
+    // Filter by server if specified
+    let filteredTools = allTools;
+    if (args.length > 0) {
+      const serverFilter = args[0];
+      filteredTools = allTools.filter(tool => 
+        tool.name.startsWith(`${serverFilter}.`) || 
+        (serverFilter === 'builtin' && !tool.name.includes('.'))
+      );
+    }
+
+    const lines: TerminalLine[] = [
+      {
+        id: `mcp-tools-header-${timestamp}`,
+        type: 'output',
+        content: `🔧 Available MCP Tools (${filteredTools.length}${args.length > 0 ? ` for ${args[0]}` : ''}):`,
+        timestamp,
+        user: 'claudia'
+      }
+    ];
+
+    filteredTools.forEach((tool, index) => {
+      lines.push({
+        id: `mcp-tool-${index}-${timestamp}`,
+        type: 'output',
+        content: `  ${tool.name}`,
+        timestamp,
+        user: 'claudia'
+      });
+      
+      if (tool.description) {
+        lines.push({
+          id: `mcp-tool-desc-${index}-${timestamp}`,
+          type: 'output',
+          content: `    ${tool.description}`,
+          timestamp,
+          user: 'claudia'
+        });
+      }
+    });
+
+    return { success: true, lines };
+  } catch (error) {
+    const errorLine: TerminalLine = {
+      id: `mcp-tools-exception-${timestamp}`,
+      type: 'error',
+      content: `❌ Error listing tools: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timestamp,
+      user: 'claudia'
+    };
+    return { success: false, lines: [errorLine] };
+  }
+}
+
+async function cacheCommand(args: string[], context: CommandContext, timestamp: string): Promise<CommandResult> {
+  try {
+    const mcpProvider = context.mcpManager;
+    
+    if (!mcpProvider || !mcpProvider.isConfigured()) {
+      const errorLine: TerminalLine = {
+        id: `mcp-cache-error-${timestamp}`,
+        type: 'error',
+        content: '❌ No MCP provider configured.',
+        timestamp,
+        user: 'claudia'
+      };
+      return { success: false, lines: [errorLine] };
+    }
+
+    if (args.length === 0) {
+      const helpLines: TerminalLine[] = [
+        {
+          id: `mcp-cache-help-1-${timestamp}`,
+          type: 'output',
+          content: '🗄️ MCP Cache Management:',
+          timestamp,
+          user: 'claudia'
+        },
+        {
+          id: `mcp-cache-help-2-${timestamp}`,
+          type: 'output',
+          content: '  /mcp cache clear    - Clear all cached data',
+          timestamp,
+          user: 'claudia'
+        },
+        {
+          id: `mcp-cache-help-3-${timestamp}`,
+          type: 'output',
+          content: '  /mcp cache status   - Show cache status',
+          timestamp,
+          user: 'claudia'
+        }
+      ];
+      return { success: true, lines: helpLines };
+    }
+
+    const subcommand = args[0].toLowerCase();
+
+    switch (subcommand) {
+      case 'clear': {
+        await (mcpProvider as MCPProviderManager).clearCache();
+        const successLine: TerminalLine = {
+          id: `mcp-cache-clear-${timestamp}`,
+          type: 'output',
+          content: '🧹 MCP cache cleared successfully.',
+          timestamp,
+          user: 'claudia'
+        };
+        return { success: true, lines: [successLine] };
+      }
+      
+      case 'status': {
+        const statusLines: TerminalLine[] = [
+          {
+            id: `mcp-cache-status-${timestamp}`,
+            type: 'output',
+            content: '📊 MCP Cache Status:',
+            timestamp,
+            user: 'claudia'
+          },
+          {
+            id: `mcp-cache-status-info-${timestamp}`,
+            type: 'output',
+            content: '   Capabilities cached for 24 hours',
+            timestamp,
+            user: 'claudia'
+          },
+          {
+            id: `mcp-cache-status-info2-${timestamp}`,
+            type: 'output',
+            content: '   Tools cached for 1 hour',
+            timestamp,
+            user: 'claudia'
+          },
+          {
+            id: `mcp-cache-status-info3-${timestamp}`,
+            type: 'output',
+            content: '   Automatic cleanup every 5 minutes',
+            timestamp,
+            user: 'claudia'
+          }
+        ];
+        return { success: true, lines: statusLines };
+      }
+      
+      default: {
+        const errorLine: TerminalLine = {
+          id: `mcp-cache-unknown-${timestamp}`,
+          type: 'error',
+          content: `❌ Unknown cache command: ${subcommand}`,
+          timestamp,
+          user: 'claudia'
+        };
+        return { success: false, lines: [errorLine] };
+      }
+    }
+  } catch (error) {
+    const errorLine: TerminalLine = {
+      id: `mcp-cache-exception-${timestamp}`,
+      type: 'error',
+      content: `❌ Error managing cache: ${error instanceof Error ? error.message : 'Unknown error'}`,
       timestamp,
       user: 'claudia'
     };

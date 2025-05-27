@@ -62,7 +62,8 @@ export class AnthropicProvider implements LLMProvider {
             'x-api-key': this.config.apiKey,
             'anthropic-version': '2023-06-01'
           },
-          timeout: this.config.timeout
+          timeout: this.config.timeout,
+          signal: options?.signal
         }
       );
 
@@ -102,6 +103,7 @@ export class AnthropicProvider implements LLMProvider {
 
     try {
       const response = await fetch(`${this.config.baseURL}/v1/messages`, {
+        signal: options?.signal,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +173,7 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
-  async generateText(prompt: string, options?: { systemMessage?: string; maxTokens?: number; temperature?: number }): Promise<string> {
+  async generateText(prompt: string, options?: { systemMessage?: string; maxTokens?: number; temperature?: number; signal?: AbortSignal }): Promise<string> {
     const messages: LLMMessage[] = [];
     
     if (options?.systemMessage) {
@@ -182,7 +184,8 @@ export class AnthropicProvider implements LLMProvider {
     
     const response = await this.generateResponse(messages, {
       maxTokens: options?.maxTokens || 150,
-      temperature: options?.temperature || 0.7
+      temperature: options?.temperature || 0.7,
+      signal: options?.signal
     });
     
     return response.content;

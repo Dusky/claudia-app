@@ -1,5 +1,4 @@
 import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction } from '../../avatar/types';
-import type { Personality } from '../../types/personality';
 import type { ImagePromptComponents, PromptModificationContext } from './types';
 
 // Helper for simple seeded random number (0 to 1)
@@ -31,7 +30,18 @@ export class ImagePromptComposer {
     settingDescription: "A cozy bedroom at golden hour. Sunlight streams through a slightly dusty window, casting warm beams that pick up floating dust motes and create soft lens flare. The background is softly blurred (shallow depth-of-field) but hints at posters on the walls and fairy-lights whose bulbs form circular bokeh.",
     lightingKeywords: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting",
     backgroundKeywords: "cozy bedroom, golden hour sunlight, floating dust motes, soft lens flare, blurred background",
-    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect"
+    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect",
+    // Additional required fields
+    primaryDescription: `${this.baseCharacterIdentity}`,
+    poseAndExpression: "neutral pose with calm expression",
+    baseCharacterReference: `${this.baseCharacterIdentity}`,
+    subjectDescription: "young woman in sundress",
+    cameraPerspectiveAndComposition: "35mm portrait, shallow depth of field, vertical composition",
+    realismAndDetails: "photorealistic, high detail, natural textures",
+    styleKeywords: "film photography, natural lighting, intimate portrait",
+    qualityKeywords: "high resolution, professional photography, crisp detail",
+    atmosphereAndStyle: "warm, intimate, natural lighting",
+    lightingDescription: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting"
   };
 
   private expressionDetailsMap: Record<AvatarExpression, string> = {

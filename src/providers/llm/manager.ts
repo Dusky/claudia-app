@@ -7,6 +7,8 @@ import { config, isProviderConfigured } from '../../config/env';
 export class LLMProviderManager {
   private providers = new Map<string, LLMProvider>();
   private activeProvider: string | null = null;
+  private defaultTimeout: number = 30000; // 30 seconds
+  private activeRequests = new Map<string, AbortController>();
 
   constructor() {
     // Register default providers
@@ -73,22 +75,94 @@ export class LLMProviderManager {
     this.activeProvider = providerId;
   }
 
-  async generateText(prompt: string, options?: { systemMessage?: string; temperature?: number; maxTokens?: number }): Promise<string> {
+  async generateText(
+    prompt: string, 
+    options?: { 
+      systemMessage?: string; 
+      temperature?: number; 
+      maxTokens?: number;
+      timeout?: number;
+      signal?: AbortSignal;
+    }
+  ): Promise<string> {
     const provider = this.getActiveProvider();
     if (!provider) {
       throw new Error('No active LLM provider configured');
     }
 
+    const requestId = `generateText_${Date.now()}_${Math.random()}`;
+    const controller = new AbortController();
+    const timeout = options?.timeout || this.defaultTimeout;
+    
+    // Combine external signal with our timeout signal
+    if (options?.signal) {
+      options.signal.addEventListener('abort', () => {
+        controller.abort();
+      });
+    }
+    
+    this.activeRequests.set(requestId, controller);
+    
+    // Set up timeout with warning at 20s
+    const warningTimeout = setTimeout(() => {
+      if (!controller.signal.aborted) {
+        console.warn(`⚠️ LLM request taking longer than 20s (timeout at ${timeout}ms)`);
+      }
+    }, 20000);
+    
+    const requestTimeout = setTimeout(() => {
+      controller.abort();
+    }, timeout);
+
     try {
       const response = await provider.generateText(prompt, {
         systemMessage: options?.systemMessage,
         maxTokens: options?.maxTokens || 150,
-        temperature: options?.temperature || 0.7
+        temperature: options?.temperature || 0.7,
+        signal: controller.signal
       });
+      
+      clearTimeout(warningTimeout);
+      clearTimeout(requestTimeout);
+      this.activeRequests.delete(requestId);
+      
       return response;
     } catch (error) {
+      clearTimeout(warningTimeout);
+      clearTimeout(requestTimeout);
+      this.activeRequests.delete(requestId);
+      
+      if (controller.signal.aborted) {
+        throw new Error(`Request timed out after ${timeout}ms`);
+      }
+      
       console.error('LLM generateText failed:', error);
       throw error;
     }
+  }
+  
+  /**
+   * Cancel all active requests
+   */
+  cancelAllRequests(): void {
+    for (const [requestId, controller] of this.activeRequests) {
+      controller.abort();
+      console.log(`Cancelled LLM request: ${requestId}`);
+    }
+    this.activeRequests.clear();
+  }
+  
+  /**
+   * Get number of active requests
+   */
+  getActiveRequestCount(): number {
+    return this.activeRequests.size;
+  }
+  
+  /**
+   * Set default timeout for requests
+   */
+  setDefaultTimeout(timeout: number): void {
+    this.defaultTimeout = timeout;
   }
 }

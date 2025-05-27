@@ -13,6 +13,17 @@ export interface TerminalTheme {
     warning: string;
     error: string;
   };
+  highContrast?: {
+    background: string;
+    foreground: string;
+    cursor: string;
+    selection: string;
+    accent: string;
+    secondary: string;
+    success: string;
+    warning: string;
+    error: string;
+  };
   font: {
     family: string;
     size: string;
@@ -52,6 +63,17 @@ export const themes: Record<string, TerminalTheme> = {
       success: '#33FF33',
       warning: '#FFFF33',
       error: '#FF3333'
+    },
+    highContrast: {
+      background: '#000000',
+      foreground: '#00FF00',
+      cursor: '#FFFFFF',
+      selection: '#004400',
+      accent: '#00FF00',
+      secondary: '#FFFFFF',
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
     },
     font: {
       family: '"VT323", "IBM Plex Mono", "Courier New", monospace', 
@@ -93,6 +115,17 @@ export const themes: Record<string, TerminalTheme> = {
       warning: '#FFFF55',
       error: '#FF5555'
     },
+    highContrast: {
+      background: '#000000',
+      foreground: '#FFFFFF',
+      cursor: '#FFFF00',
+      selection: '#444444',
+      accent: '#00FFFF',
+      secondary: '#FFFFFF',
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
+    },
     font: {
       family: '"Perfect DOS VGA 437", "Fixedsys Excelsior", "Monaco", monospace', 
       size: '16px', 
@@ -129,6 +162,17 @@ export const themes: Record<string, TerminalTheme> = {
       selection: '#333333',
       accent: '#00AAAA', 
       secondary: '#AAAA00', 
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
+    },
+    highContrast: {
+      background: '#000000',
+      foreground: '#FFFFFF',
+      cursor: '#FF00FF',
+      selection: '#555555',
+      accent: '#00FFFF',
+      secondary: '#FFFF00',
       success: '#00FF00',
       warning: '#FFFF00',
       error: '#FF0000'
@@ -173,6 +217,17 @@ export const themes: Record<string, TerminalTheme> = {
       warning: '#DCDCAA',
       error: '#F44747'
     },
+    highContrast: {
+      background: '#000000',
+      foreground: '#FFFFFF',
+      cursor: '#FFFF00',
+      selection: '#666666',
+      accent: '#00FFFF',
+      secondary: '#FFFFFF',
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
+    },
     font: {
       family: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
       size: '14px',
@@ -212,6 +267,17 @@ export const themes: Record<string, TerminalTheme> = {
       warning: '#FFA500',
       error: '#FF6B6B'
     },
+    highContrast: {
+      background: '#000000',
+      foreground: '#FFFF00',
+      cursor: '#FFFFFF',
+      selection: '#444400',
+      accent: '#FFFF00',
+      secondary: '#FFFFFF',
+      success: '#00FF00',
+      warning: '#FFFF00',
+      error: '#FF0000'
+    },
     font: {
       family: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
       size: '15px',
@@ -238,8 +304,50 @@ export const themes: Record<string, TerminalTheme> = {
   }
 };
 
-export const getTheme = (themeId: string): TerminalTheme => {
-  return themes[themeId] || themes.modern;
+/**
+ * Get a theme with optional high contrast override
+ */
+export const getTheme = (themeId: string, highContrast: boolean = false): TerminalTheme => {
+  const theme = themes[themeId] || themes.modern;
+  
+  if (highContrast && theme.highContrast) {
+    return {
+      ...theme,
+      colors: theme.highContrast
+    };
+  }
+  
+  return theme;
+};
+
+/**
+ * Check if a theme supports high contrast mode
+ */
+export const supportsHighContrast = (themeId: string): boolean => {
+  const theme = themes[themeId];
+  return theme && !!theme.highContrast;
+};
+
+/**
+ * Get all available theme IDs
+ */
+export const getAvailableThemes = (): string[] => {
+  return Object.keys(themes);
+};
+
+/**
+ * Get theme metadata
+ */
+export const getThemeMetadata = (themeId: string) => {
+  const theme = themes[themeId];
+  if (!theme) return null;
+  
+  return {
+    id: theme.id,
+    name: theme.name,
+    era: theme.era,
+    supportsHighContrast: !!theme.highContrast
+  };
 };
 
 export const getAllThemes = (): TerminalTheme[] => {

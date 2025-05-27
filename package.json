@@ -25,6 +25,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "axios": "^1.9.0",
     "better-sqlite3": "^11.10.0",
+    "focus-trap-react": "^11.0.3",
     "html2canvas": "^1.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -32,6 +33,7 @@
     "react-window": "^1.8.11",
     "sqlite3": "^5.1.7",
     "three": "^0.176.0",
+    "tiktoken": "^1.0.21",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

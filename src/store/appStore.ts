@@ -96,6 +96,7 @@ export interface AppState {
   imageModalOpen: boolean;
   aiOptionsModalOpen: boolean;
   appSettingsModalOpen: boolean;
+  mcpPermissionsModalOpen: boolean;
   showBootSequence: boolean;
   
   // Personality modal state
@@ -129,6 +130,7 @@ export interface AppState {
   setImageModalOpen: (open: boolean) => void;
   setAiOptionsModalOpen: (open: boolean) => void;
   setAppSettingsModalOpen: (open: boolean) => void;
+  setMcpPermissionsModalOpen: (open: boolean) => void;
   setShowBootSequence: (show: boolean) => void;
   
   // Initialization actions
@@ -183,6 +185,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   imageModalOpen: false,
   aiOptionsModalOpen: false,
   appSettingsModalOpen: false,
+  mcpPermissionsModalOpen: false,
   showBootSequence: false,
   
   // Personality modal state
@@ -266,6 +269,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setImageModalOpen: (open) => set({ imageModalOpen: open }),
   setAiOptionsModalOpen: (open) => set({ aiOptionsModalOpen: open }),
   setAppSettingsModalOpen: (open) => set({ appSettingsModalOpen: open }),
+  setMcpPermissionsModalOpen: (open) => set({ mcpPermissionsModalOpen: open }),
   setShowBootSequence: (show) => set({ showBootSequence: show }),
   
   // Initialization actions
