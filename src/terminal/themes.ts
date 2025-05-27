@@ -54,20 +54,21 @@ export const themes: Record<string, TerminalTheme> = {
       error: '#FF3333'
     },
     font: {
-      family: '"VT323", "IBM Plex Mono", "Courier New", monospace', // VT323 first for pixel look
-      size: '18px', // Pixel fonts often look better at specific sizes
-      weight: '400', // VT323 is typically regular weight
+      family: '"VT323", "IBM Plex Mono", "Courier New", monospace', 
+      size: '18px', 
+      weight: '400', 
       lineHeight: '1.4'
     },
     effects: {
       scanlines: true,
-      glow: true, // Will be a subtle blur/phosphor halo
+      glow: true, 
       flicker: false,
       crt: true,
       noise: true,
       noiseIntensity: 0.1,
       screenCurvature: true,
-      appBackground: '#050505 url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23151515\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
+      // Made the SVG stroke color lighter for better visibility
+      appBackground: '#050505 url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23282828\' stroke-width=\'0.7\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
       padding: '25px', 
@@ -94,18 +95,19 @@ export const themes: Record<string, TerminalTheme> = {
     },
     font: {
       family: '"Perfect DOS VGA 437", "Fixedsys Excelsior", "Monaco", monospace', 
-      size: '16px', // Common size for these fonts
+      size: '16px', 
       weight: '400',
-      lineHeight: '1.25' // Tighter line height common for DOS
+      lineHeight: '1.25' 
     },
     effects: {
       scanlines: true, 
-      glow: true, // Subtle glow
+      glow: true, 
       flicker: false,
       crt: true,
       noise: false,
       noiseIntensity: 0.05,
       screenCurvature: true,
+      // This one was working, keeping its contrast
       appBackground: '#000033 url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect x=\'0\' y=\'0\' width=\'100%25\' height=\'100%25\' fill=\'none\' stroke=\'%23000050\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
@@ -132,20 +134,21 @@ export const themes: Record<string, TerminalTheme> = {
       error: '#FF0000'
     },
     font: {
-      family: '"Terminal", "Fixedsys Excelsior", "Consolas", monospace', // Terminal font was common
+      family: '"Terminal", "Fixedsys Excelsior", "Consolas", monospace', 
       size: '15px',
       weight: '400',
       lineHeight: '1.3'
     },
     effects: {
       scanlines: true,
-      glow: true, // More of a digital glow
+      glow: true, 
       flicker: true, 
       crt: true, 
       noise: true,
       noiseIntensity: 0.25, 
       screenCurvature: true,
-      appBackground: 'radial-gradient(ellipse at center, #101020 0%, #000000 80%)',
+      // Made the gradient slightly lighter/more contrasted
+      appBackground: 'radial-gradient(ellipse at center, #181828 0%, #050505 80%)',
     },
     spacing: {
       padding: '12px',
@@ -178,13 +181,13 @@ export const themes: Record<string, TerminalTheme> = {
     },
     effects: {
       scanlines: false, 
-      glow: false, // Modern themes usually have crisp text
+      glow: false, 
       flicker: false,
       crt: false, 
       noise: false,
       noiseIntensity: 0,
       screenCurvature: false,
-      appBackground: '#121212', 
+      appBackground: '#121212', // Solid color, should be fine
     },
     spacing: {
       padding: '20px',

@@ -34,7 +34,7 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
   if (theme.effects.glow) {
     if (isWebGLShaderActive) {
       // Subtle glow/halo when WebGL shader is active, slightly more visible
-      textShadowStyle = { textShadow: `0 0 4px ${getLineTypeColor(line.type)}60, 0 0 1.5px ${getLineTypeColor(line.type)}40` };
+      textShadowStyle = { textShadow: `0 0 5px ${getLineTypeColor(line.type)}50, 0 0 2px ${getLineTypeColor(line.type)}30` };
     } else {
       // More pronounced CSS glow/blur if WebGL shader is off
       if (theme.id === 'mainframe70s') {
@@ -234,19 +234,19 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   const effectiveAppBackground = useMemo(() => {
     if (config?.enableAppBackground) {
-      if (config.appBackgroundOverride && config.appBackgroundOverride.length > 0) {
+      if (config.appBackgroundOverride && config.appBackgroundOverride.trim().length > 0) {
         return config.appBackgroundOverride;
       }
-      if (theme.effects.appBackground && theme.effects.appBackground.length > 0) {
+      if (theme.effects.appBackground && theme.effects.appBackground.trim().length > 0) {
         return theme.effects.appBackground;
       }
     }
-    return 'transparent'; // Default if no app background is active
+    return 'transparent'; // Default if no app background is active or defined
   }, [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
 
   const appBackgroundStyle = useMemo((): React.CSSProperties => ({
     width: '100%', height: '100%',
-    background: effectiveAppBackground,
+    background: effectiveAppBackground, // This is the "screen wallpaper"
     position: 'relative', display: 'flex', flexDirection: 'column',
     zIndex: 0, 
   }), [effectiveAppBackground]);
@@ -255,7 +255,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     const baseStyle: React.CSSProperties = {
       position: 'relative', overflow: 'hidden', width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column',
-      zIndex: 1, 
+      zIndex: 1, // Sits on top of appBackgroundStyle
     };
     if (config?.terminalBreathing) baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
     if (config?.crtGlow) baseStyle.filter = 'brightness(1.1) contrast(1.1)';
@@ -263,12 +263,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [config?.terminalBreathing, config?.crtGlow]);
 
   const terminalContentWrapperStyle = useMemo((): React.CSSProperties => {
-    const useTransparentBg = effectiveAppBackground !== 'transparent';
+    // This wrapper holds the text lines. It should be transparent if appBackgroundStyle is showing a wallpaper.
+    // Otherwise, it uses the theme's default color for the text area.
+    const useTransparentBgForContent = effectiveAppBackground !== 'transparent';
     return {
       flex: 1, display: 'flex', flexDirection: 'column',
       padding: theme.spacing.padding, 
-      background: useTransparentBg ? 'transparent' : theme.colors.background,
-      position: 'relative', zIndex: 2, 
+      background: useTransparentBgForContent ? 'transparent' : theme.colors.background,
+      position: 'relative', zIndex: 2, // Sits on top of terminalContainerOuterStyle (and its ::before for CSS vignette)
       transition: 'transform 0.3s ease-out',
       transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
       borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
@@ -299,7 +301,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
               backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, 
               animation: 'scanmove 10s linear infinite',
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
             }}
           />
@@ -310,7 +312,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) 
             }}
           />
@@ -321,7 +323,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             className="visual-artifacts-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               animation: 'artifacts 8s ease-in-out infinite'
             }}
           />
