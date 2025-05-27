@@ -22,6 +22,7 @@ import { createCommandRegistry, type CommandContext } from './commands';
 import { useAppStore } from './store/appStore';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useEventListeners } from './hooks/useEventListeners';
+import { useCRTGradient } from './hooks/useCRTGradient';
 // import { estimateTokens } from './utils/tokenCounter';
 import './App.css';
 import './styles/overlays.css';
@@ -104,6 +105,9 @@ function App() {
   });
   
   useEventListeners();
+
+  // Initialize CRT gradient background
+  useCRTGradient(currentTheme, config.enableCRTEffect !== false);
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
   
