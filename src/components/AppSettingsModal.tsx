@@ -13,6 +13,7 @@ interface AppSettingsModalProps {
 // Settings keys for persistence
 export const APP_SETTINGS_KEYS = {
   GLOBAL_IMAGE_GENERATION: 'app.globalImageGeneration',
+  USE_META_PROMPTING_FOR_IMAGES: 'app.useMetaPromptingForImages', // New key
   AUTO_SAVE_IMAGES: 'app.autoSaveImages',
   IMAGE_CACHE_SIZE: 'app.imageCacheSize',
   DEBUG_MODE: 'app.debugMode',
@@ -31,6 +32,7 @@ export const APP_SETTINGS_KEYS = {
 // Default values
 const DEFAULT_SETTINGS = {
   globalImageGeneration: true,
+  useMetaPromptingForImages: false, // New default
   autoSaveImages: true,
   imageCacheSize: 100,
   debugMode: false,
@@ -47,6 +49,7 @@ const DEFAULT_SETTINGS = {
 
 interface AppSettings {
   globalImageGeneration: boolean;
+  useMetaPromptingForImages: boolean; // New setting
   autoSaveImages: boolean;
   imageCacheSize: number;
   debugMode: boolean;
@@ -86,6 +89,10 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
           APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, 
           DEFAULT_SETTINGS.globalImageGeneration
         )) ?? DEFAULT_SETTINGS.globalImageGeneration,
+        useMetaPromptingForImages: (await storage.getSetting<boolean>( // Load new setting
+          APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES,
+          DEFAULT_SETTINGS.useMetaPromptingForImages
+        )) ?? DEFAULT_SETTINGS.useMetaPromptingForImages,
         autoSaveImages: (await storage.getSetting<boolean>(
           APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, 
           DEFAULT_SETTINGS.autoSaveImages
@@ -154,6 +161,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
     try {
       await Promise.all([
         storage.setSetting(APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, settings.globalImageGeneration, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES, settings.useMetaPromptingForImages, 'boolean'), // Save new setting
         storage.setSetting(APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, settings.autoSaveImages, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.IMAGE_CACHE_SIZE, settings.imageCacheSize, 'number'),
         storage.setSetting(APP_SETTINGS_KEYS.DEBUG_MODE, settings.debugMode, 'boolean'),
@@ -169,6 +177,9 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
       ]);
       setHasChanges(false);
       console.log('✅ App settings saved successfully');
+      // Optionally, notify other parts of the app that settings have changed
+      // This might involve a Zustand action or event bus if immediate effect is needed elsewhere
+      // For now, we assume components re-read from store or localStorage on next relevant action
     } catch (error) {
       console.error('Failed to save app settings:', error);
       alert('Failed to save settings. Please try again.');
@@ -188,7 +199,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
     if (hasChanges) {
       if (confirm('You have unsaved changes. Are you sure you want to close without saving?')) {
         onClose();
-        setHasChanges(false);
+        setHasChanges(false); // Reset changes flag if closing without saving
       }
     } else {
       onClose();
@@ -239,6 +250,21 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                     Master switch for all image generation features. When disabled, no personalities can generate images.
                   </p>
                 </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.useMetaPromptingForImages}
+                      onChange={(e) => updateSetting('useMetaPromptingForImages', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
+                    />
+                    <span>Use AI to enhance image prompts (Experimental)</span>
+                  </label>
+                  <p className={styles.description}>
+                    Allow an AI to rewrite and enrich image prompts for more creative results. May increase latency and cost.
+                  </p>
+                </div>
                 
                 <div className={styles.setting}>
                   <label className={styles.checkbox}>
@@ -246,6 +272,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       type="checkbox"
                       checked={settings.autoSaveImages}
                       onChange={(e) => updateSetting('autoSaveImages', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
                     />
                     <span>Auto-save generated images</span>
                   </label>
