@@ -36,6 +36,7 @@ export interface PromptModificationContext {
   previousActions?: string[];
   conversationContext?: string;
   isAIDescription?: boolean; // True if situationalDescription comes directly from AI's [IMAGE:] tag
+  isMetaPrompted?: boolean; // True if using meta-prompting
   variationSeed?: number;
   contextualKeywords?: string[];
 }
@@ -67,6 +68,8 @@ export class ImagePromptComposer {
     excited: 'energetic excited smile, beaming',
     confident: 'confident assured smile, steady gaze',
     mischievous: 'playful smirk, knowing glint in eyes',
+    sleepy: 'drowsy, tired expression, half-closed eyes',
+    shocked: 'shocked expression, wide eyes, open mouth',
   };
 
   private poseKeywordsMap: Record<AvatarPose, string> = {
@@ -203,32 +206,58 @@ export class ImagePromptComposer {
   }
 
   compilePrompt(components: ImagePromptComponents): string {
+    // Defensive checks for required properties
+    const situationalDesc = components.situationalDescription || '';
+    const character = components.character || '';
+    const expressionKeywords = components.expressionKeywords || '';
+    const poseKeywords = components.poseKeywords || '';
+    const actionKeywords = components.actionKeywords || '';
+    
     const promptParts = [
-      components.situationalDescription, // This is the core: either AI's description or state-based
-      components.character,             // Always include core character description for consistency
+      situationalDesc, // This is the core: either AI's description or state-based
+      character,       // Always include core character description for consistency
       // Add other components selectively to enhance, not override, situationalDescription
       // If situationalDescription is from AI, these might be redundant or less important
       // If situationalDescription is state-based, these add necessary detail
     ];
 
-    if (!components.situationalDescription.toLowerCase().includes(components.expressionKeywords.split(',')[0])) {
-        promptParts.push(components.expressionKeywords);
+    // Only add additional keywords if they're not already included in the description
+    if (situationalDesc && expressionKeywords) {
+      const firstExpressionKeyword = expressionKeywords.split(',')[0]?.trim();
+      if (firstExpressionKeyword && !situationalDesc.toLowerCase().includes(firstExpressionKeyword.toLowerCase())) {
+        promptParts.push(expressionKeywords);
+      }
+    } else if (expressionKeywords) {
+      promptParts.push(expressionKeywords);
     }
-    if (!components.situationalDescription.toLowerCase().includes(components.poseKeywords.split(',')[0])) {
-        promptParts.push(components.poseKeywords);
+    
+    if (situationalDesc && poseKeywords) {
+      const firstPoseKeyword = poseKeywords.split(',')[0]?.trim();
+      if (firstPoseKeyword && !situationalDesc.toLowerCase().includes(firstPoseKeyword.toLowerCase())) {
+        promptParts.push(poseKeywords);
+      }
+    } else if (poseKeywords) {
+      promptParts.push(poseKeywords);
     }
-     if (!components.situationalDescription.toLowerCase().includes(components.actionKeywords.split(',')[0]) && components.actionKeywords) {
-        promptParts.push(components.actionKeywords);
+    
+    if (situationalDesc && actionKeywords) {
+      const firstActionKeyword = actionKeywords.split(',')[0]?.trim();
+      if (firstActionKeyword && !situationalDesc.toLowerCase().includes(firstActionKeyword.toLowerCase())) {
+        promptParts.push(actionKeywords);
+      }
+    } else if (actionKeywords) {
+      promptParts.push(actionKeywords);
     }
 
 
-    promptParts.push(components.style);
-    promptParts.push(components.lightingKeywords);
+    promptParts.push(components.style || '');
+    promptParts.push(components.lightingKeywords || '');
+    
     // Only add background if situationalDescription doesn't seem to imply one heavily
-    if (!components.situationalDescription.match(/in a|at a|on a|inside|outside|background of/i)) {
-        promptParts.push(components.backgroundKeywords);
+    if (!situationalDesc || !situationalDesc.match(/in a|at a|on a|inside|outside|background of/i)) {
+        promptParts.push(components.backgroundKeywords || '');
     }
-    promptParts.push(components.quality);
+    promptParts.push(components.quality || '');
 
     return promptParts.filter(part => part && part.trim() !== '').join(', ');
   }
@@ -259,25 +288,6 @@ export class ImagePromptComposer {
     this.poseKeywordsMap[pose] = keywords;
   }
 
-  private mergeComponents( // This was for the old structure, less relevant now but kept for utility
-    base: Partial<ImagePromptComponents>,
-    override: Partial<ImagePromptComponents>
-  ): Partial<ImagePromptComponents> {
-    const merged = { ...base };
-    for (const key in override) {
-      if (Object.prototype.hasOwnProperty.call(override, key)) {
-        const k = key as keyof ImagePromptComponents;
-        if (override[k]) { 
-          if (typeof merged[k] === 'string' && typeof override[k] === 'string' && k !== 'situationalDescription') {
-            merged[k] = `${merged[k]}, ${override[k]}`; 
-          } else {
-            (merged as any)[k] = override[k];
-          }
-        }
-      }
-    }
-    return merged;
-  }
 
   getAvailableExpressions(): string[] {
     return Object.keys(this.expressionKeywordsMap) as AvatarExpression[];

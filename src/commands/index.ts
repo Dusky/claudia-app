@@ -24,6 +24,7 @@ import {
 import { manageConversationsCommand } from './builtin/manageConversationsCommand'; // Import the new command
 import { toolsCommand } from './builtin/tools';
 import { mcpCommand } from './builtin/mcp';
+import { crtCommand } from './builtin/crt';
 
 import {
   personalityCommand, 
@@ -85,6 +86,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
     manageConversationsCommand, // Add the new command to the registry
     toolsCommand,
     mcpCommand,
+    crtCommand,
   ];
 
   commandsToRegister.forEach(command => {

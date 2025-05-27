@@ -298,11 +298,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             className="scanlines-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
-              backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, 
-              animation: 'scanmove 10s linear infinite',
+              backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.4) 50%)',
+              backgroundSize: `100% ${config?.scanLines === 'heavy' ? '2px' : config?.scanLines === 'subtle' ? '4px' : '3px'}`, 
+              animation: 'scanmove 8s linear infinite',
               pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
-              opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
+              opacity: config?.scanLines === 'heavy' ? 0.8 : config?.scanLines === 'subtle' ? 0.4 : (theme.effects.scanlines ? 0.6 : 0)
             }}
           />
         )}
@@ -311,9 +311,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             className="noise-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")`,
               pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
-              opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) 
+              opacity: config?.staticOverlay ? 0.4 : (theme.effects.noiseIntensity ?? 0.3),
+              animation: 'noiseShimmer 0.1s linear infinite alternate'
             }}
           />
         )}
@@ -400,6 +401,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
           @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
           @keyframes scanmove { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+          @keyframes noiseShimmer { 0% { opacity: 0.8; } 100% { opacity: 1.2; } }
           @keyframes terminalBreathe {
             0%, 100% { transform: scale(1); filter: brightness(1) ${config?.crtGlow ? 'contrast(1.1)' : 'contrast(1)'}; }
             50% { transform: scale(1.002); filter: brightness(1.05) ${config?.crtGlow ? 'contrast(1.15)' : 'contrast(1.05)'}; }
@@ -456,12 +458,13 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
           ${theme.effects.crt ? `
             .terminal-container.crt-effect { 
-              border-radius: 15px; 
+              border-radius: 20px; 
               box-shadow: 
-                inset 0 0 30px ${theme.colors.background}99, 
-                inset 0 0 60px rgba(100,100,150,0.15), 
-                0 0 15px rgba(0,0,0,0.5), 
-                0 0 40px ${theme.colors.accent}20; 
+                inset 0 0 50px ${theme.colors.background}aa, 
+                inset 0 0 80px rgba(100,100,150,0.25), 
+                0 0 20px rgba(0,0,0,0.7), 
+                0 0 60px ${theme.colors.accent}30; 
+              ${!isWebGLShaderActive ? 'transform: perspective(1000px) rotateX(0.5deg) rotateY(0deg);' : ''}
             }
             ${!isWebGLShaderActive ? `
             .terminal-container.crt-effect::before { 
@@ -469,7 +472,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               position: absolute;
               top: 0; left: 0; right: 0; bottom: 0;
               border-radius: inherit; 
-              background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.5) 100%);
+              background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.4) 85%, rgba(0,0,0,0.7) 100%);
               pointer-events: none;
               z-index: 1; /* Relative to .terminal-container, below .terminal-content-wrapper */
             }

@@ -401,7 +401,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     this.notifyStateChange(); 
   }
   
-  async generateAvatarFromResponse(aiResponse: string, _personality?: Personality): Promise<void> {
+  async generateAvatarFromResponse(aiResponse: string): Promise<void> {
     const emotionalContext = this.analyzeResponseForEmotion(aiResponse);
     let stateChanged = false;
 

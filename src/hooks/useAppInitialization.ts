@@ -93,6 +93,18 @@ export const useAppInitialization = ({
 
         // Restore avatar state from previous session
         await restoreAvatarState();
+        
+        // Sync the restored state with avatar controller
+        const restoredAvatarState = useAppStore.getState().avatarState;
+        if (restoredAvatarState.imageUrl) {
+          console.log('🔄 Syncing restored avatar state with controller:', {
+            imageUrl: restoredAvatarState.imageUrl.substring(0, 50) + '...',
+            expression: restoredAvatarState.expression,
+            pose: restoredAvatarState.pose,
+            action: restoredAvatarState.action
+          });
+          avatarController.setState(restoredAvatarState);
+        }
 
         // Initialize active conversation
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);
@@ -132,11 +144,19 @@ export const useAppInitialization = ({
           await loadConversationMessages(database, activeConvIdToUse);
         }
 
-        // Initialize avatar if no saved state exists
-        if (imageManager.getActiveProvider() && avatarController && !avatarState.imageUrl) {
+        // Initialize avatar if no saved state exists (check after restoration and sync)
+        const finalAvatarState = avatarController.getState();
+        if (imageManager.getActiveProvider() && avatarController && !finalAvatarState.imageUrl) {
+          console.log('📸 No saved avatar image found, generating initial avatar');
           await avatarController.executeCommands([{
             show: true, expression: 'happy', action: 'wave', pose: 'standing'
           }]);
+        } else if (finalAvatarState.imageUrl) {
+          console.log('✅ Using restored avatar image:', finalAvatarState.imageUrl.substring(0, 50) + '...');
+          // Make sure the avatar is visible if we have a saved image
+          if (!finalAvatarState.visible) {
+            avatarController.setState({ visible: true });
+          }
         }
 
       } catch (error) {

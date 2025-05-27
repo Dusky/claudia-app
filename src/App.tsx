@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react'; 
+import { useMemo, useEffect } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarPanel } from './components/AvatarPanel';
 import { PersonalityModal } from './components/PersonalityModal';
@@ -196,9 +196,19 @@ function App() {
       await addLineWithDelay(addLines, line, 500);
     }
     if (imageManager.getActiveProvider() && avatarController) {
-      await avatarController.executeCommands([{
-        show: true, expression: 'happy', position: 'beside-text', action: 'wave', pose: 'standing'
-      }]);
+      const currentState = avatarController.getState();
+      if (!currentState.imageUrl) {
+        console.log('🎬 Boot sequence complete - generating welcome avatar');
+        await avatarController.executeCommands([{
+          show: true, expression: 'happy', action: 'wave', pose: 'standing'
+        }]);
+      } else {
+        console.log('🎬 Boot sequence complete - showing existing avatar without generating new image');
+        // Just show the existing avatar without changing expression/pose to avoid new generation
+        await avatarController.executeCommands([{
+          show: true
+        }]);
+      }
     }
   };
 

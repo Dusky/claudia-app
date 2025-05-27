@@ -160,6 +160,23 @@ export class AnthropicProvider implements LLMProvider {
     }
   }
 
+  async generateText(prompt: string, options?: { systemMessage?: string; maxTokens?: number; temperature?: number }): Promise<string> {
+    const messages: LLMMessage[] = [];
+    
+    if (options?.systemMessage) {
+      messages.push({ role: 'system', content: options.systemMessage });
+    }
+    
+    messages.push({ role: 'user', content: prompt });
+    
+    const response = await this.generateResponse(messages, {
+      maxTokens: options?.maxTokens || 150,
+      temperature: options?.temperature || 0.7
+    });
+    
+    return response.content;
+  }
+
   async listModels(): Promise<Array<{ id: string; name: string; description: string }>> {
     if (!this.isConfigured()) {
       throw new Error('Anthropic provider not configured');

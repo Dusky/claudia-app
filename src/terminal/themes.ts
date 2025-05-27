@@ -67,8 +67,8 @@ export const themes: Record<string, TerminalTheme> = {
       noise: true,
       noiseIntensity: 0.1,
       screenCurvature: true,
-      // Made the SVG stroke color lighter for better visibility
-      appBackground: '#050505 url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23282828\' stroke-width=\'0.7\'/%3E%3C/svg%3E") repeat',
+      // Made the SVG stroke color much lighter for better visibility
+      appBackground: '#0a0a0a url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23404040\' stroke-width=\'0.8\'/%3E%3C/svg%3E") repeat',
     },
     spacing: {
       padding: '25px', 
@@ -147,8 +147,8 @@ export const themes: Record<string, TerminalTheme> = {
       noise: true,
       noiseIntensity: 0.25, 
       screenCurvature: true,
-      // Made the gradient slightly lighter/more contrasted
-      appBackground: 'radial-gradient(ellipse at center, #181828 0%, #050505 80%)',
+      // Made the gradient much more visible with better contrast
+      appBackground: 'radial-gradient(ellipse at center, #2a2a40 0%, #0a0a10 70%, #000000 100%)',
     },
     spacing: {
       padding: '12px',
@@ -180,13 +180,13 @@ export const themes: Record<string, TerminalTheme> = {
       lineHeight: '1.6' 
     },
     effects: {
-      scanlines: false, 
-      glow: false, 
+      scanlines: true, 
+      glow: true, 
       flicker: false,
-      crt: false, 
-      noise: false,
-      noiseIntensity: 0,
-      screenCurvature: false,
+      crt: true, 
+      noise: true,
+      noiseIntensity: 0.05,
+      screenCurvature: true,
       appBackground: '#121212', // Solid color, should be fine
     },
     spacing: {

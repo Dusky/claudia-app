@@ -72,4 +72,23 @@ export class LLMProviderManager {
     }
     this.activeProvider = providerId;
   }
+
+  async generateText(prompt: string, options?: { systemMessage?: string; temperature?: number; maxTokens?: number }): Promise<string> {
+    const provider = this.getActiveProvider();
+    if (!provider) {
+      throw new Error('No active LLM provider configured');
+    }
+
+    try {
+      const response = await provider.generateText(prompt, {
+        systemMessage: options?.systemMessage,
+        maxTokens: options?.maxTokens || 150,
+        temperature: options?.temperature || 0.7
+      });
+      return response;
+    } catch (error) {
+      console.error('LLM generateText failed:', error);
+      throw error;
+    }
+  }
 }

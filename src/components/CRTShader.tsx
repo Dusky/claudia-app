@@ -250,43 +250,43 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
 
   const crtSettings = useMemo(() => {
     const defaults = { 
-      curvature: 20.0, scanlineDensity: 800.0, scanlineIntensity: 0.0, 
-      noiseIntensity: 0.0, brightness: 1.0, distortionAmount: 0.0,
-      vignetteStrength: 0.0, vignetteSmoothness: 0.5,
-      wobbleIntensity: 0.0, wobbleSpeed: 2.0,
-      textBlurIntensity: 0.0, phosphorIntensity: 0.0,
+      curvature: 20.0, scanlineDensity: 800.0, scanlineIntensity: 0.15, 
+      noiseIntensity: 0.05, brightness: 1.0, distortionAmount: 0.2,
+      vignetteStrength: 0.8, vignetteSmoothness: 0.5,
+      wobbleIntensity: 0.001, wobbleSpeed: 2.0,
+      textBlurIntensity: 0.2, phosphorIntensity: 0.1,
     };
     switch (theme) {
       case 'mainframe70s':
         return { 
-          ...defaults, curvature: 10.0, scanlineDensity: 600.0, scanlineIntensity: 0.20, 
-          noiseIntensity: 0.07, brightness: 1.1, distortionAmount: 0.15,
-          vignetteStrength: 1.2, vignetteSmoothness: 0.4,
-          wobbleIntensity: 0.002, wobbleSpeed: 1.5,
-          textBlurIntensity: 0.4, phosphorIntensity: 0.25,
+          ...defaults, curvature: 15.0, scanlineDensity: 600.0, scanlineIntensity: 0.30, 
+          noiseIntensity: 0.12, brightness: 1.15, distortionAmount: 0.25,
+          vignetteStrength: 1.4, vignetteSmoothness: 0.4,
+          wobbleIntensity: 0.003, wobbleSpeed: 1.5,
+          textBlurIntensity: 0.6, phosphorIntensity: 0.35,
         };
       case 'pc80s':
         return { 
-          ...defaults, curvature: 12.0, scanlineDensity: 700.0, scanlineIntensity: 0.15, 
-          noiseIntensity: 0.05, brightness: 1.0, distortionAmount: 0.3,
-          vignetteStrength: 1.0, vignetteSmoothness: 0.5,
-          wobbleIntensity: 0.0015, wobbleSpeed: 2.5,
-          textBlurIntensity: 0.3, phosphorIntensity: 0.15,
+          ...defaults, curvature: 18.0, scanlineDensity: 700.0, scanlineIntensity: 0.25, 
+          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.35,
+          vignetteStrength: 1.2, vignetteSmoothness: 0.5,
+          wobbleIntensity: 0.002, wobbleSpeed: 2.5,
+          textBlurIntensity: 0.4, phosphorIntensity: 0.2,
         };
       case 'bbs90s':
         return { 
-          ...defaults, curvature: 15.0, scanlineDensity: 750.0, scanlineIntensity: 0.12, 
-          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.45,
-          vignetteStrength: 0.8, vignetteSmoothness: 0.6,
-          wobbleIntensity: 0.001, wobbleSpeed: 3.5, 
-          textBlurIntensity: 0.2, phosphorIntensity: 0.1,
+          ...defaults, curvature: 20.0, scanlineDensity: 750.0, scanlineIntensity: 0.20, 
+          noiseIntensity: 0.10, brightness: 1.1, distortionAmount: 0.5,
+          vignetteStrength: 1.0, vignetteSmoothness: 0.6,
+          wobbleIntensity: 0.0015, wobbleSpeed: 3.5, 
+          textBlurIntensity: 0.3, phosphorIntensity: 0.15,
         };
       case 'modern':
       default:
         return { 
-          ...defaults, curvature: 0.0, scanlineIntensity: 0.0, 
-          noiseIntensity: 0.01, distortionAmount: 0.0, vignetteStrength: 0.2, vignetteSmoothness: 0.7, brightness: 1.0,
-          wobbleIntensity: 0.0, textBlurIntensity: 0.0, phosphorIntensity: 0.0,
+          ...defaults, curvature: 8.0, scanlineDensity: 800.0, scanlineIntensity: 0.10, 
+          noiseIntensity: 0.03, distortionAmount: 0.1, vignetteStrength: 0.6, vignetteSmoothness: 0.7, brightness: 1.0,
+          wobbleIntensity: 0.0005, textBlurIntensity: 0.1, phosphorIntensity: 0.05,
         };
     }
   }, [theme]);

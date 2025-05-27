@@ -41,7 +41,9 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     backgroundKeywords: '',
     quality: '',
     negativePrompt: '',
-    situationalDescription: ''
+    situationalDescription: '',
+    variationSeed: undefined,
+    contextualKeywords: undefined
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedImage, setLastGeneratedImage] = useState<string>('');
@@ -54,10 +56,20 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     if (isOpen) {
       console.log("ImageGenerationModal: Opening, attempting to load settings.");
       setModalError(null); 
-      loadSettings().catch(err => {
-        console.error("ImageGenerationModal: Critical error during loadSettings:", err);
-        setModalError(`Failed to load modal settings: ${err instanceof Error ? err.message : String(err)}. Please check console.`);
-      });
+      // Add defensive timeout to prevent hanging
+      const loadTimeout = setTimeout(() => {
+        setModalError('Modal loading timed out. Please close and try again.');
+      }, 10000); // 10 second timeout
+
+      loadSettings()
+        .then(() => {
+          clearTimeout(loadTimeout);
+        })
+        .catch(err => {
+          clearTimeout(loadTimeout);
+          console.error("ImageGenerationModal: Critical error during loadSettings:", err);
+          setModalError(`Failed to load modal settings: ${err instanceof Error ? err.message : String(err)}. Please check console.`);
+        });
     }
   }, [isOpen]);
 
@@ -105,20 +117,53 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       }
 
       if (savedComponents) {
-        setPromptComponents(savedComponents);
+        // Validate and fill in missing properties from saved components
+        const validatedComponents: ImagePromptComponents = {
+          character: savedComponents.character || '',
+          style: savedComponents.style || '',
+          quality: savedComponents.quality || '',
+          negativePrompt: savedComponents.negativePrompt || '',
+          situationalDescription: savedComponents.situationalDescription || '',
+          expressionKeywords: savedComponents.expressionKeywords || '',
+          poseKeywords: savedComponents.poseKeywords || '',
+          actionKeywords: savedComponents.actionKeywords || '',
+          lightingKeywords: savedComponents.lightingKeywords || '',
+          backgroundKeywords: savedComponents.backgroundKeywords || '',
+          variationSeed: savedComponents.variationSeed,
+          contextualKeywords: savedComponents.contextualKeywords
+        };
+        setPromptComponents(validatedComponents);
       } else {
-        const composer = avatarController.getPromptComposer();
-        const avatarState = avatarController.getState();
-        const components = composer.generatePromptComponents({
-          expression: avatarState.expression,
-          pose: avatarState.pose,
-          action: avatarState.action,
-          style: configManager.getImageStyle(),
-          background: 'none',
-          lighting: 'soft',
-          quality: 'high'
-        });
-        setPromptComponents(components);
+        // Defensive checks for avatarController
+        if (!avatarController) {
+          console.warn("ImageGenerationModal: avatarController is not available");
+          return;
+        }
+        
+        try {
+          const composer = avatarController.getPromptComposer();
+          const avatarState = avatarController.getState();
+          
+          if (!composer || !avatarState) {
+            console.warn("ImageGenerationModal: composer or avatarState is not available");
+            return;
+          }
+          
+          const components = composer.generatePromptComponents({
+            expression: avatarState.expression,
+            pose: avatarState.pose,
+            action: avatarState.action,
+            style: configManager.getImageStyle(),
+            background: 'none',
+            lighting: 'soft',
+            quality: 'high'
+          });
+          setPromptComponents(components);
+        } catch (error) {
+          console.error("ImageGenerationModal: Error generating prompt components:", error);
+          setModalError(`Failed to generate prompt components: ${error instanceof Error ? error.message : String(error)}`);
+          return;
+        }
       }
 
       let savedUseCustomPrompt: boolean | null = null;
@@ -191,11 +236,41 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   };
 
   const generatePreview = () => {
-    const composer = avatarController.getPromptComposer();
-    if (useCustomPrompt) {
-      return customPrompt;
+    try {
+      if (useCustomPrompt) {
+        return customPrompt;
+      }
+      
+      if (!avatarController) {
+        return 'Avatar controller not available';
+      }
+      
+      const composer = avatarController.getPromptComposer();
+      if (!composer) {
+        return 'Prompt composer not available';
+      }
+      
+      // Ensure promptComponents has all required fields
+      const safeComponents: ImagePromptComponents = {
+        character: promptComponents.character || '',
+        style: promptComponents.style || '',
+        quality: promptComponents.quality || '',
+        negativePrompt: promptComponents.negativePrompt || '',
+        situationalDescription: promptComponents.situationalDescription || '',
+        expressionKeywords: promptComponents.expressionKeywords || '',
+        poseKeywords: promptComponents.poseKeywords || '',
+        actionKeywords: promptComponents.actionKeywords || '',
+        lightingKeywords: promptComponents.lightingKeywords || '',
+        backgroundKeywords: promptComponents.backgroundKeywords || '',
+        variationSeed: promptComponents.variationSeed,
+        contextualKeywords: promptComponents.contextualKeywords
+      };
+      
+      return composer.compilePrompt(safeComponents);
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      return 'Error generating preview';
     }
-    return composer.compilePrompt(promptComponents);
   };
 
   const handleGenerate = async () => {
@@ -295,6 +370,24 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   }, [promptComponents, useCustomPrompt, customPrompt, imageStyle, isOpen]);
 
   if (!isOpen) return null;
+
+  // Defensive check for theme object
+  if (!theme || !theme.colors) {
+    console.error('ImageGenerationModal: Invalid theme object passed:', theme);
+    return (
+      <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.header}>
+            <h2 className={styles.title}>Theme Error</h2>
+            <button className={styles.closeButton} onClick={onClose}>×</button>
+          </div>
+          <div className={styles.content}>
+            <p>Invalid theme configuration. Please try again.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If there's a modal error, render only the error and close button
   if (modalError) {
