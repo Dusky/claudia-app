@@ -25,6 +25,7 @@ import { manageConversationsCommand } from './builtin/manageConversationsCommand
 import { toolsCommand } from './builtin/tools';
 import { mcpCommand } from './builtin/mcp';
 import { crtCommand } from './builtin/crt';
+import { shortcutsCommand } from './builtin/shortcuts';
 
 import {
   personalityCommand, 
@@ -87,6 +88,7 @@ export function createCommandRegistry(): CommandRegistryImpl {
     toolsCommand,
     mcpCommand,
     crtCommand,
+    shortcutsCommand,
   ];
 
   commandsToRegister.forEach(command => {

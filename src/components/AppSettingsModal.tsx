@@ -76,6 +76,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [error, setError] = useState<string>('');
 
   // Load settings when modal opens
   useEffect(() => {
@@ -165,6 +166,8 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
   ) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
+    // Clear error when user makes changes
+    if (error) setError('');
   };
 
   const saveSettings = async () => {
@@ -194,7 +197,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
       // For now, we assume components re-read from store or localStorage on next relevant action
     } catch (error) {
       console.error('Failed to save app settings:', error);
-      alert('Failed to save settings. Please try again.');
+      setError('Failed to save settings. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -242,6 +245,24 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
         </div>
 
         <div className={styles.content}>
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              background: 'rgba(244, 67, 54, 0.1)',
+              border: '1px solid #f44336',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              marginBottom: '16px',
+              color: '#f44336',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ❌ {error}
+            </div>
+          )}
+
           {isLoading ? (
             <div className={styles.loading}>Loading settings...</div>
           ) : (

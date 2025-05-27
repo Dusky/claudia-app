@@ -44,6 +44,7 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
   const [isDefault, setIsDefault] = useState<boolean>(false);
   const [createdAt, setCreatedAt] = useState<string>(new Date().toISOString());
   const [usageCount, setUsageCount] = useState<number>(0);
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -116,8 +117,10 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
   };
 
   const handleSave = async () => {
+    setError(''); // Clear previous errors
+    
     if (!formData.name.trim()) {
-      alert('Name is required');
+      setError('Name is required');
       return;
     }
 
@@ -152,6 +155,8 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
 
   const updateFormData = (field: keyof PersonalityFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (error) setError('');
   };
 
   if (!isOpen) return null;
@@ -196,6 +201,24 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
           </div>
 
           <div className={styles.form}>
+            {/* Error Display */}
+            {error && (
+              <div style={{
+                background: 'rgba(244, 67, 54, 0.1)',
+                border: '1px solid #f44336',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                marginBottom: '16px',
+                color: '#f44336',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                ❌ {error}
+              </div>
+            )}
+            
             <div className={styles.field}>
               <label>Name:</label>
               <input

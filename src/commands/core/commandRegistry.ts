@@ -93,10 +93,25 @@ export class CommandRegistryImpl implements CommandRegistry {
       return validationResult.result!;
     }
 
-    // Execute command
+    // Execute command with visual feedback
     try {
-      return await command.execute(args, context);
+      // Add command execution indicator
+      context.setLoading(true);
+      const result = await command.execute(args, context);
+      context.setLoading(false);
+      
+      // Add success feedback if command succeeded
+      if (result.success && result.lines && result.lines.length > 0) {
+        // Add a subtle success indicator to the first response line
+        const firstLine = result.lines[0];
+        if (firstLine && firstLine.type === 'output') {
+          firstLine.metadata = { ...firstLine.metadata, commandSuccess: true };
+        }
+      }
+      
+      return result;
     } catch (error) {
+      context.setLoading(false);
       const errorContent = error instanceof Error ? error.message : 'Unknown error';
       const errorLine: TerminalLine = {
         id: `error-cmd-exec-${timestamp}`,

@@ -195,6 +195,46 @@ export const themes: Record<string, TerminalTheme> = {
       characterSpacing: '0px'
     },
     overlayClassName: 'modern-subtle-overlay'
+  },
+
+  claudia: {
+    id: 'claudia',
+    name: 'Claudia',
+    era: 'AI Era',
+    colors: {
+      background: '#0A0A0A', 
+      foreground: '#FFED4A', // Bright yellow
+      cursor: '#FFED4A',
+      selection: '#333300',
+      accent: '#FFED4A', // Bright yellow accent
+      secondary: '#FFD700', // Gold secondary
+      success: '#FFED4A',
+      warning: '#FFA500',
+      error: '#FF6B6B'
+    },
+    font: {
+      family: '"JetBrains Mono", "Fira Code", "SF Mono", monospace',
+      size: '15px',
+      weight: '400',
+      lineHeight: '1.5' 
+    },
+    effects: {
+      scanlines: true, 
+      glow: true, 
+      flicker: false,
+      crt: true, 
+      noise: true,
+      noiseIntensity: 0.08,
+      screenCurvature: true,
+      // Daisy-inspired pattern with yellow on black
+      appBackground: '#000000 url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Ccircle cx=\'20\' cy=\'20\' r=\'3\' fill=\'%23FFED4A\' opacity=\'0.1\'/%3E%3Cpath d=\'M20 8L22 18L20 20L18 18ZM32 20L22 22L20 20L22 18ZM20 32L18 22L20 20L22 22ZM8 20L18 18L20 20L18 22Z\' fill=\'%23FFED4A\' opacity=\'0.05\'/%3E%3C/svg%3E") repeat',
+    },
+    spacing: {
+      padding: '22px',
+      lineSpacing: '2px',
+      characterSpacing: '0.3px'
+    },
+    overlayClassName: 'claudia-overlay'
   }
 };
 

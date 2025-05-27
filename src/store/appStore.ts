@@ -78,6 +78,7 @@ const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
 export interface AppState {
   // Core application state
   currentTheme: string;
+  isThemeTransitioning: boolean;
   lines: TerminalLine[];
   isLoading: boolean;
   avatarState: AvatarState;
@@ -150,6 +151,7 @@ export interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   // Core application state
   currentTheme: globalAppConfig.defaultTheme, // Use renamed import
+  isThemeTransitioning: false,
   lines: [],
   isLoading: false,
   avatarState: {
@@ -192,7 +194,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   isInitialized: false,
 
   // Core actions
-  setTheme: (theme) => set({ currentTheme: theme }),
+  setTheme: (theme) => {
+    set({ isThemeTransitioning: true });
+    setTimeout(() => {
+      set({ currentTheme: theme });
+      setTimeout(() => {
+        set({ isThemeTransitioning: false });
+      }, 100);
+    }, 150);
+  },
   addLines: (newLines) => {
     const linesToAdd = Array.isArray(newLines) ? newLines : [newLines];
     set(state => ({ lines: [...state.lines, ...linesToAdd].flat() }));

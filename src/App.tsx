@@ -1,13 +1,16 @@
-import { useMemo, useEffect } from 'react'; 
+import { useMemo, useEffect, Suspense, lazy } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
-import { AvatarPanel } from './components/AvatarPanel';
-import { PersonalityModal } from './components/PersonalityModal';
+// Lazy load heavy components
+const AvatarPanel = lazy(() => import('./components/AvatarPanel').then(module => ({ default: module.AvatarPanel })));
+const ImageGenerationModal = lazy(() => import('./components/ImageGenerationModal').then(module => ({ default: module.ImageGenerationModal })));
+const PersonalityModal = lazy(() => import('./components/PersonalityModal').then(module => ({ default: module.PersonalityModal })));
+const AIOptionsModal = lazy(() => import('./components/AIOptionsModal').then(module => ({ default: module.AIOptionsModal })));
+const AppSettingsModal = lazy(() => import('./components/AppSettingsModal').then(module => ({ default: module.AppSettingsModal })));
+
+// Keep lightweight components as regular imports
 import { ConfigModal } from './components/ConfigModal';
 import type { ConfigSettings } from './store/appStore';
 import { HelpModal } from './components/HelpModal';
-import { ImageGenerationModal } from './components/ImageGenerationModal';
-import { AIOptionsModal } from './components/AIOptionsModal';
-import { AppSettingsModal } from './components/AppSettingsModal';
 import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { TopBar } from './components/TopBar';
@@ -27,11 +30,37 @@ import { ImageStorageManager } from './utils/imageStorage'; // Import ImageStora
 import './App.css';
 import './styles/overlays.css';
 
+// Loading component for lazy loaded components
+const ComponentLoader: React.FC<{ type?: string }> = ({ type = "component" }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: type === 'modal' ? '200px' : '280px',
+    color: '#FFED4A',
+    fontSize: '0.9rem',
+    opacity: 0.7
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{
+        width: '16px',
+        height: '16px',
+        border: '2px solid transparent',
+        borderTop: '2px solid currentColor',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }}></div>
+      Loading {type}...
+    </div>
+  </div>
+);
+
 
 function App() {
 
   // Zustand store selectors for state
   const currentTheme = useAppStore(state => state.currentTheme);
+  const isThemeTransitioning = useAppStore(state => state.isThemeTransitioning);
   const lines = useAppStore(state => state.lines);
   const isLoading = useAppStore(state => state.isLoading);
   const avatarState = useAppStore(state => state.avatarState);
@@ -150,20 +179,32 @@ function App() {
   const handleConversationDelete = async (conversationId: string) => {
     try {
       if (conversationId === activeConversationId) {
-        alert('Cannot delete the active conversation. Please switch to another conversation first.');
+        addLines({
+          id: `delete-error-${Date.now()}`,
+          type: 'error',
+          content: '❌ Cannot delete the active conversation. Please switch to another conversation first.',
+          timestamp: new Date().toISOString(),
+          user: 'claudia'
+        });
         return;
       }
       await database.deleteConversation(conversationId);
       addLines({
         id: `delete-${Date.now()}`,
         type: 'system',
-        content: 'Conversation deleted successfully.',
+        content: '✅ Conversation deleted successfully.',
         timestamp: new Date().toISOString(),
         user: 'claudia'
       });
     } catch (error) {
       console.error('Failed to delete conversation:', error);
-      alert('Failed to delete conversation. Please try again.');
+      addLines({
+        id: `delete-error-${Date.now()}`,
+        type: 'error',
+        content: '❌ Failed to delete conversation. Please try again.',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      });
     }
   };
 
@@ -173,13 +214,19 @@ function App() {
       addLines({
         id: `rename-${Date.now()}`,
         type: 'system',
-        content: `Conversation renamed to "${newTitle}".`,
+        content: `✅ Conversation renamed to "${newTitle}".`,
         timestamp: new Date().toISOString(),
         user: 'claudia'
       });
     } catch (error) {
       console.error('Failed to rename conversation:', error);
-      alert('Failed to rename conversation. Please try again.');
+      addLines({
+        id: `rename-error-${Date.now()}`,
+        type: 'error',
+        content: '❌ Failed to rename conversation. Please try again.',
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      });
     }
   };
 
@@ -315,6 +362,9 @@ function App() {
             />
           )}
           
+          {/* Theme Transition Overlay */}
+          <div className={`theme-transition ${isThemeTransitioning ? 'active' : ''}`}></div>
+          
           {!showBootSequence && (
             <>
               {themeObject.overlayClassName && (
@@ -335,7 +385,9 @@ function App() {
                   prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
                   config={config}
                 />
-                <AvatarPanel state={avatarState} theme={themeObject} />
+                <Suspense fallback={<ComponentLoader type="avatar" />}>
+                  <AvatarPanel state={avatarState} theme={themeObject} />
+                </Suspense>
               </div>
               <StatusBar
                 theme={themeObject} currentTheme={currentTheme}
@@ -355,17 +407,17 @@ function App() {
         </div>
       {/* </CRTShaderWrapper> */}
 
-      {personalityModalOpen && (
-      <PersonalityModal
-        isOpen={personalityModalOpen} onClose={closePersonalityModal}
-        onSave={(p) => savePersonalityInModal(database, p)}
-        onDelete={(id) => deletePersonalityInModal(database, id)}
-        editingPersonality={editingPersonalityInModal}
-        allPersonalities={allPersonalitiesInModal}
-        activePersonalityId={activePersonalityIdInModal}
-        theme={themeObject}
-      />
-      )}
+      <Suspense fallback={<ComponentLoader type="modal" />}>
+        <PersonalityModal
+          isOpen={personalityModalOpen} onClose={closePersonalityModal}
+          onSave={(p) => savePersonalityInModal(database, p)}
+          onDelete={(id) => deletePersonalityInModal(database, id)}
+          editingPersonality={editingPersonalityInModal}
+          allPersonalities={allPersonalitiesInModal}
+          activePersonalityId={activePersonalityIdInModal}
+          theme={themeObject}
+        />
+      </Suspense>
 
       <ConfigModal
         isOpen={configModalOpen}
@@ -382,31 +434,37 @@ function App() {
         theme={themeObject}
       />
 
-      <ImageGenerationModal
-        isOpen={imageModalOpen}
-        onClose={() => {
-          console.log("App.tsx: Closing ImageGenerationModal.");
-          setImageModalOpen(false);
-        }}
-        imageManager={imageManager}
-        avatarController={avatarController}
-        storage={database} // Pass database for potential settings persistence
-        theme={themeObject}
-      />
+      <Suspense fallback={<ComponentLoader type="modal" />}>
+        <ImageGenerationModal
+          isOpen={imageModalOpen}
+          onClose={() => {
+            console.log("App.tsx: Closing ImageGenerationModal.");
+            setImageModalOpen(false);
+          }}
+          imageManager={imageManager}
+          avatarController={avatarController}
+          storage={database} // Pass database for potential settings persistence
+          theme={themeObject}
+        />
+      </Suspense>
 
-      <AIOptionsModal
-        isOpen={aiOptionsModalOpen}
-        onClose={() => setAiOptionsModalOpen(false)}
-        storage={database}
-        llmManager={llmManager}
-      />
+      <Suspense fallback={<ComponentLoader type="modal" />}>
+        <AIOptionsModal
+          isOpen={aiOptionsModalOpen}
+          onClose={() => setAiOptionsModalOpen(false)}
+          storage={database}
+          llmManager={llmManager}
+        />
+      </Suspense>
 
-      <AppSettingsModal
-        isOpen={appSettingsModalOpen}
-        onClose={() => setAppSettingsModalOpen(false)}
-        storage={database}
-        theme={themeObject}
-      />
+      <Suspense fallback={<ComponentLoader type="modal" />}>
+        <AppSettingsModal
+          isOpen={appSettingsModalOpen}
+          onClose={() => setAppSettingsModalOpen(false)}
+          storage={database}
+          theme={themeObject}
+        />
+      </Suspense>
     </>
   );
 }

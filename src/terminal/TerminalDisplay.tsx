@@ -11,6 +11,11 @@ export interface TerminalLine {
   timestamp: string;
   user?: 'user' | 'claudia';
   isChatResponse?: boolean; // New flag to identify AI chat responses
+  metadata?: {
+    commandSuccess?: boolean;
+    commandExecuting?: boolean;
+    [key: string]: any;
+  };
 }
 
 interface TerminalDisplayProps {
@@ -104,9 +109,18 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
     }
   }
 
+  // Add command success feedback styling
+  const isCommandSuccess = line.metadata?.commandSuccess;
+  const successStyle = isCommandSuccess ? {
+    borderLeft: `2px solid ${theme.colors.success}`,
+    paddingLeft: '8px',
+    background: `linear-gradient(90deg, ${theme.colors.success}10 0%, transparent 50%)`,
+    animation: 'commandSuccess 0.8s ease-out'
+  } : {};
+
   return (
     <div
-      className={`terminal-line terminal-line-${line.type} ${isInGroup ? 'in-group' : ''}`}
+      className={`terminal-line terminal-line-${line.type} ${isInGroup ? 'in-group' : ''} ${isCommandSuccess ? 'command-success' : ''}`}
       data-type={line.type}
       style={{
         color: getLineTypeColor(line.type),
@@ -116,7 +130,8 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
         alignItems: 'baseline',
         marginBottom: isInGroup ? '4px' : '12px',
         paddingLeft: isInGroup ? '12px' : '0',
-        ...textShadowStyle
+        ...textShadowStyle,
+        ...successStyle
       }}
     >
       <span className="line-prefix" style={{ 
@@ -293,7 +308,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
   useEffect(() => {
     if (!isLoading) return;
-    const messages = ['thinking...', 'processing...', 'crafting response...', 'almost ready...', 'finalizing thoughts...'];
+    const messages = [
+      'thinking...',
+      'processing your request...',
+      'analyzing context...',
+      'generating response...',
+      'crafting the perfect reply...',
+      'accessing knowledge base...',
+      'almost ready...',
+      'finalizing thoughts...'
+    ];
     let messageIndex = 0; let dotCount = 0;
     const messageInterval = setInterval(() => {
       messageIndex = (messageIndex + 1) % messages.length;
@@ -336,8 +360,23 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         case 'l': case 'k': e.preventDefault(); if (onInput) onInput('/clear'); return;
         case 'r': e.preventDefault(); if (commandHistory.length > 0) setCurrentInput(commandHistory[commandHistory.length - 1]); return;
         case '/': e.preventDefault(); window.dispatchEvent(new CustomEvent('showHelpModal')); return;
-        case 't': if (e.shiftKey) { e.preventDefault(); if (onInput) onInput('/themes'); return; } break;
+        case 't': 
+          if (e.shiftKey) { 
+            e.preventDefault(); 
+            if (onInput) onInput('/themes'); 
+            return; 
+          } else {
+            e.preventDefault();
+            if (onInput) onInput('/theme claudia');
+            return;
+          }
         case 'n': if (e.shiftKey) { e.preventDefault(); if (onInput) onInput('/conversation-new'); return; } break;
+        case 'i': e.preventDefault(); if (onInput) onInput('/imagine '); return;
+        case 'a': e.preventDefault(); if (onInput) onInput('/avatar '); return;
+        case 'o': e.preventDefault(); window.dispatchEvent(new CustomEvent('openAppSettings')); return;
+        case 'p': e.preventDefault(); window.dispatchEvent(new CustomEvent('openPersonalityModal')); return;
+        case 'd': e.preventDefault(); if (onInput) onInput('/debug'); return;
+        case ',': e.preventDefault(); window.dispatchEvent(new CustomEvent('openConfig')); return;
       }
     }
     if (e.key === 'Enter') {

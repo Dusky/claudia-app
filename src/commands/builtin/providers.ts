@@ -1,6 +1,7 @@
 import type { Command, CommandContext, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
 import { ReplicateProvider } from '../../providers/image/replicate';
+import { isProviderConfigured, getApiKey } from '../../config/env';
 
 export const providersCommand: Command = {
   name: 'providers',
@@ -79,11 +80,29 @@ export const providersCommand: Command = {
 
     // Check for environment variables (without exposing values)
     const hasReplicateKey = !!import.meta.env.VITE_REPLICATE_API_TOKEN;
+    const configHasKey = !!getApiKey('replicate');
+    const isConfigured = isProviderConfigured('replicate');
 
     lines.push({
       id: `providers-env-replicate-${timestamp}`,
       type: 'output',
       content: `  VITE_REPLICATE_API_TOKEN: ${hasReplicateKey ? '<span class="color-green">Set</span>' : '<span class="color-red">Not Set</span>'}`,
+      timestamp,
+      user: 'claudia'
+    });
+
+    lines.push({
+      id: `providers-env-config-${timestamp}`,
+      type: 'output',
+      content: `  Config has API key: ${configHasKey ? '<span class="color-green">Yes</span>' : '<span class="color-red">No</span>'}`,
+      timestamp,
+      user: 'claudia'
+    });
+
+    lines.push({
+      id: `providers-env-provider-configured-${timestamp}`,
+      type: 'output',
+      content: `  Provider configured: ${isConfigured ? '<span class="color-green">Yes</span>' : '<span class="color-red">No</span>'}`,
       timestamp,
       user: 'claudia'
     });

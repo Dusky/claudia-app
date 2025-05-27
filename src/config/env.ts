@@ -56,7 +56,7 @@ class ConfigManager {
       localLLMModel: import.meta.env.VITE_LOCAL_LLM_MODEL || 'llama2',
       
       // Application Settings
-      defaultTheme: import.meta.env.VITE_DEFAULT_THEME || 'mainframe70s',
+      defaultTheme: import.meta.env.VITE_DEFAULT_THEME || 'claudia',
       databasePath: import.meta.env.VITE_DATABASE_PATH || './claudia.db',
       conversationHistoryLength: parseInt(import.meta.env.VITE_CONVERSATION_HISTORY_LENGTH || '10'),
       imageStyle: import.meta.env.VITE_IMAGE_STYLE || 'realistic digital photography, warm natural lighting, detailed, beautiful composition',
@@ -113,7 +113,7 @@ class ConfigManager {
       errors.push(`Invalid image provider: ${this.config.defaultImageProvider}`);
     }
 
-    const validThemes = ['mainframe70s', 'pc80s', 'bbs90s', 'modern'];
+    const validThemes = ['mainframe70s', 'pc80s', 'bbs90s', 'modern', 'claudia'];
     if (!validThemes.includes(this.config.defaultTheme)) {
       errors.push(`Invalid theme: ${this.config.defaultTheme}`);
     }

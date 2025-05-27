@@ -81,5 +81,77 @@
   opacity: 1; /* Full opacity for subtle effect */
 }
 
+/* Claudia Theme Overlay (Bright yellow glow with daisy-inspired effects) */
+.claudia-overlay {
+  background: linear-gradient(
+    rgba(255, 237, 74, 0) 50%, /* Bright yellow tint for scanlines */
+    rgba(255, 215, 0, 0.1) 50%
+  );
+  background-size: 100% 4px; /* Slightly thicker scanlines */
+  animation: claudia-scanline-animation 0.2s linear infinite;
+  opacity: 0.3; /* Balanced visibility */
+  box-shadow: 
+    0 0 20px 8px rgba(255, 237, 74, 0.1), /* Bright yellow outer glow */
+    inset 0 0 30px rgba(255, 237, 74, 0.05); /* Inner yellow warmth */
+}
+
+.claudia-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Subtle daisy pattern overlay */
+  background-image: radial-gradient(circle at 25% 25%, rgba(255,237,74,0.02) 2%, transparent 3%),
+                    radial-gradient(circle at 75% 75%, rgba(255,237,74,0.02) 2%, transparent 3%);
+  background-size: 60px 60px;
+  animation: claudia-daisy-float 8s ease-in-out infinite;
+  opacity: 0.4;
+}
+
+.claudia-overlay::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Gentle AI-inspired pulse */
+  background: radial-gradient(circle at center, rgba(255,237,74,0.03) 20%, transparent 70%);
+  animation: claudia-ai-pulse 4s ease-in-out infinite;
+}
+
+@keyframes claudia-scanline-animation {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 4px;
+  }
+}
+
+@keyframes claudia-daisy-float {
+  0%, 100% {
+    transform: translateY(0px);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes claudia-ai-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.02);
+  }
+}
+
 /* If a theme has no overlayClassName, this class won't be applied, 
    and the .shader-overlay div won't render due to the conditional in App.tsx */
