@@ -279,7 +279,6 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                 <div className={styles.setting}>
                   <label className={styles.checkbox}>
                     <input
-                      ref={firstInputRef}
                       type="checkbox"
                       checked={settings.globalImageGeneration}
                       onChange={(e) => updateSetting('globalImageGeneration', e.target.checked)}

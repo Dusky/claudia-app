@@ -1,5 +1,5 @@
 // Token counting utilities for cost tracking and context management
-import { getEncoding, type Tiktoken } from 'tiktoken';
+import { get_encoding, type Tiktoken } from 'tiktoken';
 
 // Cache encodings to avoid repeated initialization
 let cl100kEncoding: Tiktoken | null = null;
@@ -12,14 +12,14 @@ function getOrCreateEncoding(encodingName: 'cl100k_base' | 'p50k_base'): Tiktoke
   try {
     if (encodingName === 'cl100k_base') {
       if (!cl100kEncoding) {
-        cl100kEncoding = getEncoding('cl100k_base');
+        cl100kEncoding = get_encoding('cl100k_base');
       }
-      return cl100kEncoding;
+      return cl100kEncoding!;
     } else {
       if (!p50kEncoding) {
-        p50kEncoding = getEncoding('p50k_base');
+        p50kEncoding = get_encoding('p50k_base');
       }
-      return p50kEncoding;
+      return p50kEncoding!;
     }
   } catch (error) {
     console.warn('Failed to initialize tiktoken encoding:', error);

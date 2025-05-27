@@ -131,7 +131,7 @@ class Logger {
   /**
    * Log a message
    */
-  private log(level: LogLevel, tag: LogTag, message: string, data?: any): void {
+  public log(level: LogLevel, tag: LogTag, message: string, data?: any): void {
     // Check if we should log this level and tag
     if (!this.shouldLog(level) || (!this.enabledTags.has(tag) && !this.isDebugMode())) {
       return;
@@ -183,6 +183,7 @@ class Logger {
       window.dispatchEvent(event);
     } catch (error) {
       // Silently fail if terminal integration isn't available
+      console.debug('Terminal integration not available:', error);
     }
   }
 

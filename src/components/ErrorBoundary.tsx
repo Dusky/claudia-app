@@ -53,14 +53,14 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
       // Format error for terminal display
       const errorMessage = this.formatErrorForTerminal(error, errorInfo);
       
-      // Add error to terminal output (if terminal is available)
-      if (store.addOutput) {
-        store.addOutput({
-          content: errorMessage,
-          timestamp: new Date(),
-          type: 'error' as any
-        });
-      }
+      // Add error to terminal output
+      store.addLines({
+        id: `error-${Date.now()}`,
+        type: 'error',
+        content: errorMessage,
+        timestamp: new Date().toISOString(),
+        user: 'claudia'
+      });
     } catch (terminalError) {
       console.error('Failed to display error in terminal:', terminalError);
     }
@@ -105,9 +105,7 @@ Error recovery options:
   private handleClearTerminal = () => {
     try {
       const store = useAppStore.getState();
-      if (store.clearOutput) {
-        store.clearOutput();
-      }
+      store.setLines([]);
       this.handleRetry();
     } catch (error) {
       console.error('Failed to clear terminal:', error);
