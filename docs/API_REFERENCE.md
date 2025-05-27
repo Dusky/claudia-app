@@ -5,13 +5,136 @@ Complete API reference for the Claudia AI terminal companion application.
 ## Table of Contents
 
 1. [Provider APIs](#provider-apis)
-2. [Terminal APIs](#terminal-apis)
-3. [Avatar APIs](#avatar-apis)
-4. [Storage APIs](#storage-apis)
-5. [Type Definitions](#type-definitions)
-6. [Examples](#examples)
+2. [Command System APIs](#command-system-apis)
+3. [Terminal APIs](#terminal-apis)
+4. [Avatar APIs](#avatar-apis)
+5. [Storage APIs](#storage-apis)
+6. [MCP APIs](#mcp-apis)
+7. [Type Definitions](#type-definitions)
+8. [Examples](#examples)
 
 ## Provider APIs
+
+### Provider Manager
+
+The Claudia application includes centralized provider management for different services.
+
+```typescript
+class ProviderManager {
+  initializeLLMProviders(): Promise<void>;
+  initializeImageProviders(): Promise<void>;
+  getActiveLLMProvider(): LLMProvider | null;
+  getActiveImageProvider(): ImageProvider | null;
+  switchProvider(type: 'llm' | 'image', providerId: string): Promise<void>;
+}
+```
+
+## Command System APIs
+
+Claudia features an extensive command system with 30+ built-in commands.
+
+### Command Registry
+
+#### `CommandRegistry`
+
+Manages command registration and execution.
+
+```typescript
+interface CommandRegistry {
+  register(command: Command): void;
+  unregister(commandName: string): void;
+  execute(commandName: string, args: string[], context: CommandContext): Promise<CommandResult>;
+  getCommands(): Command[];
+  getCommand(name: string): Command | undefined;
+}
+```
+
+### Command Interface
+
+#### `Command`
+
+Base interface for all commands.
+
+```typescript
+interface Command {
+  name: string;
+  description: string;
+  usage?: string;
+  aliases?: string[];
+  requiresAI?: boolean;
+  requiresImageGen?: boolean;
+  execute(args: string[], context: CommandContext): Promise<CommandResult>;
+}
+```
+
+### Built-in Commands
+
+#### Core Commands
+- `/help` - Show available commands
+- `/clear` - Clear terminal history
+- `/themes` - List terminal themes
+- `/theme <name>` - Switch terminal theme
+
+#### AI & Conversation
+- `/ask <question>` - Direct AI question
+- `/retry` - Retry last AI response
+- `/continue` - Continue conversation
+- `/undo` - Undo last action
+- `/context` - Show conversation context
+
+#### Conversation Management
+- `/conversation` - Conversation operations
+- `/conversations list` - List all conversations
+- `/conversations new` - Create new conversation
+- `/conversations load <id>` - Load conversation
+- `/conversations delete <id>` - Delete conversation
+- `/conversations rename <id> <name>` - Rename conversation
+
+#### Avatar Control
+- `/avatar show|hide` - Toggle avatar visibility
+- `/avatar expression <expr>` - Set avatar expression
+- `/imagine <prompt>` - Generate custom avatar image
+
+#### System & Configuration
+- `/providers` - List provider status
+- `/config` - Open configuration modal
+- `/debug` - Debug information
+- `/tools` - List available MCP tools
+- `/mcp` - MCP server management
+- `/crt` - CRT terminal effects control
+
+#### Personality System
+- `/personality gui` - Open personality editor
+- `/personality list` - List personalities
+- `/personality create <name>` - Create personality
+- `/personality set <name>` - Set active personality
+- `/personality current` - Show current personality
+
+### Command Context
+
+```typescript
+interface CommandContext {
+  llmManager: LLMProviderManager;
+  imageManager: ImageProviderManager;
+  mcpManager: MCPManager;
+  avatarController: AvatarController;
+  database: ClaudiaDatabase;
+  appStore: AppStore;
+  addTerminalLine: (line: TerminalLine) => void;
+  clearTerminal: () => void;
+}
+```
+
+### Command Results
+
+```typescript
+interface CommandResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+  shouldClearInput?: boolean;
+}
+```
 
 ### LLM Provider Interface
 
@@ -243,6 +366,63 @@ Get theme by ID.
 
 Get all available themes.
 
+## MCP APIs
+
+### MCP Manager
+
+#### `MCPManager`
+
+Manages Model Context Protocol tools and execution.
+
+```typescript
+class MCPManager {
+  constructor();
+  
+  // Tool management
+  registerTool(tool: MCPTool): void;
+  getAvailableTools(): Promise<MCPTool[]>;
+  getTool(toolId: string): MCPTool | null;
+  
+  // Execution
+  executeTool(toolId: string, params: any): Promise<MCPToolResult>;
+  validateToolParams(toolId: string, params: any): Promise<boolean>;
+  
+  // Permissions
+  setPermission(toolId: string, action: string, granted: boolean): void;
+  checkPermission(toolId: string, action: string): boolean;
+  
+  // Audit and monitoring
+  getAuditLog(filters?: MCPAuditFilter): Promise<MCPAuditLog[]>;
+  getResourceUsage(toolId?: string): MCPResourceUsage;
+}
+```
+
+### MCP Tool Interface
+
+```typescript
+interface MCPTool {
+  id: string;
+  name: string;
+  description: string;
+  version?: string;
+  author?: string;
+  
+  execute(params: any): Promise<MCPToolResult>;
+  validate?(params: any): Promise<boolean>;
+  getSchema?(): any; // JSON Schema for parameters
+}
+```
+
+### Built-in MCP Tools
+
+#### Available Tools
+- `mcp_fetch` - HTTP request capabilities
+- `mcp_filesystem` - File system operations
+- `mcp_memory` - Persistent memory management
+- `mcp_time` - Date and time utilities
+- `mcp_sqlite` - Database operations
+- `mcp_tts` - Text-to-speech synthesis
+
 ## Avatar APIs
 
 ### Avatar Controller
@@ -303,15 +483,51 @@ const AvatarPanel: React.FC<AvatarPanelProps>;
 
 ## Storage APIs
 
+### MockDatabase Implementation
+
+Claudia uses a browser-compatible LocalStorage-based database system.
+
+```typescript
+class MockDatabase implements DatabaseInterface {
+  // Conversations
+  createConversation(conversation: ConversationData): string;
+  getConversation(id: string): Conversation | null;
+  getAllConversations(): Conversation[];
+  updateConversation(id: string, updates: Partial<Conversation>): void;
+  deleteConversation(id: string): void;
+  
+  // Messages
+  addMessage(message: MessageData): number;
+  getMessages(conversationId: string): ConversationMessage[];
+  
+  // Settings with type safety
+  setSetting(key: string, value: any, type?: SettingType): void;
+  getSetting(key: string): any;
+  getAllSettings(): Record<string, any>;
+  
+  // Avatar cache with TTL
+  cacheAvatarImage(hash: string, url: string, params: any): void;
+  getCachedAvatar(hash: string): CachedAvatarImage | null;
+  cleanupOldAvatarCache(maxAge?: number): number;
+  
+  // Personalities
+  createPersonality(personality: PersonalityData): string;
+  getPersonality(id: string): Personality | null;
+  getAllPersonalities(): Personality[];
+  updatePersonality(id: string, updates: Partial<Personality>): void;
+  deletePersonality(id: string): void;
+}
+```
+
 ### Database
 
 #### `ClaudiaDatabase`
 
-SQLite database interface.
+Browser-compatible LocalStorage database interface.
 
 ```typescript
 class ClaudiaDatabase {
-  constructor(dbPath?: string);
+  constructor(); // No path needed for browser storage
   
   // Conversation methods
   createConversation(conversation: Omit<Conversation, 'id'>): string;
@@ -504,6 +720,142 @@ interface TerminalTheme {
 }
 ```
 
+### Storage Types
+
+#### `Conversation`
+
+```typescript
+interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount?: number;
+  personalityId?: string;
+}
+```
+
+#### `ConversationMessage`
+
+```typescript
+interface ConversationMessage {
+  id?: number;
+  conversationId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  metadata?: {
+    tokensUsed?: number;
+    provider?: string;
+    model?: string;
+  };
+}
+```
+
+#### `AppSetting`
+
+```typescript
+interface AppSetting {
+  key: string;
+  value: any;
+  type: 'string' | 'number' | 'boolean' | 'json';
+  updatedAt: string;
+}
+```
+
+#### `CachedAvatarImage`
+
+```typescript
+interface CachedAvatarImage {
+  hash: string;
+  url: string;
+  parameters: Record<string, any>;
+  createdAt: string;
+  accessCount: number;
+  lastAccessed: string;
+}
+```
+
+#### `Personality`
+
+```typescript
+interface Personality {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  traits: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+  isDefault?: boolean;
+}
+```
+
+### MCP Types
+
+#### `MCPToolResult`
+
+```typescript
+interface MCPToolResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  metadata?: {
+    executionTime: number;
+    resourceUsage: MCPResourceUsage;
+    toolVersion?: string;
+  };
+}
+```
+
+#### `MCPPermission`
+
+```typescript
+interface MCPPermission {
+  toolId: string;
+  action: string;
+  resource?: string;
+  granted: boolean;
+  grantedAt: string;
+  expiresAt?: string;
+  grantedBy: string;
+}
+```
+
+#### `MCPAuditLog`
+
+```typescript
+interface MCPAuditLog {
+  id: string;
+  timestamp: string;
+  toolId: string;
+  action: string;
+  parameters: any;
+  result: MCPToolResult;
+  userId?: string;
+  sessionId: string;
+  ipAddress?: string;
+}
+```
+
+### Command Types
+
+#### `Command`
+
+```typescript
+interface Command {
+  name: string;
+  description: string;
+  usage?: string;
+  aliases?: string[];
+  category?: 'core' | 'ai' | 'avatar' | 'system' | 'mcp';
+  requiresAI?: boolean;
+  requiresImageGen?: boolean;
+  requiresMCP?: boolean;
+  execute(args: string[], context: CommandContext): Promise<CommandResult>;
+}
+```
+
 ### Avatar Types
 
 #### `AvatarExpression`
@@ -512,7 +864,8 @@ interface TerminalTheme {
 type AvatarExpression = 
   | 'neutral' | 'happy' | 'curious' | 'focused' | 'thinking'
   | 'surprised' | 'confused' | 'excited' | 'confident' 
-  | 'mischievous' | 'sleepy' | 'shocked';
+  | 'mischievous' | 'sleepy' | 'shocked' | 'determined'
+  | 'playful' | 'serious' | 'worried' | 'content';
 ```
 
 #### `AvatarAction`
@@ -595,6 +948,42 @@ interface MemoryEntry {
 
 ## Examples
 
+### Command System Usage
+
+```typescript
+import { createCommandRegistry } from './commands';
+import { CommandContext } from './commands/types';
+
+// Setup command registry
+const registry = createCommandRegistry();
+
+// Execute command
+const context: CommandContext = {
+  llmManager,
+  imageManager,
+  mcpManager,
+  avatarController,
+  database,
+  appStore,
+  addTerminalLine: (line) => console.log(line),
+  clearTerminal: () => console.clear()
+};
+
+const result = await registry.execute('help', [], context);
+console.log(result.message);
+
+// Register custom command
+const customCommand: Command = {
+  name: 'custom',
+  description: 'A custom command',
+  async execute(args, context) {
+    return { success: true, message: 'Custom command executed!' };
+  }
+};
+
+registry.register(customCommand);
+```
+
 ### Basic LLM Usage
 
 ```typescript
@@ -616,6 +1005,33 @@ await manager.initializeProvider('anthropic', {
   apiKey: 'custom-key',
   model: 'claude-3-opus-20240229'
 });
+```
+
+### MCP Tool Usage
+
+```typescript
+import { MCPManager } from './providers/mcp';
+
+// Setup MCP manager
+const mcpManager = new MCPManager();
+
+// Execute tool
+const result = await mcpManager.executeTool('mcp_fetch', {
+  url: 'https://api.example.com/data',
+  method: 'GET'
+});
+
+if (result.success) {
+  console.log('API response:', result.data);
+} else {
+  console.error('Tool execution failed:', result.error);
+}
+
+// Check permissions
+const hasPermission = mcpManager.checkPermission('mcp_filesystem', 'read');
+if (!hasPermission) {
+  console.log('Permission required for filesystem access');
+}
 ```
 
 ### Avatar Control

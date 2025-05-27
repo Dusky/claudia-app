@@ -11,10 +11,20 @@ This documentation covers the architecture, usage, and extension of the Claudia 
 5. [Provider System](#provider-system)
 6. [Avatar System](#avatar-system)
 7. [Terminal & Themes](#terminal--themes)
-8. [Database & Storage](#database--storage)
+8. [Storage System](#storage-system)
 9. [Configuration](#configuration)
 10. [Extending the Framework](#extending-the-framework)
 11. [API Reference](#api-reference)
+
+## Additional Documentation
+
+- **[Commands Reference](./COMMANDS_REFERENCE.md)** - Complete guide to all 30+ built-in commands
+- **[CRT Canvas Terminal](./CRT_CANVAS_TERMINAL.md)** - Advanced CRT terminal effects and configuration
+- **[MCP Integration](./MCP_INTEGRATION.md)** - Model Context Protocol tools and development
+- **[API Reference](./API_REFERENCE.md)** - Complete API documentation
+- **[Setup Guide](./SETUP.md)** - Installation and configuration
+- **[Environment Configuration](./ENVIRONMENT.md)** - Environment variables and settings
+- **[Replicate Provider](./REPLICATE_PROVIDER.md)** - Image generation provider documentation
 
 ## Overview
 
@@ -23,11 +33,13 @@ Claudia is a framework for building AI terminal companions with visual avatars a
 ### Key Features
 
 - Multi-provider LLM support (Anthropic, Google, Local)
-- Four retro terminal themes (70s, 80s, 90s, Modern)
+- Model Context Protocol (MCP) integration
+- Advanced CRT Canvas Terminal with realistic effects
+- Four retro terminal themes with visual effects
 - Dynamic avatar system with AI control
-- SQLite storage for conversations and settings
-- Extensible provider architecture
-- React TypeScript implementation
+- Browser-compatible LocalStorage persistence
+- Extensible command system with 30+ built-in commands
+- React TypeScript implementation with Vite
 
 ## Architecture
 
@@ -35,13 +47,20 @@ Claudia is a framework for building AI terminal companions with visual avatars a
 claudia-app/
 ├── src/
 │   ├── providers/           # API provider integrations
-│   │   ├── llm/            # LLM providers
-│   │   └── image/          # Image generation providers
-│   ├── terminal/           # Terminal interface and themes
+│   │   ├── llm/            # LLM providers (Anthropic, Google, Local)
+│   │   ├── image/          # Image generation providers
+│   │   └── mcp/            # Model Context Protocol integration
+│   ├── commands/           # Extensible command system
+│   │   ├── builtin/        # Built-in commands (30+)
+│   │   └── core/           # Command registry and types
+│   ├── terminal/           # Terminal interface and CRT effects
+│   │   ├── canvas/         # Advanced CRT Canvas Terminal
+│   │   └── themes.ts       # Four era-based themes
 │   ├── avatar/             # Avatar controller and display
-│   ├── storage/            # Database operations
+│   ├── storage/            # Browser storage (LocalStorage-based)
 │   ├── components/         # React UI components
-│   ├── store/              # State management
+│   ├── hooks/              # React hooks for app functionality
+│   ├── store/              # Zustand state management
 │   └── utils/              # Utility functions
 ├── docs/                   # Documentation
 └── package.json
@@ -81,15 +100,32 @@ npm run dev
 
 The application runs at `http://localhost:5173/`
 
-### Basic Commands
+### Essential Commands
 
 ```bash
+# Core Commands
 /help                    # Show available commands
-/theme mainframe70s      # Switch to 70s green terminal
-/theme pc80s            # Switch to 80s blue terminal
-/theme bbs90s           # Switch to 90s BBS with effects
-/theme modern           # Switch to modern terminal
-/clear                  # Clear terminal history
+/clear                   # Clear terminal history
+/themes                  # List all available themes
+/theme <name>           # Switch terminal theme
+
+# AI & Conversation
+/ask <question>         # Direct AI question
+/retry                  # Retry last AI response
+/continue               # Continue conversation
+/personality gui        # Open personality editor
+
+# Avatar Control
+/avatar show            # Show avatar
+/avatar hide            # Hide avatar
+/imagine <prompt>       # Generate custom avatar image
+
+# System & Configuration
+/providers              # List provider status
+/config                 # Open configuration
+/tools                  # List available MCP tools
+/mcp                    # MCP server management
+/crt                    # CRT terminal effects
 ```
 
 ## Core Systems
@@ -136,12 +172,14 @@ Dynamic visual companion with:
 
 ### Storage System
 
-SQLite-based persistence for:
+Browser-compatible LocalStorage persistence for:
 
-- Conversation history
-- User settings
-- Avatar image cache
-- Long-term memory entries
+- Conversation history and management
+- User settings and preferences
+- Avatar image cache with cleanup
+- Personality profiles
+- MCP tool configurations
+- Theme and display settings
 
 ## Provider System
 
@@ -327,22 +365,23 @@ const themes = getAllThemes();
 
 ## Database & Storage
 
-### Database Schema
+### Storage Schema
 
-SQLite tables:
+LocalStorage collections:
 
 - **conversations** - Chat sessions with metadata
 - **messages** - Individual messages with roles
-- **memory** - Long-term memory entries
 - **settings** - Application configuration
-- **avatar_cache** - Cached avatar images
+- **avatar_cache** - Cached avatar images with TTL
+- **personalities** - AI personality profiles
+- **mcp_tools** - MCP tool configurations
 
 ### Database Usage
 
 ```typescript
 import { ClaudiaDatabase } from './storage';
 
-const db = new ClaudiaDatabase('./claudia.db');
+const db = new ClaudiaDatabase(); // Browser-compatible, no file path needed
 
 // Conversation management
 const convId = db.createConversation({
@@ -362,7 +401,7 @@ db.addMessage({
 db.setSetting('theme', 'mainframe70s');
 const theme = db.getSetting('theme');
 
-// Avatar caching
+// Avatar caching with TTL
 db.cacheAvatarImage(hash, imageUrl, parameters);
 ```
 
@@ -591,4 +630,22 @@ interface MemoryEntry {
 }
 ```
 
-This documentation provides the foundation for understanding and extending the Claudia framework. For implementation details, refer to the source code and inline comments.
+## Documentation Structure
+
+This documentation is organized into several focused guides:
+
+### Getting Started
+- **[Setup Guide](./SETUP.md)** - Complete installation and setup process
+- **[Environment Configuration](./ENVIRONMENT.md)** - API keys and configuration
+- **[Commands Reference](./COMMANDS_REFERENCE.md)** - All available commands
+
+### Advanced Features
+- **[CRT Canvas Terminal](./CRT_CANVAS_TERMINAL.md)** - Advanced terminal effects
+- **[MCP Integration](./MCP_INTEGRATION.md)** - External tool integration
+- **[Replicate Provider](./REPLICATE_PROVIDER.md)** - Image generation
+
+### Development
+- **[API Reference](./API_REFERENCE.md)** - Complete API documentation
+- Main README (this file) - Architecture and core concepts
+
+This documentation provides comprehensive coverage of the Claudia framework. For implementation details, refer to the source code and inline comments.

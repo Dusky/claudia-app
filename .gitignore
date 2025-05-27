@@ -29,6 +29,14 @@ dist-ssr
 avatars/
 temp/
 
+# Project planning files
+*_PLAN.md
+*_PLAN*.md
+plan.md
+FEATURES.md
+CODE_REVIEW_*.md
+CLAUDIA_PERSONALITY_PROFILE.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

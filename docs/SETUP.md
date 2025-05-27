@@ -44,9 +44,10 @@ npm install
 This installs:
 - React 18 with TypeScript
 - Vite build system
-- SQLite database (better-sqlite3)
-- Axios for HTTP requests
 - Zustand for state management
+- Canvas-based terminal with WebGL effects
+- Model Context Protocol (MCP) integration
+- Comprehensive command system
 
 ### 3. Verify Installation
 
@@ -256,10 +257,11 @@ Configure VS Code:
    - Test API connectivity
    - Verify error handling
 
-3. Database Testing:
-   - Check SQLite file creation
-   - Verify table structure
-   - Test data persistence
+3. Storage Testing:
+   - Check LocalStorage persistence
+   - Verify data structure
+   - Test conversation history
+   - Test settings persistence
 
 ## Building for Production
 
@@ -313,15 +315,14 @@ nvm use 18  # or update Node.js
 npm install
 ```
 
-#### SQLite Build Issues
+#### LocalStorage Issues
 
-Error: `Error: Cannot find module 'better-sqlite3'`
+Error: `Failed to store data in LocalStorage`
 Solution:
-```bash
-npm rebuild better-sqlite3
-# or
-npm install --build-from-source better-sqlite3
-```
+- Check browser storage quota
+- Clear browser data if needed
+- Verify localStorage is enabled
+- Check for private/incognito mode restrictions
 
 #### API Key Not Working
 
@@ -396,6 +397,8 @@ Enable detailed logging by setting `VITE_DEBUG_MODE=true` in your `.env` file.
 2. Test providers early - Verify API access
 3. Monitor console - Watch for errors and warnings
 4. Use React DevTools - Inspect component state
-5. Backup database - SQLite file can be copied
+5. Export/import settings - Use browser data export
+6. Monitor LocalStorage usage - Check browser dev tools
+7. Clear cache when needed - Use browser tools or /clear command
 
 This setup guide covers the essential steps for getting started with the Claudia application. For advanced configuration, refer to the main documentation.
