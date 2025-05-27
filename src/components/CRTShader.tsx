@@ -332,7 +332,10 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
     const currentContentElement = contentRef.current;
     debouncedCaptureAndSetTexture(currentContentElement);
     const observer = new MutationObserver((mutationsList) => {
-      if (mutationsList.length > 0 && currentContentElement) {
+      // Only re-capture if something other than the shader canvas itself changed.
+      // This is a bit tricky as mutations can be on children.
+      // A simpler check: if we are not currently capturing, and mutations occurred.
+      if (!isCapturing && mutationsList.length > 0 && currentContentElement) {
          debouncedCaptureAndSetTexture(currentContentElement);
       }
     });
@@ -352,7 +355,7 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
         setCurrentTextureForMesh(null);
       }
     };
-  }, [enabled, debouncedCaptureAndSetTexture]); 
+  }, [enabled, debouncedCaptureAndSetTexture, isCapturing]); // Added isCapturing to dependencies
   
   if (!enabled || renderError) {
     return <>{children}</>;
@@ -379,7 +382,7 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
           left: 0, 
           width: '100%', 
           height: '100%', 
-          zIndex: 1, // Ensure it overlays the original content div (contentRef)
+          zIndex: 10, // Ensure it overlays the original content div (contentRef)
           pointerEvents: 'none', 
         }}>
           <Canvas 

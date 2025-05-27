@@ -34,7 +34,7 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
   if (theme.effects.glow) {
     if (isWebGLShaderActive) {
       // Subtle glow/halo when WebGL shader is active, slightly more visible
-      textShadowStyle = { textShadow: `0 0 4px ${getLineTypeColor(line.type)}50, 0 0 1.5px ${getLineTypeColor(line.type)}30` };
+      textShadowStyle = { textShadow: `0 0 4px ${getLineTypeColor(line.type)}60, 0 0 1.5px ${getLineTypeColor(line.type)}40` };
     } else {
       // More pronounced CSS glow/blur if WebGL shader is off
       if (theme.id === 'mainframe70s') {
@@ -232,12 +232,24 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     return '';
   }, [prompt]);
 
+  const effectiveAppBackground = useMemo(() => {
+    if (config?.enableAppBackground) {
+      if (config.appBackgroundOverride && config.appBackgroundOverride.length > 0) {
+        return config.appBackgroundOverride;
+      }
+      if (theme.effects.appBackground && theme.effects.appBackground.length > 0) {
+        return theme.effects.appBackground;
+      }
+    }
+    return 'transparent'; // Default if no app background is active
+  }, [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
+
   const appBackgroundStyle = useMemo((): React.CSSProperties => ({
     width: '100%', height: '100%',
-    background: (config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground)) || 'transparent',
+    background: effectiveAppBackground,
     position: 'relative', display: 'flex', flexDirection: 'column',
     zIndex: 0, 
-  }), [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
+  }), [effectiveAppBackground]);
 
   const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
@@ -251,17 +263,17 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [config?.terminalBreathing, config?.crtGlow]);
 
   const terminalContentWrapperStyle = useMemo((): React.CSSProperties => {
-    const showAppBackground = !!(config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground));
+    const useTransparentBg = effectiveAppBackground !== 'transparent';
     return {
       flex: 1, display: 'flex', flexDirection: 'column',
       padding: theme.spacing.padding, 
-      background: showAppBackground ? 'transparent' : theme.colors.background,
+      background: useTransparentBg ? 'transparent' : theme.colors.background,
       position: 'relative', zIndex: 2, 
       transition: 'transform 0.3s ease-out',
       transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
       borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
     };
-  }, [theme.colors.background, theme.spacing.padding, theme.effects.appBackground, theme.effects.screenCurvature, config?.enableAppBackground, config?.appBackgroundOverride, config?.screenCurvature, isWebGLShaderActive]);
+  }, [effectiveAppBackground, theme.colors.background, theme.spacing.padding, theme.effects.screenCurvature, config?.screenCurvature, isWebGLShaderActive]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
     position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px', 
@@ -354,12 +366,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                      textShadow: theme.id === 'mainframe70s' ? `0 0 1px ${theme.colors.foreground}90, 0 0 3px ${theme.colors.foreground}50` : `0 0 2px ${theme.colors.foreground}60`
                   }),
                   ...(theme.effects.glow && isWebGLShaderActive && { 
-                     textShadow: `0 0 5px ${theme.colors.foreground}45, 0 0 2px ${theme.colors.foreground}30` 
+                     textShadow: `0 0 5px ${theme.colors.foreground}55, 0 0 2px ${theme.colors.foreground}35` 
                   }),
                   ...(isInputFocused && {
                     filter: 'brightness(1.1)',
                     textShadow: theme.effects.glow 
-                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}50, 0 0 2px ${theme.colors.cursor}35` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
+                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}60, 0 0 2px ${theme.colors.cursor}45` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
                       : `0 0 2px ${theme.colors.cursor}40`
                   })
                 }}
