@@ -1,4 +1,4 @@
-import { useMemo, useEffect, Suspense, lazy } from 'react'; 
+import { useMemo, useEffect, useState, useRef, Suspense, lazy } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy load heavy components
@@ -13,7 +13,7 @@ const MCPPermissionsModal = lazy(() => import('./components/MCPPermissionsModal'
 import { ConfigModal } from './components/ConfigModal';
 import type { ConfigSettings } from './store/appStore';
 import { HelpModal } from './components/HelpModal';
-import { BootSequence } from './components/BootSequence';
+import { BootAnimation } from './components/BootAnimation';
 import { StatusBar } from './components/StatusBar';
 import { TopBar } from './components/TopBar';
 // import { CRTShaderWrapper } from './components/CRTShader'; // Removed CRTShaderWrapper
@@ -62,6 +62,52 @@ const ComponentLoader: React.FC<{ type?: string }> = ({ type = "component" }) =>
 
 
 function App() {
+  const [shouldSkipBoot, setShouldSkipBoot] = useState(false);
+  const [forceShowBoot, setForceShowBoot] = useState(false);
+  const bootCheckDone = useRef(false);
+
+  // Check skipBoot logic and Shift key detection on mount
+  useEffect(() => {
+    if (bootCheckDone.current) return;
+    bootCheckDone.current = true;
+
+    // Check if user is holding Shift key
+    const checkShiftKey = (event: KeyboardEvent) => {
+      if (event.shiftKey && (event.key === 'Shift' || event.type === 'keydown')) {
+        setForceShowBoot(true);
+        // Remove listener after detecting Shift
+        window.removeEventListener('keydown', checkShiftKey);
+        return;
+      }
+    };
+
+    // Listen for Shift key briefly
+    window.addEventListener('keydown', checkShiftKey);
+    
+    // Check localStorage for skipBoot flag
+    const checkSkipBoot = () => {
+      try {
+        const claudiaData = JSON.parse(localStorage.getItem('claudia') || '{}');
+        const shouldSkip = claudiaData.skipBoot === 'true';
+        setShouldSkipBoot(shouldSkip);
+      } catch (error) {
+        console.warn('Failed to read skipBoot flag:', error);
+        setShouldSkipBoot(false);
+      }
+    };
+
+    // Small delay to allow Shift key detection
+    const timer = setTimeout(() => {
+      window.removeEventListener('keydown', checkShiftKey);
+      checkSkipBoot();
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', checkShiftKey);
+    };
+  }, []);
+
   // Initialize security measures and memory management on app startup
   useEffect(() => {
     initializeSecurity();
@@ -429,12 +475,26 @@ user: 'claudia' // Use claudia instead of system for type compatibility
     <ErrorBoundary>
       {/* <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}> */}
         <div className="App">
-          {showBootSequence && (
-            <BootSequence
-              config={config}
+          {showBootSequence && (!shouldSkipBoot || forceShowBoot) && (
+            <BootAnimation
               onComplete={handleBootSequenceComplete}
               onSkip={handleBootSequenceSkip}
+              llmManager={llmManager}
+              imageManager={imageManager}
+              avatarController={avatarController}
+              database={database}
             />
+          )}
+          
+          {/* Handle automatic skip for boot sequence */}
+          {showBootSequence && shouldSkipBoot && !forceShowBoot && (
+            <div style={{ display: 'none' }}>
+              {/* Immediately call skip handler when skipBoot is true and not forcing boot */}
+              {(() => {
+                setTimeout(handleBootSequenceSkip, 0);
+                return null;
+              })()}
+            </div>
           )}
           
           {/* Theme Transition Overlay */}
