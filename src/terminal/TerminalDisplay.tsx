@@ -33,8 +33,8 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
   let textShadowStyle = {};
   if (theme.effects.glow) {
     if (isWebGLShaderActive) {
-      // More subtle glow/halo when WebGL shader is active, as shader handles heavier effects
-      textShadowStyle = { textShadow: `0 0 3px ${getLineTypeColor(line.type)}30, 0 0 1px ${getLineTypeColor(line.type)}20` };
+      // Subtle glow/halo when WebGL shader is active, slightly more visible
+      textShadowStyle = { textShadow: `0 0 5px ${getLineTypeColor(line.type)}35, 0 0 2px ${getLineTypeColor(line.type)}20` };
     } else {
       // More pronounced CSS glow/blur if WebGL shader is off
       if (theme.id === 'mainframe70s') {
@@ -236,12 +236,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
     width: '100%', height: '100%',
     background: (config?.enableAppBackground && (config.appBackgroundOverride || theme.effects.appBackground)) || 'transparent',
     position: 'relative', display: 'flex', flexDirection: 'column',
+    zIndex: 0, // Explicit zIndex for the base wallpaper layer
   }), [theme.effects.appBackground, config?.enableAppBackground, config?.appBackgroundOverride]);
 
   const terminalContainerOuterStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       position: 'relative', overflow: 'hidden', width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column',
+      zIndex: 1, // Above app-background-layer, contains overlays and bezel
     };
     if (config?.terminalBreathing) baseStyle.animation = 'terminalBreathe 4s ease-in-out infinite';
     if (config?.crtGlow) baseStyle.filter = 'brightness(1.1) contrast(1.1)';
@@ -254,7 +256,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       flex: 1, display: 'flex', flexDirection: 'column',
       padding: theme.spacing.padding, 
       background: showAppBackground ? 'transparent' : theme.colors.background,
-      position: 'relative', zIndex: 2, 
+      position: 'relative', zIndex: 2, // Above terminal-container's direct pseudo-elements (like CSS vignette)
       transition: 'transform 0.3s ease-out',
       transform: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? 'scale(1.01, 1.025)' : 'none',
       borderRadius: (!isWebGLShaderActive && (theme.effects.screenCurvature || config?.screenCurvature)) ? '5px' : '0px',
@@ -285,7 +287,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.2) 50%)',
               backgroundSize: `100% ${config?.scanLines === 'heavy' ? '3px' : '4px'}`, 
               animation: 'scanmove 10s linear infinite',
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               opacity: config?.scanLines === 'heavy' ? 0.7 : config?.scanLines === 'subtle' ? 0.25 : (theme.effects.scanlines ? 0.4 : 0)
             }}
           />
@@ -296,7 +298,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E")`,
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               opacity: config?.staticOverlay ? 0.25 : (theme.effects.noiseIntensity ?? 0.15) 
             }}
           />
@@ -307,7 +309,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             className="visual-artifacts-overlay"
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              pointerEvents: 'none', zIndex: 3, 
+              pointerEvents: 'none', zIndex: 3, // Above terminal-content-wrapper
               animation: 'artifacts 8s ease-in-out infinite'
             }}
           />
@@ -348,16 +350,16 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                   color: theme.colors.foreground, fontFamily: 'inherit', fontSize: 'inherit',
                   fontWeight: 'inherit', letterSpacing: 'inherit', flex: 1,
                   caretColor: theme.colors.cursor, transition: 'all 0.2s ease-in-out',
-                  ...(theme.effects.glow && !isWebGLShaderActive && { // Apply CSS glow only if WebGL is off
+                  ...(theme.effects.glow && !isWebGLShaderActive && { 
                      textShadow: theme.id === 'mainframe70s' ? `0 0 1px ${theme.colors.foreground}90, 0 0 3px ${theme.colors.foreground}50` : `0 0 2px ${theme.colors.foreground}60`
                   }),
-                  ...(theme.effects.glow && isWebGLShaderActive && { // More subtle CSS glow if WebGL is on
-                     textShadow: `0 0 2px ${theme.colors.foreground}30`
+                  ...(theme.effects.glow && isWebGLShaderActive && { 
+                     textShadow: `0 0 5px ${theme.colors.foreground}35, 0 0 2px ${theme.colors.foreground}20` // Adjusted for WebGL active
                   }),
                   ...(isInputFocused && {
                     filter: 'brightness(1.1)',
                     textShadow: theme.effects.glow 
-                      ? (isWebGLShaderActive ? `0 0 3px ${theme.colors.foreground}40, 0 0 1px ${theme.colors.cursor}30` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
+                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}40, 0 0 2px ${theme.colors.cursor}30` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
                       : `0 0 2px ${theme.colors.cursor}40`
                   })
                 }}
@@ -376,13 +378,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
         <style>{`
           .terminal-container {
-            /* Attempt to disable default browser font smoothing for a more retro pixelated look */
-            /* These are suggestions and browser support/effect varies */
             font-smooth: never;
             -webkit-font-smoothing: none;
             -moz-osx-font-smoothing: grayscale;
-            /* For true pixel fonts, this helps maintain crispness if not blurred by shader */
-            image-rendering: pixelated; /* or crisp-edges */
+            image-rendering: pixelated; 
           }
 
           @keyframes blink { 0%, 40% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
@@ -458,7 +457,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
               border-radius: inherit; 
               background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.5) 100%);
               pointer-events: none;
-              z-index: 1; 
+              z-index: 1; /* Relative to .terminal-container, below .terminal-content-wrapper */
             }
             ` : ''}
           ` : ''}
