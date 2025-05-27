@@ -273,10 +273,9 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     let finalImagePrompt: string;
     let promptComponents: ImagePromptComponents;
 
-    if (appConfig.useMetaPromptingForImages && this.llmManager) { // Check if llmManager is available
+    if (appConfig.useMetaPromptingForImages && this.llmManager) { 
       finalImagePrompt = await this.generateMetaPrompt(params, activePersonality, conversationContext);
       params.metaGeneratedImagePrompt = finalImagePrompt; 
-      // Generate components based on the meta-prompt for negative prompt and potential refinement
       promptComponents = this.promptComposer.generatePromptComponents(params);
     } else {
       promptComponents = this.promptComposer.generatePromptComponents(params);
@@ -297,15 +296,18 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
     
     const currentParamsForHash = { ...params, prompt: finalImagePrompt, negativePrompt };
-    // Remove undefined keys before hashing to ensure consistency
     Object.keys(currentParamsForHash).forEach(key => (currentParamsForHash as any)[key] === undefined && delete (currentParamsForHash as any)[key]);
     const promptHash = this.generatePromptHash(currentParamsForHash as InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string });
     
-    // Defensive check for getCachedAvatar
+    let cachedImage = null;
     if (this.database && typeof this.database.getCachedAvatar === 'function') {
-      const cached = await this.database.getCachedAvatar(promptHash);
-      if (cached) {
-        this.state.imageUrl = cached.imageUrl;
+      try {
+        cachedImage = await this.database.getCachedAvatar(promptHash);
+      } catch (dbError) {
+        console.error("Error fetching cached avatar:", dbError);
+      }
+      if (cachedImage) {
+        this.state.imageUrl = cachedImage.imageUrl;
         this.notifyStateChange(); 
         return;
       }
@@ -336,7 +338,11 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       const response = await provider.generateImage(imageRequest);
       
       if (this.database && typeof this.database.cacheAvatarImage === 'function') {
-        this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
+        try {
+          await this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
+        } catch (dbError) {
+          console.error("Error caching avatar image:", dbError);
+        }
       } else {
         console.warn('AvatarController: this.database.cacheAvatarImage is not a function or database not available. Skipping caching.');
       }

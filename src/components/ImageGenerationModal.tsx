@@ -53,13 +53,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       console.log("ImageGenerationModal: Opening, attempting to load settings.");
-      setModalError(null); // Clear previous errors
+      setModalError(null); 
       loadSettings().catch(err => {
         console.error("ImageGenerationModal: Critical error during loadSettings:", err);
-        setModalError("Failed to load modal settings. Please try again or check console.");
+        setModalError(`Failed to load modal settings: ${err instanceof Error ? err.message : String(err)}. Please check console.`);
       });
     }
-  }, [isOpen]); // Removed other dependencies to prevent re-loading if they change while modal is open
+  }, [isOpen]);
 
   const loadSettings = async () => {
     console.log("ImageGenerationModal: loadSettings started.");
@@ -70,13 +70,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       
       setImageStyle(configManager.getImageStyle());
       
-      setAvailableModels({});
+      setAvailableModels({}); // Reset before loading
       setModelConfig(null);
       setSelectedModel('');
 
       if (currentActiveProvider?.id === 'replicate') {
-        const replicateProvider = currentActiveProvider as ReplicateProvider; // Assuming it's Replicate if id matches
-        if (typeof replicateProvider.getAllModelConfigs === 'function') {
+        const replicateProvider = currentActiveProvider as ReplicateProvider; 
+        if (replicateProvider && typeof replicateProvider.getAllModelConfigs === 'function') {
           const models = replicateProvider.getAllModelConfigs();
           setAvailableModels(models || {});
           
@@ -85,18 +85,25 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             setModelConfig(currentModelConfig || null);
           }
 
-          const currentProviderModel = (replicateProvider as any).config?.model; // Access config if available
+          const currentProviderModel = (replicateProvider as any).config?.model; 
           if (currentProviderModel) {
             setSelectedModel(currentProviderModel);
           } else if (models && Object.keys(models).length > 0) {
             setSelectedModel(Object.keys(models)[0]);
           }
         } else {
-          console.warn("Replicate provider instance does not have getAllModelConfigs method.");
+          console.warn("Replicate provider instance does not have getAllModelConfigs method or is not fully initialized.");
+          setAvailableModels({});
         }
       }
       
-      const savedComponents = await storage.getSetting<ImagePromptComponents>('image.promptComponents');
+      let savedComponents: ImagePromptComponents | null = null;
+      if (storage && typeof storage.getSetting === 'function') {
+        savedComponents = await storage.getSetting<ImagePromptComponents>('image.promptComponents');
+      } else {
+        console.warn("ImageGenerationModal: storage.getSetting is not available.");
+      }
+
       if (savedComponents) {
         setPromptComponents(savedComponents);
       } else {
@@ -114,8 +121,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         setPromptComponents(components);
       }
 
-      const savedUseCustomPrompt = await storage.getSetting<boolean>('image.useCustomPrompt');
-      const savedCustomPrompt = await storage.getSetting<string>('image.customPrompt');
+      let savedUseCustomPrompt: boolean | null = null;
+      let savedCustomPrompt: string | null = null;
+
+      if (storage && typeof storage.getSetting === 'function') {
+        savedUseCustomPrompt = await storage.getSetting<boolean>('image.useCustomPrompt');
+        savedCustomPrompt = await storage.getSetting<string>('image.customPrompt');
+      }
       
       setUseCustomPrompt(savedUseCustomPrompt ?? false);
       setCustomPrompt(savedCustomPrompt ?? '');
@@ -131,7 +143,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     try {
       imageManager.setActiveProvider(providerId);
       setActiveProviderId(providerId);
-      // Reload model specific settings when provider changes
       await loadSettings(); 
     } catch (error) {
       console.error('Failed to switch provider:', error);
@@ -146,11 +157,11 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         const replicateProvider = provider as ReplicateProvider;
         if (typeof replicateProvider.initialize === 'function' && 
             typeof replicateProvider.getModelConfig === 'function' &&
-            (replicateProvider as any).config) { // Check if config exists
+            (replicateProvider as any).config) { 
           
           await replicateProvider.initialize({
-            ...(replicateProvider as any).config, // Spread existing config
-            model: modelId, // Override model
+            ...(replicateProvider as any).config, 
+            model: modelId, 
           });
           
           setSelectedModel(modelId);
@@ -236,9 +247,13 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
 
   const saveSettings = async () => {
     try {
-      await storage.setSetting('image.promptComponents', promptComponents, 'json');
-      await storage.setSetting('image.useCustomPrompt', useCustomPrompt, 'boolean');
-      await storage.setSetting('image.customPrompt', customPrompt, 'string');
+      if (storage && typeof storage.setSetting === 'function') {
+        await storage.setSetting('image.promptComponents', promptComponents, 'json');
+        await storage.setSetting('image.useCustomPrompt', useCustomPrompt, 'boolean');
+        await storage.setSetting('image.customPrompt', customPrompt, 'string');
+      } else {
+        console.warn("ImageGenerationModal: storage.setSetting is not available. Skipping save.");
+      }
       localStorage.setItem('claudia-image-style', imageStyle);
       console.log('✅ Image settings saved successfully');
     } catch (error) {
@@ -255,7 +270,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       expression: avatarState.expression,
       pose: avatarState.pose,
       action: avatarState.action,
-      style: configManager.getImageStyle(), // Use current global style
+      style: configManager.getImageStyle(), 
       background: 'none',
       lighting: 'soft',
       quality: 'high'
@@ -264,7 +279,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     setPromptComponents(defaultComponents);
     setUseCustomPrompt(false);
     setCustomPrompt('');
-    setImageStyle(configManager.getImageStyle()); // Reset style field to global
+    setImageStyle(configManager.getImageStyle()); 
     
     await saveSettings();
   };
@@ -272,7 +287,7 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       const timeoutId = setTimeout(() => {
-        saveSettings();
+        saveSettings().catch(err => console.error("Autosave failed in ImageGenerationModal:", err));
       }, 1000); 
       
       return () => clearTimeout(timeoutId);
@@ -280,6 +295,51 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   }, [promptComponents, useCustomPrompt, customPrompt, imageStyle, isOpen]);
 
   if (!isOpen) return null;
+
+  // If there's a modal error, render only the error and close button
+  if (modalError) {
+    return (
+      <div className={styles.overlay} onClick={onClose}>
+        <div 
+          className={`${styles.modal} ${styles[theme.id] || ''}`}
+          style={{
+            backgroundColor: theme.colors.background,
+            borderColor: theme.colors.error || '#cc0000',
+            color: theme.colors.foreground
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className={styles.header}>
+            <h2 className={styles.title} style={{ color: theme.colors.error }}>
+              Modal Error
+            </h2>
+            <button 
+              className={styles.closeButton}
+              onClick={onClose}
+              style={{ color: theme.colors.foreground }}
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.content}>
+            <div className={styles.modalError} style={{color: theme.colors.error, padding: '20px'}}>
+              <p>Something went wrong while loading or operating this modal:</p>
+              <p>{modalError}</p>
+              <p>Please try closing and reopening the modal. If the issue persists, check the browser console for more details.</p>
+            </div>
+          </div>
+           <div className={styles.footer}>
+            <button 
+              onClick={onClose} 
+              className={styles.button}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -306,7 +366,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         </div>
 
         <div className={styles.content}>
-          {modalError && <div className={styles.modalError}>{modalError}</div>}
           {/* Provider Selection */}
           <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
