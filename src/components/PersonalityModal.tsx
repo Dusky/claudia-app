@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Personality, PersonalityFormData } from '../types/personality';
 import { DEFAULT_PERSONALITY } from '../types/personality';
 import type { TerminalTheme } from '../terminal/themes';
