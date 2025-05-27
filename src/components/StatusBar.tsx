@@ -71,7 +71,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
     loadConversationTokens();
   }, [activeConversationId, storage]);
 
-  const themeDisplayName = theme.name; // Use the full name from the theme object
+  const themeDisplayName = theme.name; 
   const llmProviderId = activeLLM?.id || 'N/A';
   const llmConfigured = activeLLM?.isConfigured() ?? false;
   const imageProviderId = activeImage?.id || 'N/A';
@@ -82,6 +82,13 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const handleImageProviderClick = () => {
+    console.log("StatusBar.tsx: Image provider item clicked.");
+    if (onImageProviderClick) {
+      onImageProviderClick();
+    }
   };
 
   return (
@@ -124,7 +131,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
         <div className={styles.statusBarItem}>
           <span>📷</span> {/* Image Icon */}
            <span
-            onClick={onImageProviderClick}
+            onClick={handleImageProviderClick} // Use the new handler
             className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured} ${onImageProviderClick ? styles.clickableItem : ''}`}
             data-status={imageConfigured ? 'configured' : 'not-configured'}
             title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'} - Click to configure`}
