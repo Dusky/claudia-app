@@ -1,9 +1,10 @@
 import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpression, AvatarAction, AvatarPose, AvatarPosition, AvatarGesture } from './types';
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
-import { ImagePromptComposer, type PromptModificationContext } from '../providers/image/promptComposer';
+import { ImagePromptComposer, type PromptModificationContext, type ImagePromptComponents } from '../providers/image/promptComposer';
 import { imageStorage } from '../utils/imageStorage';
 import type { Personality } from '../types/personality';
+
 // Simple hash function for browser environment
 function simpleHash(str: string): string {
   let hash = 0;
@@ -15,6 +16,19 @@ function simpleHash(str: string): string {
   }
   return hash.toString(16);
 }
+
+interface VariationOptions {
+  seed?: number;
+  contextualKeywords?: string[];
+}
+
+// Extended AvatarGenerationParams for internal use by controller
+interface InternalAvatarGenerationParams extends AvatarGenerationParams {
+  aiDescription?: string; // For AI-driven descriptions
+  variationSeed?: number;
+  contextualKeywords?: string[];
+}
+
 
 export class AvatarController {
   private state: AvatarState;
@@ -47,122 +61,78 @@ export class AvatarController {
     };
   }
 
-  // Parse [AVATAR:...] commands from LLM responses
   parseAvatarCommands(text: string): { cleanText: string; commands: AvatarCommand[] } {
     const avatarRegex = /\[AVATAR:([^\]]+)\]/g;
     const commands: AvatarCommand[] = [];
     let cleanText = text;
-
     let match;
     while ((match = avatarRegex.exec(text)) !== null) {
       const commandStr = match[1];
       const command = this.parseCommandString(commandStr);
       commands.push(command);
-      
-      // Remove the avatar command from the text
       cleanText = cleanText.replace(match[0], '');
     }
-
     return { cleanText: cleanText.trim(), commands };
   }
 
-  // Parse photo descriptions from AI response (new system)
   parsePhotoDescriptions(response: string): { cleanText: string; photoRequest?: { description: string; position?: AvatarPosition }; hideRequest?: boolean } {
     let cleanText = response;
     let photoRequest: { description: string; position?: AvatarPosition } | undefined;
     let hideRequest = false;
 
-    // Check for [HIDE] command
     if (cleanText.includes('[HIDE]')) {
       hideRequest = true;
       cleanText = cleanText.replace(/\[HIDE\]/g, '').trim();
     }
 
-    // Parse [IMAGE: description] tags
     const imageMatches = cleanText.match(/\[IMAGE:\s*([^\]]+)\]/g);
     if (imageMatches && imageMatches.length > 0) {
-      const imageMatch = imageMatches[0]; // Take the first image description
+      const imageMatch = imageMatches[0]; 
       const description = imageMatch.replace(/\[IMAGE:\s*/, '').replace(/\]$/, '').trim();
-      
       if (description) {
         photoRequest = { description };
-        
-        // Remove all IMAGE tags from clean text
         cleanText = cleanText.replace(/\[IMAGE:\s*[^\]]+\]/g, '').trim();
       }
     }
 
-    // Parse [POSITION: location] tags
     const positionMatches = cleanText.match(/\[POSITION:\s*([^\]]+)\]/g);
     if (positionMatches && positionMatches.length > 0 && photoRequest) {
       const positionMatch = positionMatches[0];
       const position = positionMatch.replace(/\[POSITION:\s*/, '').replace(/\]$/, '').trim();
-      
-      // Validate position
       const validPositions: AvatarPosition[] = [
         'center', 'top-left', 'top-right', 'bottom-left', 'bottom-right',
         'beside-text', 'overlay-left', 'overlay-right', 'floating', 'peeking'
       ];
-      
       if (validPositions.includes(position as AvatarPosition)) {
         photoRequest.position = position as AvatarPosition;
       }
-      
-      // Remove all POSITION tags from clean text
       cleanText = cleanText.replace(/\[POSITION:\s*[^\]]+\]/g, '').trim();
     }
-
     return { cleanText, photoRequest, hideRequest };
   }
 
   private parseCommandString(commandStr: string): AvatarCommand {
     const command: AvatarCommand = {};
     const pairs = commandStr.split(',').map(pair => pair.trim());
-
     pairs.forEach(pair => {
       const [key, value] = pair.split('=').map(s => s.trim());
-      
       switch (key.toLowerCase()) {
-        case 'position':
-          command.position = value as AvatarPosition;
-          break;
-        case 'expression':
-          command.expression = value as AvatarExpression;
-          break;
-        case 'action':
-          command.action = value as AvatarAction;
-          break;
-        case 'gesture':
-          command.gesture = value as AvatarGesture;
-          break;
-        case 'pose':
-          command.pose = value as AvatarPose;
-          break;
-        case 'hide':
-          command.hide = value.toLowerCase() === 'true';
-          break;
-        case 'show':
-          command.show = value.toLowerCase() === 'true';
-          break;
-        case 'fade':
-          command.fade = value.toLowerCase() === 'true';
-          break;
-        case 'pulse':
-          command.pulse = value.toLowerCase() === 'true';
-          break;
-        case 'scale':
-          command.scale = parseFloat(value);
-          break;
-        case 'duration':
-          command.duration = parseInt(value);
-          break;
+        case 'position': command.position = value as AvatarPosition; break;
+        case 'expression': command.expression = value as AvatarExpression; break;
+        case 'action': command.action = value as AvatarAction; break;
+        case 'gesture': command.gesture = value as AvatarGesture; break;
+        case 'pose': command.pose = value as AvatarPose; break;
+        case 'hide': command.hide = value.toLowerCase() === 'true'; break;
+        case 'show': command.show = value.toLowerCase() === 'true'; break;
+        case 'fade': command.fade = value.toLowerCase() === 'true'; break;
+        case 'pulse': command.pulse = value.toLowerCase() === 'true'; break;
+        case 'scale': command.scale = parseFloat(value); break;
+        case 'duration': command.duration = parseInt(value); break;
       }
     });
-
     return command;
   }
 
-  // Execute avatar commands
   async executeCommands(commands: AvatarCommand[]): Promise<void> {
     for (const command of commands) {
       await this.executeCommand(command);
@@ -171,531 +141,360 @@ export class AvatarController {
 
   async executeCommand(command: AvatarCommand): Promise<void> {
     let needsNewImage = false;
-
-    // Update state based on command
-    if (command.hide) {
-      this.state.visible = false;
-    }
-
-    if (command.show) {
-      this.state.visible = true;
-    }
-
-    // Position is now handled by dedicated panel - removed position logic
+    if (command.hide) this.state.visible = false;
+    if (command.show) this.state.visible = true;
 
     if (command.expression && command.expression !== this.state.expression) {
       this.state.expression = command.expression;
       needsNewImage = true;
     }
-
     if (command.pose && command.pose !== this.state.pose) {
       this.state.pose = command.pose;
       needsNewImage = true;
     }
-
-    if (command.action) {
-      this.state.action = command.action;
-    }
-
-    if (command.gesture) {
-      this.state.gesture = command.gesture;
-    }
-
-    if (command.scale) {
-      this.state.scale = command.scale;
-    }
-
-    if (command.fade) {
-      this.state.opacity = 0.5;
-    } else if (command.pulse) {
-      // Pulse animation will be handled by the display component
-    }
-
-    // Generate new image if needed
+    if (command.action) this.state.action = command.action; // Action change doesn't always need new image if minor
+    if (command.gesture) this.state.gesture = command.gesture;
+    if (command.scale) this.state.scale = command.scale;
+    if (command.fade) this.state.opacity = 0.5;
+    
     if (needsNewImage && this.state.visible) {
-      await this.generateAvatarImage();
+      await this.generateAvatarImage(undefined, { seed: Date.now() });
     }
 
     this.state.lastUpdate = new Date().toISOString();
-    this.state.isAnimating = true;
-
-    // Notify state change
-    if (this.onStateChange) {
-      this.onStateChange(this.state);
-    }
-
-    // Reset animation flag after a short delay
+    this.state.isAnimating = true; // For CSS animations or transitions
+    this.notifyStateChange();
     setTimeout(() => {
       this.state.isAnimating = false;
-      if (this.onStateChange) {
-        this.onStateChange(this.state);
-      }
+      this.notifyStateChange();
     }, command.duration || 500);
   }
 
-  private async generateAvatarImage(conversationContext?: string): Promise<void> {
-    // Get the configured image style from config manager
+  private async generateAvatarImage(
+    conversationContext?: string,
+    variationOptions?: VariationOptions,
+    aiProvidedDescription?: string // New: For AI's direct description
+  ): Promise<void> {
     const { configManager } = await import('../config/env');
     const configuredStyle = configManager.getImageStyle();
     
-    const params: AvatarGenerationParams = {
+    const params: InternalAvatarGenerationParams = {
       expression: this.state.expression,
       pose: this.state.pose,
       action: this.state.action,
       style: configuredStyle,
-      background: 'none',
+      background: 'none', 
       lighting: 'soft',
-      quality: 'high'
+      quality: 'high',
+      aiDescription: aiProvidedDescription, // Pass AI description if available
+      variationSeed: variationOptions?.seed,
+      contextualKeywords: variationOptions?.contextualKeywords,
     };
 
-    // Generate prompt components using the new system
     let promptComponents = this.promptComposer.generatePromptComponents(params);
+    let activePersonality: Personality | null = null;
 
-    // Get current personality for context-aware modifications
     try {
-      const activePersonality = await this.database.getActivePersonality();
+      activePersonality = await this.database.getActivePersonality();
       if (activePersonality) {
         const context: PromptModificationContext = {
-          personality: {
-            name: activePersonality.name,
-            systemPrompt: activePersonality.system_prompt
-          },
-          conversationContext
+          personality: { name: activePersonality.name, systemPrompt: activePersonality.system_prompt },
+          conversationContext,
+          isAIDescription: !!aiProvidedDescription,
+          variationSeed: variationOptions?.seed,
+          contextualKeywords: variationOptions?.contextualKeywords,
         };
-
-        // Apply personality-based modifications to prompts
         promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
       }
     } catch (error) {
       console.warn('Could not get personality for prompt modification:', error);
     }
 
-    // Create final prompts
     const finalPrompt = this.promptComposer.compilePrompt(promptComponents);
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
     
-    const promptHash = this.generatePromptHash({ ...params, prompt: finalPrompt });
+    const promptHash = this.generatePromptHash({ ...params, prompt: finalPrompt, negativePrompt });
     
-    // Check cache first
     const cached = await this.database.getCachedAvatar(promptHash);
     if (cached) {
       this.state.imageUrl = cached.imageUrl;
+      this.notifyStateChange(); 
       return;
     }
 
-    // Generate new image
+    this.state.isGenerating = true;
+    this.state.hasError = false;
+    this.notifyStateChange();
+
     try {
       const provider = this.imageProvider.getActiveProvider();
       if (!provider) {
         console.warn('No active image provider configured');
+        this.state.isGenerating = false;
+        this.notifyStateChange();
         return;
       }
 
       const imageRequest: ImageGenerationRequest = {
         prompt: finalPrompt,
         negativePrompt,
-        width: 512,
-        height: 512,
-        steps: 20,
-        guidance: 7.5
+        width: 512, height: 512, steps: 25, guidance: 7.0 
       };
 
-      console.log('Generating avatar with enhanced prompt:', {
-        prompt: finalPrompt,
-        negativePrompt,
-        params
-      });
-
+      console.log('Generating avatar with prompt:', { finalPrompt, negativePrompt, params });
       const response = await provider.generateImage(imageRequest);
       
-      // Cache the result
       this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
       this.state.imageUrl = response.imageUrl;
-
     } catch (error) {
       console.error('Failed to generate avatar image:', error);
-      // Could fall back to a default image here
+      this.state.hasError = true;
+      this.state.errorMessage = error instanceof Error ? error.message : 'Unknown image generation error.';
+    } finally {
+      this.state.isGenerating = false;
+      this.notifyStateChange();
     }
   }
 
-  // Methods to access the new prompt composer system
   getPromptComposer(): ImagePromptComposer {
     return this.promptComposer;
   }
 
-  // Generate avatar with conversation context
   async generateAvatarWithContext(conversationContext?: string): Promise<void> {
-    await this.generateAvatarImage(conversationContext);
+    const keywords = conversationContext?.toLowerCase().match(/\b(\w{4,})\b/g)?.slice(0, 5) || [];
+    await this.generateAvatarImage(conversationContext, { seed: Date.now(), contextualKeywords: keywords });
   }
 
-  // Generate avatar directly from AI description (new system)
   async generateAvatarFromDescription(description: string, position?: AvatarPosition): Promise<void> {
     console.log('🎨 Generating avatar from AI description:', { description, position });
 
-    // Set loading state and clear any previous errors
-    this.state.isGenerating = true;
-    this.state.hasError = false;
-    this.state.errorMessage = undefined;
-    this.notifyStateChange();
-
-    try {
-      const provider = this.imageProvider.getActiveProvider();
-      if (!provider) {
-        console.error('No active image provider');
-        return;
-      }
-
-      // Parse description to extract avatar parameters and use sophisticated prompt composer
-      const extractedParams = await this.parseDescriptionToParams(description);
-      
-      // Generate prompt components using the sophisticated prompt composer
-      let promptComponents = this.promptComposer.generatePromptComponents(extractedParams);
-
-      // Get current personality for context-aware modifications
-      try {
-        const activePersonality = await this.database.getActivePersonality();
-        if (activePersonality) {
-          const context = {
-            personality: {
-              name: activePersonality.name,
-              systemPrompt: activePersonality.system_prompt
-            },
-            conversationContext: description
-          };
-
-          // Apply personality-based modifications to prompts
-          promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
-        }
-      } catch (error) {
-        console.warn('Could not get personality for prompt modification:', error);
-      }
-
-      // Blend AI description with sophisticated styling
-      const sophisticatedBase = this.promptComposer.compilePrompt(promptComponents);
-      const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
-      
-      // Create hybrid prompt: AI description + sophisticated styling elements
-      const finalPrompt = `${description}, ${sophisticatedBase}`;
-      
-      console.log('🎨 Generating avatar with sophisticated prompt:', {
-        originalDescription: description,
-        finalPrompt,
-        negativePrompt,
-        extractedParams
-      });
-      
-      const response = await provider.generateImage({
-        prompt: finalPrompt,
-        negativePrompt,
-        width: 512,
-        height: 512,
-        steps: 20, // Use higher quality for consistent results
-        guidance: 7.5
-      });
-
-      // Update avatar state
-      this.state.imageUrl = response.imageUrl;
-      this.state.visible = true;
-      this.state.opacity = 0.9;
-      
-      // Position is now handled by dedicated panel
-      
-      this.state.lastUpdate = new Date().toISOString();
-
-      // Save the image with proper file management
-      try {
-        const metadata = imageStorage.createImageMetadata(finalPrompt, response.imageUrl, {
-          description: description,
-          style: promptComponents.style,
-          model: (provider as { config?: { model?: string } }).config?.model || 'unknown',
-          provider: provider.name,
-          dimensions: { width: 512, height: 512 },
-          tags: ['avatar', 'ai-generated', 'claudia'],
-          // Additional metadata stored in prompt field
-        });
-
-        // Save the image (downloads in browser)
-        await imageStorage.saveImage(response.imageUrl, metadata);
-        console.log('📸 Avatar image saved:', metadata.filename);
-
-        // Clean up old images periodically
-        if (Math.random() < 0.1) { // 10% chance to cleanup
-          imageStorage.cleanupOldImages(100);
-        }
-
-      } catch (saveError) {
-        console.warn('Failed to save avatar image:', saveError);
-      }
-
-      // Clear loading state
-      this.state.isGenerating = false;
-      
-      // Notify state change
-      this.notifyStateChange();
-      
-      console.log('✅ Avatar generated from AI description successfully');
-
-    } catch (error) {
-      console.error('Failed to generate avatar from description:', error);
-      
-      // Set error state
-      this.state.isGenerating = false;
-      this.state.hasError = true;
-      this.state.errorMessage = error instanceof Error ? error.message : 'Failed to generate image';
-      this.notifyStateChange();
-    }
-  }
-
-  // Automatically generate avatar based on AI response
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async generateAvatarFromResponse(aiResponse: string, _personality?: Personality): Promise<void> {
-    // Extract emotional context and actions from AI response
-    const emotionalContext = this.analyzeResponseForEmotion(aiResponse);
+    // Update internal state based on description for consistency, even if image prompt is different
+    const parsedParams = await this.parseDescriptionToParams(description);
+    if (parsedParams.expression) this.state.expression = parsedParams.expression;
+    if (parsedParams.pose) this.state.pose = parsedParams.pose;
+    if (parsedParams.action) this.state.action = parsedParams.action;
     
+    this.state.visible = true;
+    this.state.opacity = 0.9;
+    this.state.lastUpdate = new Date().toISOString();
+    // Position is handled by AvatarPanel
+
+    // Call generateAvatarImage, passing the AI's description directly
+    await this.generateAvatarImage(description, { seed: Date.now() }, description);
+
+    // Save the image with metadata (this part can remain similar)
+    if (this.state.imageUrl && !this.state.hasError) {
+      try {
+        const provider = this.imageProvider.getActiveProvider();
+        const metadata = imageStorage.createImageMetadata(description, this.state.imageUrl, {
+          description: description, // The AI's original description
+          style: parsedParams.style, // Style used for generation
+          model: (provider as any)?.config?.model || 'unknown',
+          provider: provider?.name || 'unknown',
+          dimensions: { width: 512, height: 512 },
+          tags: ['avatar', 'ai-generated', 'claudia', 'description-driven'],
+        });
+        await imageStorage.saveImage(this.state.imageUrl, metadata);
+        console.log('📸 Avatar image from AI description saved:', metadata.filename);
+        if (Math.random() < 0.1) imageStorage.cleanupOldImages(100);
+      } catch (saveError) {
+        console.warn('Failed to save avatar image from AI description:', saveError);
+      }
+    }
+    // Note: isGenerating and hasError states are handled within generateAvatarImage
+    this.notifyStateChange(); // Ensure final state is notified
+  }
+  
+  async generateAvatarFromResponse(aiResponse: string, _personality?: Personality): Promise<void> {
+    const emotionalContext = this.analyzeResponseForEmotion(aiResponse);
     let stateChanged = false;
 
-    // Update avatar state based on response analysis
     if (emotionalContext.expression && emotionalContext.expression !== this.state.expression) {
       this.state.expression = emotionalContext.expression;
       stateChanged = true;
     }
-    
     if (emotionalContext.action && emotionalContext.action !== this.state.action) {
       this.state.action = emotionalContext.action;
-      stateChanged = true;
+      stateChanged = true; // Action changes might warrant a new image
     }
-
     if (emotionalContext.pose && emotionalContext.pose !== this.state.pose) {
       this.state.pose = emotionalContext.pose;
       stateChanged = true;
     }
 
-    // Show avatar if response seems to warrant it
     if (emotionalContext.shouldShow && !this.state.visible) {
       this.state.visible = true;
-      // Position is now handled by dedicated panel
       this.state.opacity = 0.9;
       stateChanged = true;
     }
 
-    // Only generate new image if state changed significantly or if no image exists
-    if (stateChanged || !this.state.imageUrl) {
-      console.log('🎭 Generating avatar for response:', {
-        expression: this.state.expression,
-        action: this.state.action,
-        pose: this.state.pose,
-        visible: this.state.visible,
-        shouldShow: emotionalContext.shouldShow
-      });
-
-      // Generate new image with the updated context
-      const contextString = `Claudia responding: ${aiResponse.substring(0, 200)}...`;
-      await this.generateAvatarImage(contextString);
+    if (stateChanged || (!this.state.imageUrl && this.state.visible)) { 
+      console.log('🎭 Generating avatar for response:', { ...this.state, shouldShow: emotionalContext.shouldShow });
+      const contextString = `Claudia responding: ${aiResponse.substring(0, 150)}...`;
+      const keywords = aiResponse.toLowerCase().match(/\b(\w{4,})\b/g)?.slice(0, 5) || [];
+      // Generate image based on current state, no AI description here
+      await this.generateAvatarImage(contextString, { seed: Date.now(), contextualKeywords: keywords });
     }
     
-    // Update state subscribers
-    if (stateChanged) {
-      this.notifyStateChange();
-    }
+    if (stateChanged) this.notifyStateChange();
   }
 
-  // Analyze AI response for emotional cues and avatar commands
   private analyzeResponseForEmotion(response: string): {
     expression?: AvatarExpression;
     action?: AvatarAction;
     pose?: AvatarPose;
-    position?: AvatarPosition;
     shouldShow: boolean;
   } {
     const lowerResponse = response.toLowerCase();
     const result: {
-      expression?: AvatarExpression;
-      action?: AvatarAction;
-      pose?: AvatarPose;
-      position?: AvatarPosition;
+      expression?: AvatarExpression; action?: AvatarAction; pose?: AvatarPose;
       shouldShow: boolean;
     } = { shouldShow: false };
 
-    // Look for Japanese brackets indicating actions/emotions
     const bracketMatches = response.match(/『([^』]+)』/g);
     if (bracketMatches) {
       result.shouldShow = true;
-      
       bracketMatches.forEach(match => {
-        const action = match.replace(/『|』/g, '');
-        const actionLower = action.toLowerCase();
-        
-        // Map actions to expressions
-        if (actionLower.includes('smile') || actionLower.includes('grin') || actionLower.includes('happy')) {
-          result.expression = 'happy';
-        } else if (actionLower.includes('curious') || actionLower.includes('wonder') || actionLower.includes('tilt')) {
-          result.expression = 'curious';
-        } else if (actionLower.includes('excited') || actionLower.includes('bounce') || actionLower.includes('energetic')) {
-          result.expression = 'excited';
-        } else if (actionLower.includes('mischievous') || actionLower.includes('smirk') || actionLower.includes('playful')) {
-          result.expression = 'mischievous';
-        } else if (actionLower.includes('think') || actionLower.includes('ponder') || actionLower.includes('contempl')) {
-          result.expression = 'thinking';
-        } else if (actionLower.includes('surprised') || actionLower.includes('shock') || actionLower.includes('gasp')) {
-          result.expression = 'surprised';
-        } else if (actionLower.includes('confident') || actionLower.includes('assertive')) {
-          result.expression = 'confident';
-        }
+        const action = match.replace(/『|』/g, '').toLowerCase();
+        if (action.includes('smile') || action.includes('grin') || action.includes('happy')) result.expression = 'happy';
+        else if (action.includes('curious') || action.includes('wonder') || action.includes('tilt')) result.expression = 'curious';
+        else if (action.includes('excited') || action.includes('bounce') || action.includes('energetic')) result.expression = 'excited';
+        else if (action.includes('mischievous') || action.includes('smirk') || action.includes('playful')) result.expression = 'mischievous';
+        else if (action.includes('think') || action.includes('ponder') || action.includes('contempl')) result.expression = 'thinking';
+        else if (action.includes('surprised') || action.includes('shock') || action.includes('gasp')) result.expression = 'surprised';
+        else if (action.includes('confident') || action.includes('assertive')) result.expression = 'confident';
 
-        // Map actions to poses
-        if (actionLower.includes('sit') || actionLower.includes('cross-legged')) {
-          result.pose = 'sitting';
-        } else if (actionLower.includes('lean') || actionLower.includes('against')) {
-          result.pose = 'leaning';
-        } else if (actionLower.includes('hands on hips') || actionLower.includes('assertive')) {
-          result.pose = 'hands-on-hips';
-        } else if (actionLower.includes('crossed arms') || actionLower.includes('arms crossed')) {
-          result.pose = 'crossed-arms';
-        }
+        if (action.includes('sit') || action.includes('cross-legged')) result.pose = 'sitting';
+        else if (action.includes('lean') || action.includes('against')) result.pose = 'leaning';
+        else if (action.includes('hands on hips') || action.includes('assertive')) result.pose = 'hands-on-hips';
+        else if (action.includes('crossed arms') || action.includes('arms crossed')) result.pose = 'crossed-arms';
 
-        // Map actions to actions
-        if (actionLower.includes('wave') || actionLower.includes('greet')) {
-          result.action = 'wave';
-        } else if (actionLower.includes('point') || actionLower.includes('direct')) {
-          result.action = 'point';
-        } else if (actionLower.includes('nod') || actionLower.includes('agree')) {
-          result.action = 'nod';
-        } else if (actionLower.includes('shrug') || actionLower.includes('uncertain')) {
-          result.action = 'shrug';
-        } else if (actionLower.includes('type') || actionLower.includes('work') || actionLower.includes('keyboard')) {
-          result.action = 'type';
-        } else if (actionLower.includes('read') || actionLower.includes('look at')) {
-          result.action = 'read';
-        }
+        if (action.includes('wave') || action.includes('greet')) result.action = 'wave';
+        else if (action.includes('point') || action.includes('direct')) result.action = 'point';
+        else if (action.includes('nod') || action.includes('agree')) result.action = 'nod';
+        else if (action.includes('shrug') || action.includes('uncertain')) result.action = 'shrug';
+        else if (action.includes('type') || action.includes('work') || action.includes('keyboard')) result.action = 'type';
+        else if (action.includes('read') || action.includes('look at')) result.action = 'read';
       });
     }
 
-    // Fallback emotion detection from text content
     if (!result.expression) {
-      if (lowerResponse.includes('!') && (lowerResponse.includes('great') || lowerResponse.includes('awesome') || lowerResponse.includes('excellent'))) {
-        result.expression = 'excited';
-        result.shouldShow = true;
-      } else if (lowerResponse.includes('?') && (lowerResponse.includes('what') || lowerResponse.includes('how') || lowerResponse.includes('why'))) {
-        result.expression = 'curious';
-        result.shouldShow = true;
-      } else if (lowerResponse.includes('hmm') || lowerResponse.includes('let me think') || lowerResponse.includes('considering')) {
-        result.expression = 'thinking';
-        result.shouldShow = true;
-      } else if (lowerResponse.includes('welcome') || lowerResponse.includes('hello') || lowerResponse.includes('hi there')) {
-        result.expression = 'happy';
-        result.action = 'wave';
-        result.shouldShow = true;
+      if (lowerResponse.includes('!') && (lowerResponse.includes('great') || lowerResponse.includes('awesome'))) {
+        result.expression = 'excited'; result.shouldShow = true;
+      } else if (lowerResponse.includes('?') && (lowerResponse.includes('what') || lowerResponse.includes('how'))) {
+        result.expression = 'curious'; result.shouldShow = true;
+      } else if (lowerResponse.includes('hmm') || lowerResponse.includes('let me think')) {
+        result.expression = 'thinking'; result.shouldShow = true;
+      } else if (lowerResponse.includes('welcome') || lowerResponse.includes('hello')) {
+        result.expression = 'happy'; result.action = 'wave'; result.shouldShow = true;
       }
     }
-
-    // Set default position if showing
-    // Position is now handled by dedicated panel
-
     return result;
   }
 
-  // Parse AI description to extract avatar parameters
-  private async parseDescriptionToParams(description: string): Promise<AvatarGenerationParams> {
+  private async parseDescriptionToParams(description: string): Promise<Partial<AvatarGenerationParams>> {
     const lowerDesc = description.toLowerCase();
-    
-    // Extract expression from description
-    let expression: AvatarExpression = 'neutral';
-    if (lowerDesc.includes('smil') || lowerDesc.includes('happy') || lowerDesc.includes('joy')) {
-      expression = 'happy';
-    } else if (lowerDesc.includes('curious') || lowerDesc.includes('wonder') || lowerDesc.includes('intrigu')) {
-      expression = 'curious';
-    } else if (lowerDesc.includes('think') || lowerDesc.includes('contempl') || lowerDesc.includes('ponder')) {
-      expression = 'thinking';
-    } else if (lowerDesc.includes('excit') || lowerDesc.includes('energetic') || lowerDesc.includes('enthusiastic')) {
-      expression = 'excited';
-    } else if (lowerDesc.includes('confident') || lowerDesc.includes('determin') || lowerDesc.includes('assertive')) {
-      expression = 'confident';
-    } else if (lowerDesc.includes('mischiev') || lowerDesc.includes('playful') || lowerDesc.includes('sly')) {
-      expression = 'mischievous';
-    } else if (lowerDesc.includes('surprised') || lowerDesc.includes('shock') || lowerDesc.includes('amaz')) {
-      expression = 'surprised';
-    } else if (lowerDesc.includes('confus') || lowerDesc.includes('perplex') || lowerDesc.includes('bewild')) {
-      expression = 'confused';
-    } else if (lowerDesc.includes('focus') || lowerDesc.includes('concentrat') || lowerDesc.includes('intent')) {
-      expression = 'focused';
-    }
-
-    // Extract pose from description
-    let pose: AvatarPose = 'standing';
-    if (lowerDesc.includes('sitting') || lowerDesc.includes('sit ') || lowerDesc.includes('cross-legged')) {
-      pose = 'sitting';
-    } else if (lowerDesc.includes('lean') || lowerDesc.includes('against')) {
-      pose = 'leaning';
-    } else if (lowerDesc.includes('arms crossed') || lowerDesc.includes('crossed arms')) {
-      pose = 'crossed-arms';
-    } else if (lowerDesc.includes('hands on hips') || lowerDesc.includes('hips')) {
-      pose = 'hands-on-hips';
-    } else if (lowerDesc.includes('casual') || lowerDesc.includes('relaxed')) {
-      pose = 'casual';
-    }
-
-    // Extract action from description
-    let action: AvatarAction = 'idle';
-    if (lowerDesc.includes('waving') || lowerDesc.includes('wave')) {
-      action = 'wave';
-    } else if (lowerDesc.includes('typing') || lowerDesc.includes('keyboard')) {
-      action = 'type';
-    } else if (lowerDesc.includes('reading') || lowerDesc.includes('book')) {
-      action = 'read';
-    } else if (lowerDesc.includes('pointing') || lowerDesc.includes('point')) {
-      action = 'point';
-    } else if (lowerDesc.includes('nodding') || lowerDesc.includes('nod')) {
-      action = 'nod';
-    } else if (lowerDesc.includes('shrug') || lowerDesc.includes('uncertain')) {
-      action = 'shrug';
-    } else if (lowerDesc.includes('working') || lowerDesc.includes('busy')) {
-      action = 'work';
-    }
-
-    // Get the configured image style from config manager
-    const { configManager } = await import('../config/env');
-    const configuredStyle = configManager.getImageStyle();
-    
-    return {
-      expression,
-      pose,
-      action,
-      style: configuredStyle,
-      background: 'none',
-      lighting: 'soft',
-      quality: 'high'
+    const params: Partial<AvatarGenerationParams> = {};
+    const expressionMap: Record<string, AvatarExpression> = {
+      happy: 'happy', smile: 'happy', joyful: 'happy', glad: 'happy', cheerful: 'happy',
+      curious: 'curious', wonder: 'curious', intrigued: 'curious', inquisitive: 'curious',
+      thinking: 'thinking', ponder: 'thinking', contemplative: 'thinking', thoughtful: 'thinking',
+      excited: 'excited', energetic: 'excited', enthusiastic: 'excited', thrilled: 'excited',
+      confident: 'confident', determined: 'confident', assertive: 'confident', sure: 'confident',
+      mischievous: 'mischievous', playful: 'mischievous', sly: 'mischievous', impish: 'mischievous',
+      surprised: 'surprised', shocked: 'surprised', amazed: 'surprised', astonished: 'surprised',
+      confused: 'confused', perplexed: 'confused', bewildered: 'confused', puzzled: 'confused',
+      focused: 'focused', concentrated: 'focused', intent: 'focused', absorbed: 'focused',
+      neutral: 'neutral', calm: 'neutral',
     };
+    for (const keyword in expressionMap) {
+      if (lowerDesc.includes(keyword)) {
+        params.expression = expressionMap[keyword];
+        break;
+      }
+    }
+    if (!params.expression) params.expression = 'neutral';
+
+    const poseMap: Record<string, AvatarPose> = {
+      sitting: 'sitting', "sit ": 'sitting', "cross-legged": 'sitting', seated: 'sitting',
+      leaning: 'leaning', "against": 'leaning',
+      "crossed-arms": 'crossed-arms', "arms crossed": 'crossed-arms',
+      "hands-on-hips": 'hands-on-hips', "hands on hips": 'hands-on-hips',
+      standing: 'standing', stand: 'standing', upright: 'standing',
+      casual: 'casual', relaxed: 'casual',
+    };
+    for (const keyword in poseMap) {
+      if (lowerDesc.includes(keyword)) {
+        params.pose = poseMap[keyword];
+        break;
+      }
+    }
+    if (!params.pose) params.pose = 'standing';
+
+    const actionMap: Record<string, AvatarAction> = {
+      waving: 'wave', wave: 'wave', greeting: 'wave',
+      typing: 'type', keyboard: 'type', "on computer": 'type',
+      reading: 'read', book: 'read', "looking at screen": 'read',
+      pointing: 'point', "point at": 'point',
+      nodding: 'nod', nod: 'nod', agreeing: 'nod',
+      shrugging: 'shrug', shrug: 'shrug', uncertain: 'shrug',
+      working: 'work', busy: 'work',
+      idle: 'idle', still: 'idle',
+      searching: 'search', looking: 'search',
+      thinking: 'think', 
+    };
+    for (const keyword in actionMap) {
+      if (lowerDesc.includes(keyword)) {
+        params.action = actionMap[keyword];
+        break;
+      }
+    }
+    if (!params.action) params.action = 'idle';
+    
+    const { configManager } = await import('../config/env');
+    params.style = configManager.getImageStyle();
+    if (lowerDesc.includes("dramatic light")) params.lighting = "dramatic";
+    else if (lowerDesc.includes("soft light") || lowerDesc.includes("gentle light")) params.lighting = "soft";
+    else if (lowerDesc.includes("neon light")) params.lighting = "neon";
+    else params.lighting = 'soft';
+
+    if (lowerDesc.includes("transparent background")) params.background = "transparent";
+    else if (lowerDesc.includes("cyber background") || lowerDesc.includes("futuristic city")) params.background = "cyber";
+    else params.background = 'none';
+    
+    params.quality = 'high';
+
+    return params;
   }
 
-  private generatePromptHash(params: AvatarGenerationParams): string {
-    const keyString = JSON.stringify(params, Object.keys(params).sort());
+  private generatePromptHash(params: InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string }): string {
+    const orderedParams: Record<string, any> = {};
+    Object.keys(params).sort().forEach(key => {
+      orderedParams[key] = (params as any)[key];
+    });
+    const keyString = JSON.stringify(orderedParams);
     return simpleHash(keyString);
   }
 
-  // Get current state
   getState(): AvatarState {
     return { ...this.state };
   }
 
-  // Set state directly (for initialization)
   setState(newState: Partial<AvatarState>): void {
-    this.state = { ...this.state, ...newState };
+    this.state = { ...this.state, ...newState, lastUpdate: new Date().toISOString() };
     this.notifyStateChange();
   }
 
-  // Notify listeners of state changes
   private notifyStateChange(): void {
     if (this.onStateChange) {
       this.onStateChange(this.getState());
     }
   }
 
-  // Show avatar with default settings
   async show(): Promise<void> {
     await this.executeCommand({ show: true, expression: 'happy' });
   }
 
-  // Hide avatar
   async hide(): Promise<void> {
     await this.executeCommand({ hide: true });
   }
