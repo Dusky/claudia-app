@@ -76,6 +76,18 @@ export interface ImagePromptComponents {
   lightingKeywords: string; // Keywords for lighting
   backgroundKeywords: string; // Keywords for background
 
+  // Additional fields used by promptComposer
+  primaryDescription: string; // Primary subject description
+  poseAndExpression: string; // Combined pose and expression
+  baseCharacterReference: string; // Base character reference
+  subjectDescription: string; // Subject description
+  cameraPerspectiveAndComposition: string; // Camera and composition details
+  realismAndDetails: string; // Realism and detail keywords
+  styleKeywords: string; // Style-specific keywords
+  qualityKeywords: string; // Quality-specific keywords
+  atmosphereAndStyle: string; // Atmosphere and style description
+  lightingDescription: string; // Lighting description (alias for lightingKeywords)
+
   // For variation
   variationSeed?: number;
   contextualKeywords?: string[];

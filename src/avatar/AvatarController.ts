@@ -1,7 +1,8 @@
 import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpression, AvatarAction, AvatarPose, AvatarPosition, AvatarGesture } from './types';
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
-import { ImagePromptComposer, type PromptModificationContext, type ImagePromptComponents } from '../providers/image/promptComposer';
+import { ImagePromptComposer } from '../providers/image/promptComposer';
+import type { PromptModificationContext, ImagePromptComponents } from '../providers/image/types';
 // import { imageStorage } from '../utils/imageStorage'; // Remove global import
 import type { ImageStorageManager } from '../utils/imageStorage'; // Import type
 import type { Personality } from '../types/personality';
