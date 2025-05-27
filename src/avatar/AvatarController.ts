@@ -185,7 +185,7 @@ export class AvatarController {
       const components = this.promptComposer.generatePromptComponents(baseParams);
       const modifiedComponents = personality 
         ? await this.promptComposer.applyPersonalityModifications(components, {
-            personality: { name: personality.name, systemPrompt: personality.system_prompt },
+            personality, // Pass full personality object
             conversationContext,
             isAIDescription: !!baseParams.aiDescription,
             isMetaPrompted: false, 
@@ -205,6 +205,9 @@ export class AvatarController {
     }
     if (personality) {
       metaInputContext += `\nClaudia's Current Personality: ${personality.name}. Description: "${personality.description.substring(0,150)}...". System Prompt Hint: "${personality.system_prompt.substring(0,200)}..."`;
+      if(personality.preferredClothingStyle) metaInputContext += `\nPreferred Clothing: ${personality.preferredClothingStyle}.`;
+      if(personality.typicalEnvironmentKeywords) metaInputContext += `\nTypical Environment: ${personality.typicalEnvironmentKeywords}.`;
+      if(personality.artStyleModifiers) metaInputContext += `\nArt Style Modifiers: ${personality.artStyleModifiers}.`;
     }
     metaInputContext += `\nDesired Base Artistic Style: "${baseParams.style}".`;
     if (baseParams.contextualKeywords && baseParams.contextualKeywords.length > 0) {
@@ -213,18 +216,18 @@ export class AvatarController {
 
     const metaSystemPrompt = `You are an expert creative director and prompt engineer for an advanced text-to-image AI.
 Your task is to generate a highly detailed, vivid, and artistic image prompt based on the provided context.
-The main subject is ALWAYS Claudia. Claudia is a petite woman in her early 20s, with softly wavy chestnut hair to her shoulders, bright hazel eyes, and light freckles across her cheeks. She has subtle natural makeup. Her clothing should be appropriate for the scene.
+The main subject is ALWAYS Claudia. Claudia is a petite woman in her early 20s, with softly wavy chestnut hair to her shoulders, bright hazel eyes, and light freckles across her cheeks. She has subtle natural makeup. Her clothing should be appropriate for the scene and personality.
 
 Follow this structure for your output prompt, ensuring each section is detailed:
-1.  **Subject:** Describe Claudia, including her specific clothing for this scene, ensuring it aligns with the context. Reiterate her core features (chestnut hair, hazel eyes, freckles).
-2.  **Pose / Expression:** Detail her exact pose and facial expression.
-3.  **Setting:** Describe the environment in detail. If an "AI's Specific Image Request" is provided, use that as the primary setting. Otherwise, create a setting that fits her state and personality.
-4.  **Atmosphere / Style:** Define the mood, overall artistic style (e.g., photorealistic, oil painting, cinematic), and any relevant textures or visual treatments. Incorporate the "Desired Base Artistic Style" provided.
+1.  **Subject:** Describe Claudia, including her specific clothing for this scene, ensuring it aligns with the context and personality's preferred clothing. Reiterate her core features (chestnut hair, hazel eyes, freckles).
+2.  **Pose / Expression:** Detail her exact pose and facial expression based on the current avatar state.
+3.  **Setting:** Describe the environment in detail. If an "AI's Specific Image Request" is provided, use that as the primary setting. Otherwise, create a setting that fits her state, personality (typical environment), and conversation context.
+4.  **Atmosphere / Style:** Define the mood, overall artistic style (e.g., photorealistic, oil painting, cinematic), and any relevant textures or visual treatments. Incorporate the "Desired Base Artistic Style" and any "Art Style Modifiers" from the personality.
 5.  **Lighting:** Describe the lighting conditions (type, direction, color, mood).
 6.  **Camera Perspective / Composition:** Specify shot type (e.g., medium shot, close-up), camera angle, composition, and lens characteristics (e.g., shallow depth of field, 50mm lens look).
 7.  **Details & Realism Cues:** Add specific small details that enhance realism or the artistic vision (e.g., rain droplets, lens flare, specific textures).
 
-If an "AI's Specific Image Request" is given, that is the primary creative direction for the scene, pose, and action. Adapt Claudia's expression and other details to fit this request while maintaining her core identity.
+If an "AI's Specific Image Request" is given, that is the primary creative direction for the scene, pose, and action. Adapt Claudia's expression and other details to fit this request while maintaining her core identity and personality's visual preferences.
 If no "AI's Specific Image Request" is given, create a compelling scene based on Claudia's current state, personality, and conversation context.
 The final output prompt should be a single block of text, with each section clearly delineated if possible, or as a continuous descriptive paragraph. Aim for a rich, comma-separated list of phrases.
 Output ONLY the generated image prompt. Do not include any preambles, apologies, or explanations.`;
@@ -234,7 +237,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     try {
       const llmResponse = await this.llmManager.generateText(
         metaInputContext,
-        { systemMessage: metaSystemPrompt, temperature: 0.75, maxTokens: 350 } // Increased maxTokens
+        { systemMessage: metaSystemPrompt, temperature: 0.75, maxTokens: 400 } // Increased maxTokens further
       );
       console.log("✨ Meta-LLM generated image prompt:", llmResponse);
       return llmResponse.trim();
@@ -259,7 +262,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       expression: this.state.expression,
       pose: this.state.pose,
       action: this.state.action,
-      style: configuredStyle, // This is the base style preference
+      style: configuredStyle, 
       background: 'none', 
       lighting: 'soft',
       quality: 'high',
@@ -282,15 +285,11 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       params.metaGeneratedImagePrompt = finalImagePrompt; 
     }
     
-    // ImagePromptComposer now uses the metaGeneratedImagePrompt (if available) or aiDescription
-    // as its primary situational/scene description.
-    // It then adds consistent character details, style, quality, and negative prompts.
     let promptComponents = this.promptComposer.generatePromptComponents(params);
     
-    // Personality modifications can refine the components or the primary description
     if (activePersonality) { 
         const context: PromptModificationContext = {
-          personality: { name: activePersonality.name, systemPrompt: activePersonality.system_prompt },
+          personality: activePersonality, // Pass full personality object
           conversationContext,
           isAIDescription: !!aiProvidedDescription,
           isMetaPrompted: !!params.metaGeneratedImagePrompt,
@@ -300,14 +299,10 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
         promptComponents = await this.promptComposer.applyPersonalityModifications(promptComponents, context);
     }
     
-    // If meta-prompting was used, finalImagePrompt is already set from meta-LLM.
-    // Otherwise, compile from components.
     if (!params.metaGeneratedImagePrompt) {
         finalImagePrompt = this.promptComposer.compilePrompt(promptComponents);
     } else {
-      // If meta-prompt was used, we might still want to append some non-negotiables
-      // or ensure character consistency. compilePrompt handles this.
-      finalImagePrompt = this.promptComposer.compilePrompt(promptComponents);
+      finalImagePrompt = this.promptComposer.compilePrompt(promptComponents); // compilePrompt now handles meta-prompted primaryDescription
     }
     
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
@@ -348,7 +343,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       const imageRequest: ImageGenerationRequest = {
         prompt: finalImagePrompt,
         negativePrompt,
-        width: 512, height: 512, steps: 30, guidance: 7.0 // Slightly increased steps for potentially more detailed prompts
+        width: 512, height: 512, steps: 30, guidance: 7.0 
       };
 
       console.log('Generating avatar with final prompt:', { finalImagePrompt, negativePrompt, params });

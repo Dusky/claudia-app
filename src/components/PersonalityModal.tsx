@@ -32,7 +32,10 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
     name: DEFAULT_PERSONALITY.name,
     description: DEFAULT_PERSONALITY.description,
     system_prompt: DEFAULT_PERSONALITY.system_prompt,
-    allowImageGeneration: DEFAULT_PERSONALITY.allowImageGeneration
+    allowImageGeneration: DEFAULT_PERSONALITY.allowImageGeneration,
+    preferredClothingStyle: DEFAULT_PERSONALITY.preferredClothingStyle || '',
+    typicalEnvironmentKeywords: DEFAULT_PERSONALITY.typicalEnvironmentKeywords || '',
+    artStyleModifiers: DEFAULT_PERSONALITY.artStyleModifiers || '',
   });
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [isDefault, setIsDefault] = useState<boolean>(false);
@@ -76,7 +79,10 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       name: p.name,
       description: p.description,
       system_prompt: p.system_prompt,
-      allowImageGeneration: p.allowImageGeneration
+      allowImageGeneration: p.allowImageGeneration,
+      preferredClothingStyle: p.preferredClothingStyle || '',
+      typicalEnvironmentKeywords: p.typicalEnvironmentKeywords || '',
+      artStyleModifiers: p.artStyleModifiers || '',
     });
     setCurrentId(p.id);
     setIsDefault(p.isDefault || false);
@@ -89,7 +95,10 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       name: 'New Personality',
       description: 'A custom personality for Claudia.',
       system_prompt: 'You are a helpful AI assistant...',
-      allowImageGeneration: false
+      allowImageGeneration: false,
+      preferredClothingStyle: DEFAULT_PERSONALITY.preferredClothingStyle || '',
+      typicalEnvironmentKeywords: DEFAULT_PERSONALITY.typicalEnvironmentKeywords || '',
+      artStyleModifiers: DEFAULT_PERSONALITY.artStyleModifiers || '',
     });
     setCurrentId(null);
     setIsDefault(false);
@@ -111,6 +120,9 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
       system_prompt: formData.system_prompt.trim(),
       isDefault: isDefault,
       allowImageGeneration: formData.allowImageGeneration,
+      preferredClothingStyle: formData.preferredClothingStyle?.trim(),
+      typicalEnvironmentKeywords: formData.typicalEnvironmentKeywords?.trim(),
+      artStyleModifiers: formData.artStyleModifiers?.trim(),
       created_at: createdAt,
       updated_at: new Date().toISOString(),
       usage_count: usageCount
@@ -208,7 +220,7 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
                 value={formData.system_prompt}
                 onChange={(e) => updateFormData('system_prompt', e.target.value)}
                 placeholder="The full system prompt that defines this personality..."
-                rows={15}
+                rows={10} /* Reduced rows for system prompt to make space */
                 style={{
                   backgroundColor: theme.colors.background,
                   borderColor: theme.colors.foreground || '#333',
@@ -218,6 +230,52 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
                 }}
               />
             </div>
+
+            <div className={styles.field}>
+              <label>Preferred Clothing Style:</label>
+              <input
+                type="text"
+                value={formData.preferredClothingStyle || ''}
+                onChange={(e) => updateFormData('preferredClothingStyle', e.target.value)}
+                placeholder="e.g., modern techwear, vintage floral dresses"
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Typical Environment Keywords:</label>
+              <input
+                type="text"
+                value={formData.typicalEnvironmentKeywords || ''}
+                onChange={(e) => updateFormData('typicalEnvironmentKeywords', e.target.value)}
+                placeholder="e.g., cyberpunk city, cozy library, futuristic lab"
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label>Art Style Modifiers:</label>
+              <input
+                type="text"
+                value={formData.artStyleModifiers || ''}
+                onChange={(e) => updateFormData('artStyleModifiers', e.target.value)}
+                placeholder="e.g., oil painting effect, anime cel shading, grainy film"
+                style={{
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.foreground || '#333',
+                  color: theme.colors.foreground
+                }}
+              />
+            </div>
+
 
             <div className={styles.checkbox}>
               <label>
@@ -250,7 +308,7 @@ export const PersonalityModal: React.FC<PersonalityModalProps> = ({
             )}
           </div>
           <div className={styles.actions}>
-            {currentId && onDelete && (
+            {currentId && onDelete && !isDefault && ( // Prevent deleting default
               <button 
                 onClick={handleDelete} 
                 className={styles.deleteButton}

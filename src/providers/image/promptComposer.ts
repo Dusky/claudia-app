@@ -1,4 +1,5 @@
-import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction } from '../../avatar/types';
+import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction, Personality } from '../../avatar/types'; // Added Personality
+import type { Personality as PersonalityData } from '../../types/personality'; // Import full Personality type
 
 // Helper for simple seeded random number (0 to 1)
 function seededRandom(seed: number): number {
@@ -33,10 +34,7 @@ export interface ImagePromptComponents {
 }
 
 export interface PromptModificationContext {
-  personality: {
-    name: string;
-    systemPrompt: string;
-  };
+  personality: PersonalityData; // Use the full Personality type
   currentMood?: string;
   previousActions?: string[];
   conversationContext?: string;
@@ -162,55 +160,73 @@ export class ImagePromptComposer {
     context: PromptModificationContext
   ): Promise<ImagePromptComponents> => {
     const modifiedComponents = { ...components };
-    const systemPrompt = context.personality.systemPrompt.toLowerCase();
+    const personality = context.personality; // Now full PersonalityData
     const isPrimaryDescriptionDriven = !!(context.isAIDescription || context.isMetaPrompted || modifiedComponents.primaryDescription);
 
+    // Apply structured visual preferences from personality
+    if (personality.preferredClothingStyle) {
+      if (isPrimaryDescriptionDriven) {
+        // If AI/Meta described clothing, just ensure Claudia's base is there and append style hint
+        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.primaryDescription || modifiedComponents.subjectDescription) + ` She is wearing ${personality.preferredClothingStyle}.`;
+      } else {
+        modifiedComponents.subjectDescription = `${this.baseCharacterIdentity} She is wearing ${personality.preferredClothingStyle}.`;
+      }
+    }
+    if (personality.typicalEnvironmentKeywords && !isPrimaryDescriptionDriven) { // Don't override AI/Meta scene
+      modifiedComponents.settingDescription = `Setting: ${personality.typicalEnvironmentKeywords}. ${this.basePrompts.settingDescription}`;
+    }
+    if (personality.artStyleModifiers) {
+      modifiedComponents.styleKeywords += `, ${personality.artStyleModifiers}`;
+    }
+    
+    // Existing system prompt keyword logic (can be kept for broader strokes or refined)
+    const systemPrompt = personality.system_prompt.toLowerCase();
     if (systemPrompt.includes('technical expert') || systemPrompt.includes('highly analytical')) {
       modifiedComponents.styleKeywords += ', precise, sharp focus, clean aesthetic';
       if (!isPrimaryDescriptionDriven) { 
-        modifiedComponents.settingDescription = "Setting: a minimalist high-tech lab or modern data center, glowing server racks.";
-        modifiedComponents.subjectDescription = modifiedComponents.subjectDescription.replace("flirty, above-knee floral sundress", "sleek professional attire, perhaps a modern dark blazer and smart trousers");
-      } else {
-         modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.subjectDescription) + " She's dressed in smart, functional clothing.";
+        modifiedComponents.settingDescription = `Setting: a minimalist high-tech lab or modern data center, glowing server racks. ${modifiedComponents.settingDescription}`;
       }
     } else if (systemPrompt.includes('whimsical storyteller') || systemPrompt.includes('dreamer')) {
       modifiedComponents.styleKeywords += ', fantastical elements, soft painterly style, imaginative details';
       if (!isPrimaryDescriptionDriven) {
-        modifiedComponents.settingDescription = "Setting: an enchanted digital forest with glowing flora, or a library filled with ancient, magical tomes.";
-        modifiedComponents.subjectDescription = modifiedComponents.subjectDescription.replace("flirty, above-knee floral sundress", "flowing ethereal dress or a whimsical, layered outfit with unique accessories");
-      } else {
-        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.subjectDescription) + " Her attire has a touch of whimsy.";
+        modifiedComponents.settingDescription = `Setting: an enchanted digital forest with glowing flora, or a library filled with ancient, magical tomes. ${modifiedComponents.settingDescription}`;
       }
     }
     
     if (isPrimaryDescriptionDriven) {
         modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.primaryDescription || modifiedComponents.subjectDescription);
+    } else {
+        // Ensure base character is set if not primary description driven
+        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.subjectDescription);
     }
 
     return modifiedComponents;
   }
   
   private ensureBaseCharacter = (description: string): string => {
-      if (!description.toLowerCase().includes('claudia')) {
-          return `${this.baseCharacterIdentity} ${description}`;
+      let currentDesc = description || "";
+      if (!currentDesc.toLowerCase().includes('claudia')) {
+          currentDesc = `${this.baseCharacterIdentity} ${currentDesc}`;
+      } else {
+        // Ensure core traits are present if "Claudia" is mentioned but details are missing
+        if (!currentDesc.toLowerCase().includes('chestnut hair')) currentDesc += ", chestnut hair";
+        if (!currentDesc.toLowerCase().includes('hazel eyes')) currentDesc += ", hazel eyes";
+        if (!currentDesc.toLowerCase().includes('freckles')) currentDesc += ", light freckles";
       }
-      let ensuredDesc = description;
-      if (!description.toLowerCase().includes('chestnut hair')) ensuredDesc += ", chestnut hair";
-      if (!description.toLowerCase().includes('hazel eyes')) ensuredDesc += ", hazel eyes";
-      return ensuredDesc;
+      return currentDesc;
   }
 
   compilePrompt = (components: ImagePromptComponents): string => {
     if (components.primaryDescription && components.primaryDescription.trim().length > 0) {
       let finalPrompt = components.primaryDescription;
-      if (!finalPrompt.toLowerCase().includes('claudia')) {
-          finalPrompt = `${components.baseCharacterReference}, ${finalPrompt}`;
-      }
+      // Ensure core character identity is present and append style/quality
+      finalPrompt = this.ensureBaseCharacter(finalPrompt);
       finalPrompt += `, ${components.styleKeywords}, ${components.qualityKeywords}`;
       return finalPrompt;
     } else {
+      // Assemble from detailed components if no primary description
       const promptParts = [
-        `Subject: ${components.subjectDescription}`,
+        `Subject: ${this.ensureBaseCharacter(components.subjectDescription)}`, // Ensure base character here too
         `Pose / Expression: ${components.poseAndExpression}`,
         `Setting: ${components.settingDescription}`,
         `Atmosphere / Style: ${components.atmosphereAndStyle}, ${components.styleKeywords}`,
