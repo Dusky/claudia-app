@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react'; 
+import React, { useMemo, useEffect } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { AvatarPanel } from './components/AvatarPanel';
 import { PersonalityModal } from './components/PersonalityModal';
@@ -11,7 +11,7 @@ import { AppSettingsModal } from './components/AppSettingsModal';
 import { BootSequence } from './components/BootSequence';
 import { StatusBar } from './components/StatusBar';
 import { TopBar } from './components/TopBar';
-import { CRTShaderWrapper } from './components/CRTShader';
+// import { CRTShaderWrapper } from './components/CRTShader'; // Removed CRTShaderWrapper
 import { getTheme, type TerminalTheme } from './terminal/themes';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
@@ -22,7 +22,7 @@ import { createCommandRegistry, type CommandContext } from './commands';
 import { useAppStore } from './store/appStore';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useEventListeners } from './hooks/useEventListeners';
-import { useCRTGradient } from './hooks/useCRTGradient';
+// import { useCRTGradient } from './hooks/useCRTGradient'; // Potentially remove if not used elsewhere
 // import { estimateTokens } from './utils/tokenCounter';
 import './App.css';
 import './styles/overlays.css';
@@ -106,12 +106,10 @@ function App() {
   
   useEventListeners();
 
-  // Initialize CRT gradient background
-  useCRTGradient(currentTheme, config.enableCRTEffect !== false);
+  // useCRTGradient(currentTheme, config.enableCRTEffect !== false); // Keep or remove based on whether CSS variables are still used
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
   
-  // Helper function for delayed line addition
   const addLineWithDelay = (
     storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
     line: TerminalLine,
@@ -125,7 +123,6 @@ function App() {
     });
   };
 
-  // Diagnostic useEffect for imageModalOpen state
   useEffect(() => {
     console.log("App.tsx: imageModalOpen state changed to:", imageModalOpen);
   }, [imageModalOpen]);
@@ -133,7 +130,6 @@ function App() {
 
   const handleThemeStatusClick = () => handleInput("/themes");
 
-  // TopBar conversation management handlers
   const handleConversationSwitch = async (conversationId: string) => {
     try {
       await setActiveConversationAndLoadMessages(database, conversationId, true);
@@ -204,7 +200,6 @@ function App() {
         }]);
       } else {
         console.log('🎬 Boot sequence complete - showing existing avatar without generating new image');
-        // Just show the existing avatar without changing expression/pose to avoid new generation
         await avatarController.executeCommands([{
           show: true
         }]);
@@ -307,8 +302,8 @@ function App() {
   };
 
   return (
-    <> {/* Use a Fragment to render CRTShaderWrapper and Modals as siblings */}
-      <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}>
+    <> 
+      {/* <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}> */}
         <div className="App">
           {showBootSequence && (
             <BootSequence
@@ -356,9 +351,8 @@ function App() {
             </>
           )}
         </div>
-      </CRTShaderWrapper>
+      {/* </CRTShaderWrapper> */}
 
-      {/* Modals rendered outside CRTShaderWrapper to ensure they are on top */}
       {personalityModalOpen && (
       <PersonalityModal
         isOpen={personalityModalOpen} onClose={closePersonalityModal}
