@@ -7,6 +7,7 @@ const ImageGenerationModal = lazy(() => import('./components/ImageGenerationModa
 const PersonalityModal = lazy(() => import('./components/PersonalityModal').then(module => ({ default: module.PersonalityModal })));
 const AIOptionsModal = lazy(() => import('./components/AIOptionsModal').then(module => ({ default: module.AIOptionsModal })));
 const AppSettingsModal = lazy(() => import('./components/AppSettingsModal').then(module => ({ default: module.AppSettingsModal })));
+const MCPPermissionsModal = lazy(() => import('./components/MCPPermissionsModal').then(module => ({ default: module.MCPPermissionsModal })));
 
 // Keep lightweight components as regular imports
 import { ConfigModal } from './components/ConfigModal';
@@ -97,6 +98,7 @@ function App() {
   const imageModalOpen = useAppStore(state => state.imageModalOpen);
   const aiOptionsModalOpen = useAppStore(state => state.aiOptionsModalOpen);
   const appSettingsModalOpen = useAppStore(state => state.appSettingsModalOpen);
+  const mcpPermissionsModalOpen = useAppStore(state => state.mcpPermissionsModalOpen);
   const showBootSequence = useAppStore(state => state.showBootSequence);
   
   // Personality modal state
@@ -120,6 +122,7 @@ function App() {
   const setImageModalOpen = useAppStore(state => state.setImageModalOpen);
   const setAiOptionsModalOpen = useAppStore(state => state.setAiOptionsModalOpen);
   const setAppSettingsModalOpen = useAppStore(state => state.setAppSettingsModalOpen);
+  const setMcpPermissionsModalOpen = useAppStore(state => state.setMcpPermissionsModalOpen);
   const setShowBootSequence = useAppStore(state => state.setShowBootSequence);
   
   // Personality actions
@@ -331,6 +334,31 @@ user: 'claudia' // Use claudia instead of system for type compatibility
       ));
     };
 
+    const showModal = (modalType: string, data?: unknown) => {
+      switch (modalType) {
+        case 'mcp-permissions':
+          setMcpPermissionsModalOpen(true);
+          break;
+        case 'config':
+          setConfigModalOpen(true);
+          break;
+        case 'help':
+          setHelpModalOpen(true, (data as { commandName?: string })?.commandName);
+          break;
+        case 'image':
+          setImageModalOpen(true);
+          break;
+        case 'ai-options':
+          setAiOptionsModalOpen(true);
+          break;
+        case 'app-settings':
+          setAppSettingsModalOpen(true);
+          break;
+        default:
+          console.warn(`Unknown modal type: ${modalType}`);
+      }
+    };
+
     const context: CommandContext = {
       llmManager, imageManager, mcpManager, avatarController, storage: database,
       imageStorageManager, // Add imageStorageManager to context
@@ -341,6 +369,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
       setTheme,
       openPersonalityEditor: (p) => openPersonalityEditorModal(database, p),
       openConfigModal: () => setConfigModalOpen(true),
+      showModal,
       commandRegistry,
       activeConversationId: activeConversationId,
       setActiveConversationId: (id, loadMsgs) => setActiveConversationAndLoadMessages(database, id, loadMsgs),
@@ -509,6 +538,19 @@ user: 'claudia' // Use claudia instead of system for type compatibility
           onClose={() => setAppSettingsModalOpen(false)}
           storage={database}
           theme={themeObject}
+        />
+      </Suspense>
+
+      <Suspense fallback={<ComponentLoader type="modal" />}>
+        <MCPPermissionsModal
+          isOpen={mcpPermissionsModalOpen}
+          onClose={() => setMcpPermissionsModalOpen(false)}
+          mcpManager={mcpManager}
+          onPermissionsChange={(permissions) => {
+            // Handle permissions changes - store them in database or localStorage
+            console.log('MCP permissions updated:', permissions);
+            setMcpPermissionsModalOpen(false);
+          }}
         />
       </Suspense>
     </ErrorBoundary>
