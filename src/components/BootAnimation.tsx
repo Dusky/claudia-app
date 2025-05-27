@@ -27,16 +27,12 @@ interface BootStage {
 interface BootAnimationProps {
   onComplete: () => void;
   onSkip: () => void;
+  theme?: { overlayClassName?: string };
   // Dependencies for the parallel tasks
-  llmManager: { autoInitialize?: () => Promise<void> };
-  imageManager: { initializeDefaultProvider?: () => Promise<void> };
+  llmManager: unknown;
+  imageManager: unknown;
   avatarController: unknown;
-  database: {
-    getActivePersonality?: () => Promise<unknown>;
-    savePersonality?: (personality: unknown) => Promise<void>;
-    setActivePersonality?: (id: string) => Promise<void>;
-    getConversations?: (limit?: number) => Promise<unknown[]>;
-  };
+  database: unknown;
 }
 
 const TYPEWRITER_SPEED = 30; // ms per character - faster for cooler effect
@@ -47,6 +43,7 @@ const GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?~`';
 export const BootAnimation: React.FC<BootAnimationProps> = ({
   onComplete,
   onSkip,
+  theme,
   llmManager,
   imageManager,
   avatarController,
@@ -120,17 +117,18 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
     if (!logoComplete) return; // Wait for logo to complete
     const loadPersonality = async () => {
       try {
-        const activePersonality = await database.getActivePersonality();
+        const db = database as any;
+        const activePersonality = await db.getActivePersonality?.();
         if (!activePersonality) {
           // Create default personality if none exists
-          await database.savePersonality({
+          await db.savePersonality?.({
             id: 'default',
             name: 'Claudia',
             description: 'Default AI personality',
             systemPrompt: 'You are Claudia, a helpful AI assistant.',
             allowImageGeneration: true
           });
-          await database.setActivePersonality('default');
+          await db.setActivePersonality?.('default');
         }
       } catch (error) {
         console.warn('Failed to load personality:', error);
@@ -153,11 +151,13 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
 
     const initializeProviders = async () => {
       try {
-        if (llmManager) {
-          await llmManager.autoInitialize?.();
+        const llm = llmManager as any;
+        const img = imageManager as any;
+        if (llm) {
+          await llm.autoInitialize?.();
         }
-        if (imageManager) {
-          await imageManager.initializeDefaultProvider?.();
+        if (img) {
+          await img.initializeDefaultProvider?.();
         }
       } catch (error) {
         console.warn('Failed to initialize providers:', error);
@@ -166,8 +166,9 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
 
     const hydrateHistory = async () => {
       try {
+        const db = database as any;
         // Load last 20 conversation entries
-        const conversations = await database.getConversations?.(20);
+        const conversations = await db.getConversations?.(20);
         if (conversations && conversations.length > 0) {
           // Just verify we can load history, don't actually display it yet
           console.log(`Loaded ${conversations.length} conversation entries`);
@@ -413,6 +414,10 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
   if (showLogo) {
     return (
       <div className="boot-sequence">
+        {/* Apply CRT overlay effects */}
+        {theme?.overlayClassName && (
+          <div className={`shader-overlay ${theme.overlayClassName}`}></div>
+        )}
         <div className="boot-content">
           <pre className="ascii-logo">
             {ASCII_LOGO}
@@ -425,6 +430,11 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
 
   return (
     <div className={`boot-sequence ${fadeOut ? 'fade-out' : ''} ${glitchActive ? 'glitch' : ''}`}>
+      {/* Apply CRT overlay effects */}
+      {theme?.overlayClassName && (
+        <div className={`shader-overlay ${theme.overlayClassName}`}></div>
+      )}
+      
       {/* Cool scanline effect */}
       <div 
         className="scanline" 
@@ -503,7 +513,11 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
         
         .stage-text {
           display: inline-block;
-          text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+          text-shadow: 
+            0 0 5px rgba(0, 255, 0, 0.8),
+            0 0 10px rgba(0, 255, 0, 0.6),
+            0 0 15px rgba(0, 255, 0, 0.4),
+            0 0 20px rgba(0, 255, 0, 0.2);
         }
         
         .spinner {
@@ -520,6 +534,15 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
         
         .boot-sequence.glitch .boot-text {
           animation: screenShake 0.1s ease-in-out;
+        }
+        
+        .ascii-logo {
+          text-shadow: 
+            0 0 5px rgba(0, 255, 255, 0.8),
+            0 0 10px rgba(0, 255, 255, 0.6),
+            0 0 15px rgba(0, 255, 255, 0.4),
+            0 0 20px rgba(0, 255, 255, 0.2),
+            0 0 35px rgba(0, 255, 255, 0.1);
         }
         
         .neutral-avatar {

@@ -479,6 +479,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
             <BootAnimation
               onComplete={handleBootSequenceComplete}
               onSkip={handleBootSequenceSkip}
+              theme={themeObject}
               llmManager={llmManager}
               imageManager={imageManager}
               avatarController={avatarController}
