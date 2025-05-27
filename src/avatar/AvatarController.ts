@@ -2,7 +2,8 @@ import type { AvatarCommand, AvatarState, AvatarGenerationParams, AvatarExpressi
 import { ImageProviderManager, type ImageGenerationRequest } from '../providers';
 import { ClaudiaDatabase } from '../storage';
 import { ImagePromptComposer, type PromptModificationContext, type ImagePromptComponents } from '../providers/image/promptComposer';
-import { imageStorage } from '../utils/imageStorage';
+// import { imageStorage } from '../utils/imageStorage'; // Remove global import
+import type { ImageStorageManager } from '../utils/imageStorage'; // Import type
 import type { Personality } from '../types/personality';
 import type { LLMProviderManager } from '../providers/llm/manager'; 
 import { useAppStore } from '../store/appStore'; 
@@ -38,18 +39,21 @@ export class AvatarController {
   private llmManager: LLMProviderManager; 
   private database: ClaudiaDatabase;
   private promptComposer: ImagePromptComposer;
+  private imageStorageManager: ImageStorageManager; // Add imageStorageManager instance
   private onStateChange?: (state: AvatarState) => void;
 
   constructor(
     imageProvider: ImageProviderManager, 
     llmManager: LLMProviderManager, 
     database: ClaudiaDatabase,
+    imageStorageManager: ImageStorageManager, // Inject ImageStorageManager
     onStateChange?: (state: AvatarState) => void
   ) {
     this.imageProvider = imageProvider;
     this.llmManager = llmManager; 
     this.database = database;
     this.promptComposer = new ImagePromptComposer();
+    this.imageStorageManager = imageStorageManager; // Store instance
     this.onStateChange = onStateChange;
     
     this.state = {
@@ -185,7 +189,7 @@ export class AvatarController {
       const components = this.promptComposer.generatePromptComponents(baseParams);
       const modifiedComponents = personality 
         ? await this.promptComposer.applyPersonalityModifications(components, {
-            personality, // Pass full personality object
+            personality, 
             conversationContext,
             isAIDescription: !!baseParams.aiDescription,
             isMetaPrompted: false, 
@@ -237,7 +241,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     try {
       const llmResponse = await this.llmManager.generateText(
         metaInputContext,
-        { systemMessage: metaSystemPrompt, temperature: 0.75, maxTokens: 400 } // Increased maxTokens further
+        { systemMessage: metaSystemPrompt, temperature: 0.75, maxTokens: 400 } 
       );
       console.log("✨ Meta-LLM generated image prompt:", llmResponse);
       return llmResponse.trim();
@@ -289,7 +293,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     
     if (activePersonality) { 
         const context: PromptModificationContext = {
-          personality: activePersonality, // Pass full personality object
+          personality: activePersonality, 
           conversationContext,
           isAIDescription: !!aiProvidedDescription,
           isMetaPrompted: !!params.metaGeneratedImagePrompt,
@@ -302,7 +306,7 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     if (!params.metaGeneratedImagePrompt) {
         finalImagePrompt = this.promptComposer.compilePrompt(promptComponents);
     } else {
-      finalImagePrompt = this.promptComposer.compilePrompt(promptComponents); // compilePrompt now handles meta-prompted primaryDescription
+      finalImagePrompt = this.promptComposer.compilePrompt(promptComponents); 
     }
     
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
@@ -395,17 +399,18 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     if (this.state.imageUrl && !this.state.hasError) {
       try {
         const provider = this.imageProvider.getActiveProvider();
-        const metadata = imageStorage.createImageMetadata(description, this.state.imageUrl, {
+        const metadata = this.imageStorageManager.createImageMetadata(description, this.state.imageUrl, { // Use this.imageStorageManager
           description: description, 
           style: parsedParams.style, 
           model: (provider as any)?.config?.model || 'unknown',
           provider: provider?.name || 'unknown',
           dimensions: { width: 512, height: 512 },
           tags: ['avatar', 'ai-generated', 'claudia', 'description-driven'],
+          parameters: { ...params, prompt: description } // Save original description and other params
         });
-        await imageStorage.saveImage(this.state.imageUrl, metadata);
+        await this.imageStorageManager.saveImage(this.state.imageUrl, metadata); // Use this.imageStorageManager
         console.log('📸 Avatar image from AI description saved:', metadata.filename);
-        if (Math.random() < 0.1) imageStorage.cleanupOldImages(100);
+        if (Math.random() < 0.1) await this.imageStorageManager.cleanupOldImages(100); // Use this.imageStorageManager
       } catch (saveError) {
         console.warn('Failed to save avatar image from AI description:', saveError);
       }

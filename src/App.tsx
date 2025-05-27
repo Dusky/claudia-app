@@ -22,8 +22,8 @@ import { createCommandRegistry, type CommandContext } from './commands';
 import { useAppStore } from './store/appStore';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useEventListeners } from './hooks/useEventListeners';
-// import { useCRTGradient } from './hooks/useCRTGradient'; // Potentially remove if not used elsewhere
-// import { estimateTokens } from './utils/tokenCounter';
+// import { useCRTGradient } from './hooks/useCRTGradient'; 
+import { ImageStorageManager } from './utils/imageStorage'; // Import ImageStorageManager
 import './App.css';
 import './styles/overlays.css';
 
@@ -88,10 +88,11 @@ function App() {
   const imageManager = useMemo(() => new ImageProviderManager(), []);
   const mcpManager = useMemo(() => new MCPProviderManager(), []);
   const database = useMemo(() => new ClaudiaDatabase(), []);
+  const imageStorageManager = useMemo(() => new ImageStorageManager(database), [database]); // Instantiate ImageStorageManager
   
   const avatarController = useMemo(() =>
-    new AvatarController(imageManager, llmManager, database, setAvatarState),
-    [imageManager, llmManager, database, setAvatarState] 
+    new AvatarController(imageManager, llmManager, database, imageStorageManager, setAvatarState), // Pass imageStorageManager
+    [imageManager, llmManager, database, imageStorageManager, setAvatarState] 
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
   
@@ -106,7 +107,7 @@ function App() {
   
   useEventListeners();
 
-  // useCRTGradient(currentTheme, config.enableCRTEffect !== false); // Keep or remove based on whether CSS variables are still used
+  // useCRTGradient(currentTheme, config.enableCRTEffect !== false); 
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
   
@@ -239,6 +240,7 @@ function App() {
 
     const context: CommandContext = {
       llmManager, imageManager, mcpManager, avatarController, storage: database,
+      imageStorageManager, // Add imageStorageManager to context
       addLines, 
       setLoading,
       updateStreamingLine,
@@ -388,7 +390,7 @@ function App() {
         }}
         imageManager={imageManager}
         avatarController={avatarController}
-        storage={database}
+        storage={database} // Pass database for potential settings persistence
         theme={themeObject}
       />
 
