@@ -39,9 +39,10 @@ interface BootAnimationProps {
   };
 }
 
-const TYPEWRITER_SPEED = 50; // ms per character
+const TYPEWRITER_SPEED = 30; // ms per character - faster for cooler effect
 const MIN_DISPLAY_TIME = 2000; // 2 seconds minimum
 const FADE_DURATION = 500; // fade out duration
+const GLITCH_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?~`';
 
 export const BootAnimation: React.FC<BootAnimationProps> = ({
   onComplete,
@@ -62,6 +63,9 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
   const [audioPlayed, setAudioPlayed] = useState(false);
   const [showLogo, setShowLogo] = useState(true);
   const [logoComplete, setLogoComplete] = useState(false);
+  const [glitchActive, setGlitchActive] = useState(false);
+  const [scanlinePosition, setScanlinePosition] = useState(0);
+  const [spinnerFrame, setSpinnerFrame] = useState(0);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,6 +82,38 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
       return () => clearTimeout(logoTimer);
     }
   }, [showLogo]);
+
+  // Cool scanline effect and spinner animation
+  useEffect(() => {
+    if (!logoComplete) return;
+    
+    const scanlineInterval = setInterval(() => {
+      setScanlinePosition(prev => (prev + 2) % 100);
+    }, 50);
+    
+    const spinnerInterval = setInterval(() => {
+      setSpinnerFrame(prev => (prev + 1) % 6);
+    }, 200);
+
+    return () => {
+      clearInterval(scanlineInterval);
+      clearInterval(spinnerInterval);
+    };
+  }, [logoComplete]);
+
+  // Random glitch effect
+  useEffect(() => {
+    if (!logoComplete) return;
+    
+    const glitchInterval = setInterval(() => {
+      if (Math.random() < 0.05) { // 5% chance every interval
+        setGlitchActive(true);
+        setTimeout(() => setGlitchActive(false), 100);
+      }
+    }, 200);
+
+    return () => clearInterval(glitchInterval);
+  }, [logoComplete]);
 
   // Initialize boot stages with their tasks
   useEffect(() => {
@@ -344,7 +380,19 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
     enabled: true
   });
 
-  // Render spinner based on stage completion
+  // Cool glitch text effect
+  const glitchText = (text: string): string => {
+    if (!glitchActive) return text;
+    
+    return text.split('').map(char => {
+      if (Math.random() < 0.3) {
+        return GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+      }
+      return char;
+    }).join('');
+  };
+
+  // Render spinner based on stage completion - fix undefined issue
   const getSpinner = (stageIndex: number): string => {
     if (stageIndex >= bootStages.length) return '';
     const stage = bootStages[stageIndex];
@@ -352,7 +400,13 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
     
     if (stage.id === 'init' || stage.id === 'complete') return '';
     
-    return stage.completed ? ' ✔' : ' ∙';
+    if (stage.completed) {
+      return ' ✔';
+    } else {
+      // Animated spinner effect using state
+      const frames = ['∙', '∘', '○', '●', '○', '∘'];
+      return ` ${frames[spinnerFrame]}`;
+    }
   };
 
   // Show logo first
@@ -370,24 +424,42 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
   }
 
   return (
-    <div className={`boot-sequence ${fadeOut ? 'fade-out' : ''}`}>
+    <div className={`boot-sequence ${fadeOut ? 'fade-out' : ''} ${glitchActive ? 'glitch' : ''}`}>
+      {/* Cool scanline effect */}
+      <div 
+        className="scanline" 
+        style={{ 
+          top: `${scanlinePosition}%`,
+          position: 'absolute',
+          width: '100%',
+          height: '2px',
+          background: 'linear-gradient(90deg, transparent, #00ff00, transparent)',
+          opacity: 0.6,
+          zIndex: 10
+        }} 
+      />
+      
       <div className="boot-content">
-        <pre className="boot-text">
+        <pre className={`boot-text ${glitchActive ? 'glitch' : ''}`}>
           {/* Show all previous stages */}
           {bootStages.slice(0, currentStageIndex).map((stage, index) => {
             const spinner = getSpinner(index);
+            const stageText = glitchActive ? glitchText(stage.text) : stage.text;
             return (
-              <div key={stage.id}>
-                {stage.text}{spinner}
+              <div key={stage.id} className="boot-line">
+                <span className="stage-text">{stageText}</span>
+                {spinner && <span className="spinner">{spinner}</span>}
               </div>
             );
           })}
           
           {/* Show current stage being typed */}
           {currentStageIndex < bootStages.length && (
-            <div>
-              {displayedText}
-              {getSpinner(currentStageIndex)}
+            <div className="boot-line current-line">
+              <span className="stage-text">
+                {glitchActive ? glitchText(displayedText) : displayedText}
+              </span>
+              <span className="spinner">{getSpinner(currentStageIndex)}</span>
               {isTyping && <span className="cursor">_</span>}
             </div>
           )}
@@ -416,13 +488,74 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
           opacity: 0;
           transition: opacity ${FADE_DURATION}ms ease-out;
         }
+        
+        .boot-line {
+          margin: 0;
+          padding: 0;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .boot-line.current-line {
+          background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.1), transparent);
+          animation: lineGlow 2s ease-in-out infinite;
+        }
+        
+        .stage-text {
+          display: inline-block;
+          text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+        
+        .spinner {
+          display: inline-block;
+          color: #00ff00;
+          text-shadow: 0 0 10px #00ff00;
+          animation: spinnerGlow 1s ease-in-out infinite;
+        }
+        
+        .scanline {
+          animation: scanlineMove 3s linear infinite;
+          box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .boot-sequence.glitch .boot-text {
+          animation: screenShake 0.1s ease-in-out;
+        }
+        
         .neutral-avatar {
           opacity: 0;
           animation: fadeInAvatar 1s ease-in-out 0.5s forwards;
+          border: 1px solid rgba(0, 255, 0, 0.3);
+          border-radius: 8px;
+          box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
         }
+        
         @keyframes fadeInAvatar {
-          from { opacity: 0; }
-          to { opacity: 0.2; }
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 0.2; transform: scale(1); }
+        }
+        
+        @keyframes lineGlow {
+          0%, 100% { background: transparent; }
+          50% { background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.1), transparent); }
+        }
+        
+        @keyframes spinnerGlow {
+          0%, 100% { text-shadow: 0 0 5px #00ff00; }
+          50% { text-shadow: 0 0 15px #00ff00, 0 0 25px #00ff00; }
+        }
+        
+        @keyframes scanlineMove {
+          0% { top: 0%; opacity: 0; }
+          50% { opacity: 0.6; }
+          100% { top: 100%; opacity: 0; }
+        }
+        
+        @keyframes screenShake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-2px); }
+          50% { transform: translateX(2px); }
+          75% { transform: translateX(-1px); }
         }
       `}</style>
     </div>
