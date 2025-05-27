@@ -1,4 +1,4 @@
-import type { Command, CommandContext, CommandResult } from '../types';
+import type { Command, CommandResult } from '../types';
 import type { TerminalLine } from '../../terminal/TerminalDisplay';
 import { imageStorage } from '../../utils/imageStorage';
 
@@ -302,7 +302,7 @@ export const imagesCommand: Command = {
   usage: '/images [list|clear|stats]',
   aliases: ['img', 'gallery'],
   
-  async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
+  async execute(args: string[]): Promise<CommandResult> {
     const lines: TerminalLine[] = [];
     const timestamp = new Date().toISOString();
     const subCommand = args[0]?.toLowerCase() || 'list';

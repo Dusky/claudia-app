@@ -1,293 +1,262 @@
-import type { AvatarGenerationParams } from '../../avatar/types';
+import type { AvatarGenerationParams, AvatarExpression, AvatarPose, AvatarAction } from '../../avatar/types';
+import type { Personality } from '../../types/personality';
+import type { ImagePromptComponents, PromptModificationContext } from './types';
 
-export interface ImagePromptComponents {
-  character: string;
-  expression: string;
-  pose: string;
-  action: string;
-  style: string;
-  lighting: string;
-  background: string;
-  quality: string;
-  negativePrompt?: string;
+// Helper for simple seeded random number (0 to 1)
+function seededRandom(seed: number): number {
+  let t = seed += 0x6D2B79F5;
+  t = Math.imul(t ^ t >>> 15, t | 1);
+  t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
 }
 
-export interface PromptModificationContext {
-  personality: {
-    name: string;
-    systemPrompt: string;
-  };
-  currentMood?: string;
-  previousActions?: string[];
-  conversationContext?: string;
+
+interface ExtendedAvatarGenerationParams extends AvatarGenerationParams {
+  aiDescription?: string; 
+  variationSeed?: number;
+  contextualKeywords?: string[];
+  metaGeneratedImagePrompt?: string; 
 }
 
 export class ImagePromptComposer {
-  // Base prompts that can be modified by personality
-  private basePrompts: ImagePromptComponents = {
-    character: 'young woman named Claudia with warm chestnut hair cascading around shoulders, bright hazel eyes full of curiosity, wearing cute sundress with floral patterns or comfortable casual top',
-    expression: 'warm inviting smile with playful energy',
-    pose: 'relaxed approachable stance, naturally graceful',
-    action: 'casual welcoming gesture, effortlessly charming',
-    style: 'realistic digital art, warm illustration style, cozy atmosphere',
-    lighting: 'soft warm lighting, cozy ambient glow, firefly-inspired atmosphere',
-    background: 'cozy digital nook environment, warm comfortable space with bookshelves, soft furnishings, firefly-inspired ambiance',
-    quality: 'high quality, detailed, beautiful composition, inviting scene',
-    negativePrompt: 'blurry, low quality, distorted, harsh lighting, cold atmosphere, cyberpunk, neon'
+  private baseCharacterIdentity = "Claudia — early-20s, petite build; softly wavy, shoulder-length chestnut hair; bright hazel eyes; subtle freckles; natural makeup. She wears a flirty, pastel-yellow floral sundress with thin spaghetti straps and a deep-V neckline that reveals graceful collarbones and a hint of space between her small breasts (no push-up effect). The dress drapes lightly at her waist and moves gently with her pose";
+  
+  private basePrompts: Omit<ImagePromptComponents, 
+    'expressionKeywords' | 'poseKeywords' | 'actionKeywords' | 
+    'variationSeed' | 'contextualKeywords'
+  > = {
+    character: `${this.baseCharacterIdentity}`,
+    style: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
+    quality: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
+    settingDescription: "A cozy bedroom at golden hour. Sunlight streams through a slightly dusty window, casting warm beams that pick up floating dust motes and create soft lens flare. The background is softly blurred (shallow depth-of-field) but hints at posters on the walls and fairy-lights whose bulbs form circular bokeh.",
+    lightingKeywords: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting",
+    backgroundKeywords: "cozy bedroom, golden hour sunlight, floating dust motes, soft lens flare, blurred background",
+    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect"
   };
 
-  // Expression-specific modifications
-  private expressionPrompts: Record<string, Partial<ImagePromptComponents>> = {
-    happy: {
-      expression: 'bright genuine smile, sparkling eyes, joyful expression',
-      lighting: 'warm golden lighting, cheerful atmosphere'
-    },
-    curious: {
-      expression: 'inquisitive raised eyebrow, tilted head, interested gaze',
-      pose: 'leaning forward slightly, engaged posture'
-    },
-    focused: {
-      expression: 'intense concentrated look, narrowed eyes, determined expression',
-      lighting: 'sharp focused lighting, dramatic shadows'
-    },
-    thinking: {
-      expression: 'thoughtful contemplative look, finger on chin',
-      action: 'thinking pose, pondering gesture',
-      lighting: 'soft thoughtful lighting'
-    },
-    surprised: {
-      expression: 'wide surprised eyes, raised eyebrows, open mouth',
-      action: 'surprised gesture, hands slightly raised'
-    },
-    confident: {
-      expression: 'confident assured smile, steady gaze',
-      pose: 'confident upright posture, hands on hips',
-      lighting: 'strong confident lighting'
-    },
-    mischievous: {
-      expression: 'playful smirk, glinting eyes, sly smile',
-      action: 'playful gesture, finger to lips'
-    },
-    excited: {
-      expression: 'energetic excited smile, bright eyes',
-      action: 'animated gesture, slight bounce in posture',
-      lighting: 'dynamic energetic lighting'
-    }
+  private expressionDetailsMap: Record<AvatarExpression, string> = {
+    neutral: 'gazing calmly into the lens with a faint, knowing smile',
+    happy: 'a bright genuine smile lighting up her face, eyes sparkling with joy',
+    curious: 'an inquisitive raised eyebrow, head slightly tilted with keen interest',
+    focused: 'intense concentrated look, eyes narrowed in determination, sharp focus',
+    thinking: 'thoughtful contemplative look, perhaps a finger gently touching her temple, lost in thought',
+    surprised: 'wide surprised eyes, eyebrows slightly raised, mouth forming a soft "o" of astonishment',
+    confused: 'a puzzled look, furrowed brow, head tilted in slight confusion',
+    excited: 'an energetic excited smile, eyes wide and bright with enthusiasm, beaming',
+    confident: 'a confident assured smile, steady direct gaze, an air of self-assuredness',
+    mischievous: 'a playful smirk, a knowing glint in her eyes, a hint of playful intent',
+    sleepy: 'drowsy, tired expression, half-closed eyes, a soft yawn escaping',
+    shocked: 'shocked expression, wide eyes, open mouth in disbelief',
   };
 
-  // Pose-specific modifications
-  private posePrompts: Record<string, Partial<ImagePromptComponents>> = {
-    sitting: {
-      pose: 'sitting comfortably, relaxed posture',
-      background: 'cozy chair or soft surface, warm digital nook with bookshelf'
-    },
-    leaning: {
-      pose: 'leaning casually against surface, relaxed stance'
-    },
-    'crossed-arms': {
-      pose: 'arms crossed confidently, assertive posture'
-    },
-    'hands-on-hips': {
-      pose: 'hands on hips, confident stance'
-    }
+  private poseDetailsMap: Record<AvatarPose, string> = {
+    standing: 'standing naturally, balanced and approachable',
+    sitting: 'sitting comfortably in a relaxed yet engaged posture',
+    leaning: 'leaning casually against a subtle background element, informal and relaxed',
+    'crossed-arms': 'arms crossed confidently, projecting thoughtfulness or assertiveness',
+    'hands-on-hips': 'hands on hips, conveying confidence or a moment of playful challenge',
+    casual: 'in a relaxed casual stance, completely at ease in her environment',
   };
 
-  // Action-specific modifications
-  private actionPrompts: Record<string, Partial<ImagePromptComponents>> = {
-    typing: {
-      action: 'typing on holographic keyboard, focused on screen',
-      background: 'digital interface, code streams, futuristic workspace'
-    },
-    searching: {
-      action: 'searching through data streams, analyzing information',
-      background: 'data visualization, digital networks, flowing information'
-    },
-    reading: {
-      action: 'reading digital information, scanning data',
-      background: 'floating text displays, digital documents'
-    },
-    wave: {
-      action: 'friendly waving gesture, welcoming pose',
-      expression: 'warm friendly smile'
-    },
-    point: {
-      action: 'pointing gesture, directing attention',
-      expression: 'focused explanatory look'
-    },
-    work: {
-      action: 'working with digital interfaces, manipulating holograms',
-      background: 'advanced digital workspace, floating interfaces'
-    }
+  private actionDetailsMap: Record<AvatarAction, string> = {
+    idle: 'at ease, observing her surroundings or waiting calmly',
+    type: 'typing on a sleek holographic keyboard, focused on a floating display screen in her digital workspace',
+    search: 'intently searching through data streams, analyzing information on a holographic display, focused and curious',
+    read: 'reading from a floating digital tablet or holographic document, absorbed in the content',
+    wave: 'a friendly waving gesture with a warm smile, welcoming and open',
+    nod: 'nodding in agreement or understanding, attentive and engaged',
+    shrug: 'a light shrug with palms slightly upturned, conveying uncertainty or a casual "who knows?"',
+    point: 'pointing towards something specific, perhaps an element on a holographic display or off-screen, guiding attention',
+    think: 'deep in thought, perhaps with a hand to her chin or looking upwards contemplatively',
+    work: 'interacting with complex digital interfaces, manipulating holographic elements with focused precision',
   };
 
-  /**
-   * Generate prompt components based on avatar parameters
-   */
-  generatePromptComponents(params: AvatarGenerationParams): ImagePromptComponents {
-    let components = { ...this.basePrompts };
+  generatePromptComponents = (params: ExtendedAvatarGenerationParams): ImagePromptComponents => {
+    const components = { ...this.basePrompts } as ImagePromptComponents; 
 
-    // Apply expression-specific modifications
-    if (params.expression && this.expressionPrompts[params.expression]) {
-      components = this.mergeComponents(components, this.expressionPrompts[params.expression]);
+    if (params.metaGeneratedImagePrompt) {
+      components.primaryDescription = params.metaGeneratedImagePrompt;
+    } else if (params.aiDescription) {
+      components.primaryDescription = params.aiDescription;
+    }
+    
+    let poseExpr = `${this.poseDetailsMap[params.pose || 'standing']}. Her expression is ${this.expressionDetailsMap[params.expression || 'neutral']}.`;
+    if (params.action && params.action !== 'idle' && this.actionDetailsMap[params.action]) {
+      poseExpr += ` She is currently ${this.actionDetailsMap[params.action]}.`;
+    }
+    components.poseAndExpression = poseExpr;
+
+    if (params.style) components.style = params.style;
+    if (params.lighting) components.lightingDescription = `Lighting: ${params.lighting}. ${this.basePrompts.lightingDescription}`;
+    if (params.background && params.background !== 'none') {
+      components.settingDescription = `Setting: ${params.background}. ${this.basePrompts.settingDescription}`;
+    }
+    
+    components.expressionKeywords = this.expressionDetailsMap[params.expression || 'neutral'];
+    components.poseKeywords = this.poseDetailsMap[params.pose || 'standing'];
+    components.actionKeywords = this.actionDetailsMap[params.action || 'idle'];
+    components.baseCharacterReference = this.basePrompts.baseCharacterReference;
+
+    if (params.variationSeed && !components.primaryDescription) {
+      const rand = seededRandom(params.variationSeed);
+      if (rand < 0.3) components.lightingDescription = `Lighting: dramatic highlights. ${components.lightingDescription}`;
+      else if (rand < 0.6) components.cameraPerspectiveAndComposition = `Camera Perspective: slightly low angle shot. ${components.cameraPerspectiveAndComposition}`;
+      if (rand > 0.5) components.realismAndDetails += " A few stray hairs catch the light.";
     }
 
-    // Apply pose-specific modifications
-    if (params.pose && this.posePrompts[params.pose]) {
-      components = this.mergeComponents(components, this.posePrompts[params.pose]);
+    if (params.contextualKeywords && params.contextualKeywords.length > 0 && !components.primaryDescription) {
+        if (params.contextualKeywords.some(kw => kw === 'night' || kw === 'dark')) {
+            components.lightingDescription = `Lighting: moody night lighting, neon reflections. ${components.lightingDescription}`;
+            components.settingDescription = components.settingDescription.replace("digital nook environment", "digital nook environment at night, glowing city lights visible through a window");
+        }
     }
-
-    // Apply action-specific modifications
-    if (params.action && this.actionPrompts[params.action]) {
-      components = this.mergeComponents(components, this.actionPrompts[params.action]);
-    }
+    
+    components.variationSeed = params.variationSeed;
+    components.contextualKeywords = params.contextualKeywords;
 
     return components;
   }
 
-  /**
-   * Allow personality to modify prompt components based on context
-   */
-  async applyPersonalityModifications(
+  applyPersonalityModifications = async (
     components: ImagePromptComponents,
     context: PromptModificationContext
-  ): Promise<ImagePromptComponents> {
-    // This is where the personality system would modify the prompts
-    // For now, we'll implement some basic personality-aware modifications
-    
-    const systemPrompt = context.personality.systemPrompt.toLowerCase();
-    
-    // Analyze personality traits from system prompt
+  ): Promise<ImagePromptComponents> => {
     const modifiedComponents = { ...components };
+    const personality = context.personality; // Now full PersonalityData
+    const isPrimaryDescriptionDriven = !!(context.isAIDescription || context.isMetaPrompted || modifiedComponents.primaryDescription);
 
-    // If personality mentions being technical/professional
-    if (systemPrompt.includes('technical') || systemPrompt.includes('professional') || systemPrompt.includes('expert')) {
-      modifiedComponents.style += ', professional appearance, technical aesthetic';
-      modifiedComponents.background = 'high-tech laboratory, advanced computers, technical environment';
-    }
-
-    // If personality mentions being friendly/casual
-    if (systemPrompt.includes('friendly') || systemPrompt.includes('casual') || systemPrompt.includes('approachable')) {
-      modifiedComponents.lighting = 'warm friendly lighting, welcoming atmosphere';
-      modifiedComponents.character += ', approachable appearance';
-    }
-
-    // If personality mentions being mysterious/enigmatic
-    if (systemPrompt.includes('mysterious') || systemPrompt.includes('enigmatic') || systemPrompt.includes('secretive')) {
-      modifiedComponents.lighting = 'dramatic mysterious lighting, shadowy atmosphere';
-      modifiedComponents.style += ', mysterious aura, ethereal quality';
-    }
-
-    // If personality mentions being energetic/enthusiastic
-    if (systemPrompt.includes('energetic') || systemPrompt.includes('enthusiastic') || systemPrompt.includes('vibrant')) {
-      modifiedComponents.lighting = 'bright energetic lighting, vibrant colors';
-      modifiedComponents.style += ', dynamic energy, vibrant appearance';
-    }
-
-    // Consider conversation context
-    if (context.conversationContext) {
-      const contextLower = context.conversationContext.toLowerCase();
-      
-      if (contextLower.includes('coding') || contextLower.includes('programming')) {
-        modifiedComponents.background = 'coding environment, multiple screens, code displays';
-        modifiedComponents.action = 'working with code, programming gesture';
+    // Apply structured visual preferences from personality
+    if (personality.preferredClothingStyle) {
+      if (isPrimaryDescriptionDriven) {
+        // If AI/Meta described clothing, just ensure Claudia's base is there and append style hint
+        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.primaryDescription || modifiedComponents.subjectDescription) + ` She is wearing ${personality.preferredClothingStyle}.`;
+      } else {
+        modifiedComponents.subjectDescription = `${this.baseCharacterIdentity} She is wearing ${personality.preferredClothingStyle}.`;
       }
-      
-      if (contextLower.includes('help') || contextLower.includes('assist')) {
-        modifiedComponents.expression = 'helpful encouraging smile, supportive gaze';
-        modifiedComponents.action = 'helpful gesture, reaching out pose';
+    }
+    if (personality.typicalEnvironmentKeywords && !isPrimaryDescriptionDriven) { // Don't override AI/Meta scene
+      modifiedComponents.settingDescription = `Setting: ${personality.typicalEnvironmentKeywords}. ${this.basePrompts.settingDescription}`;
+    }
+    if (personality.artStyleModifiers) {
+      modifiedComponents.styleKeywords += `, ${personality.artStyleModifiers}`;
+    }
+    
+    // Existing system prompt keyword logic (can be kept for broader strokes or refined)
+    const systemPrompt = personality.system_prompt.toLowerCase();
+    if (systemPrompt.includes('technical expert') || systemPrompt.includes('highly analytical')) {
+      modifiedComponents.styleKeywords += ', precise, sharp focus, clean aesthetic';
+      if (!isPrimaryDescriptionDriven) { 
+        modifiedComponents.settingDescription = `Setting: a minimalist high-tech lab or modern data center, glowing server racks. ${modifiedComponents.settingDescription}`;
       }
-      
-      if (contextLower.includes('error') || contextLower.includes('problem')) {
-        modifiedComponents.expression = 'concerned understanding look, empathetic expression';
-        modifiedComponents.action = 'thinking pose, problem-solving gesture';
+    } else if (systemPrompt.includes('whimsical storyteller') || systemPrompt.includes('dreamer')) {
+      modifiedComponents.styleKeywords += ', fantastical elements, soft painterly style, imaginative details';
+      if (!isPrimaryDescriptionDriven) {
+        modifiedComponents.settingDescription = `Setting: an enchanted digital forest with glowing flora, or a library filled with ancient, magical tomes. ${modifiedComponents.settingDescription}`;
       }
+    }
+    
+    if (isPrimaryDescriptionDriven) {
+        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.primaryDescription || modifiedComponents.subjectDescription);
+    } else {
+        // Ensure base character is set if not primary description driven
+        modifiedComponents.subjectDescription = this.ensureBaseCharacter(modifiedComponents.subjectDescription);
     }
 
     return modifiedComponents;
   }
-
-  /**
-   * Compile components into final prompt string
-   */
-  compilePrompt(components: ImagePromptComponents): string {
-    const promptParts = [
-      components.character,
-      components.expression,
-      components.pose,
-      components.action,
-      components.style,
-      components.lighting,
-      components.background,
-      components.quality
-    ].filter(part => part && part.trim() !== '');
-
-    return promptParts.join(', ');
-  }
-
-  /**
-   * Get the negative prompt
-   */
-  getNegativePrompt(components: ImagePromptComponents): string {
-    return components.negativePrompt || this.basePrompts.negativePrompt || '';
-  }
-
-  /**
-   * Allow direct prompt component modification (for advanced users or personality system)
-   */
-  setBasePrompts(newBasePrompts: Partial<ImagePromptComponents>): void {
-    this.basePrompts = { ...this.basePrompts, ...newBasePrompts };
-  }
-
-  /**
-   * Add new expression prompts
-   */
-  addExpressionPrompt(expression: string, components: Partial<ImagePromptComponents>): void {
-    this.expressionPrompts[expression] = components;
-  }
-
-  /**
-   * Add new action prompts
-   */
-  addActionPrompt(action: string, components: Partial<ImagePromptComponents>): void {
-    this.actionPrompts[action] = components;
-  }
-
-  /**
-   * Merge two component objects, with the second taking precedence
-   */
-  private mergeComponents(
-    base: ImagePromptComponents,
-    override: Partial<ImagePromptComponents>
-  ): ImagePromptComponents {
-    const merged = { ...base };
-    
-    Object.entries(override).forEach(([key, value]) => {
-      if (value) {
-        merged[key as keyof ImagePromptComponents] = value;
+  
+  private ensureBaseCharacter = (description: string): string => {
+      let currentDesc = description || "";
+      if (!currentDesc.toLowerCase().includes('claudia')) {
+          currentDesc = `${this.baseCharacterIdentity} ${currentDesc}`;
+      } else {
+        // Ensure core traits are present if "Claudia" is mentioned but details are missing
+        if (!currentDesc.toLowerCase().includes('chestnut hair')) currentDesc += ", chestnut hair";
+        if (!currentDesc.toLowerCase().includes('hazel eyes')) currentDesc += ", hazel eyes";
+        if (!currentDesc.toLowerCase().includes('freckles')) currentDesc += ", light freckles";
       }
-    });
+      return currentDesc;
+  }
 
-    return merged;
+  compilePrompt = (components: ImagePromptComponents): string => {
+    if (components.primaryDescription && components.primaryDescription.trim().length > 0) {
+      let finalPrompt = components.primaryDescription;
+      
+      // Limit AI description length to prevent overwhelming the prompt
+      if (finalPrompt.length > 300) {
+        finalPrompt = finalPrompt.substring(0, 300) + "...";
+      }
+      
+      // Ensure core character identity is present and append style/quality
+      finalPrompt = this.ensureBaseCharacter(finalPrompt);
+      finalPrompt += `, ${components.styleKeywords}, ${components.qualityKeywords}`;
+      return finalPrompt;
+    } else {
+      // Assemble from detailed components if no primary description
+      const promptParts = [
+        `Subject: ${this.ensureBaseCharacter(components.subjectDescription)}`, // Ensure base character here too
+        `Pose / Expression: ${components.poseAndExpression}`,
+        `Setting: ${components.settingDescription}`,
+        `Atmosphere / Style: ${components.atmosphereAndStyle}, ${components.styleKeywords}`,
+        `Lighting: ${components.lightingDescription}`,
+        `Camera Perspective: ${components.cameraPerspectiveAndComposition}`,
+        `Details & Realism Cues: ${components.realismAndDetails}`,
+        components.qualityKeywords
+      ];
+      return promptParts.filter(part => part && part.trim() !== '').join('. ');
+    }
+  }
+
+  getNegativePrompt = (components: ImagePromptComponents): string => {
+    let finalNegativePrompt = components.negativePrompt || this.basePrompts.negativePrompt || '';
+    if (components.primaryDescription) {
+        const lowerDesc = components.primaryDescription.toLowerCase();
+        if (lowerDesc.includes("no text") || lowerDesc.includes("remove text")) finalNegativePrompt += ", text, watermark, signature, letters, words, typography";
+        if (lowerDesc.includes("not blurry")) finalNegativePrompt += ", blurry, motion blur, unclear, fuzzy";
+        if (lowerDesc.includes("not dark")) finalNegativePrompt += ", too dark, underexposed, shadow";
+    }
+    return finalNegativePrompt;
+  }
+
+  setBasePrompts = (newBasePrompts: Partial<typeof this.basePrompts>): void => {
+    this.basePrompts = { ...this.basePrompts, ...newBasePrompts };
+    if (newBasePrompts.character) this.baseCharacterIdentity = newBasePrompts.character;
   }
 
   /**
-   * Get all available expressions
+   * Override style and quality keywords for different image styles
    */
-  getAvailableExpressions(): string[] {
-    return Object.keys(this.expressionPrompts);
+  setStyleKeywords = (styleKeywords: string, qualityKeywords?: string): void => {
+    this.basePrompts.style = styleKeywords;
+    if (qualityKeywords) {
+      this.basePrompts.quality = qualityKeywords;
+    }
   }
 
   /**
-   * Get all available poses
+   * Set a completely custom base character identity
    */
-  getAvailablePoses(): string[] {
-    return Object.keys(this.posePrompts);
+  setCharacterIdentity = (identity: string): void => {
+    this.baseCharacterIdentity = identity;
+  }
+  
+  addExpressionPrompt = (expression: AvatarExpression, details: string): void => {
+    this.expressionDetailsMap[expression] = details;
+  }
+  addActionPrompt = (action: AvatarAction, details: string): void => {
+    this.actionDetailsMap[action] = details;
+  }
+  addPosePrompt = (pose: AvatarPose, details: string): void => {
+    this.poseDetailsMap[pose] = details;
   }
 
-  /**
-   * Get all available actions
-   */
-  getAvailableActions(): string[] {
-    return Object.keys(this.actionPrompts);
+  getAvailableExpressions = (): string[] => {
+    return Object.keys(this.expressionDetailsMap) as AvatarExpression[];
+  }
+  getAvailablePoses = (): string[] => {
+    return Object.keys(this.poseDetailsMap) as AvatarPose[];
+  }
+  getAvailableActions = (): string[] => {
+    return Object.keys(this.actionDetailsMap) as AvatarAction[];
   }
 }

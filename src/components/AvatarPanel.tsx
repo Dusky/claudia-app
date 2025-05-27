@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { AvatarState } from '../avatar/types';
 import type { TerminalTheme } from '../terminal/themes';
+import { useMemoryManager } from '../utils/memoryManager';
 import styles from './AvatarPanel.module.css';
 
 interface AvatarPanelProps {
@@ -16,6 +17,28 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
 }) => {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
+  const memoryManager = useMemoryManager('AvatarPanel');
+  const previousImageUrl = useRef<string | null>(null);
+
+  // Cleanup previous image URL when state changes
+  useEffect(() => {
+    if (previousImageUrl.current && previousImageUrl.current !== state.imageUrl) {
+      // Only revoke if it's a blob URL we created
+      if (previousImageUrl.current.startsWith('blob:')) {
+        memoryManager.revokeObjectURL(previousImageUrl.current);
+      }
+    }
+    previousImageUrl.current = state.imageUrl || null;
+  }, [state.imageUrl, memoryManager]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (previousImageUrl.current && previousImageUrl.current.startsWith('blob:')) {
+        memoryManager.revokeObjectURL(previousImageUrl.current);
+      }
+    };
+  }, [memoryManager]);
 
   const handleImageLoad = () => {
     setIsImageLoaded(true);

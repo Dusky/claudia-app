@@ -1,7 +1,9 @@
 import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
+import type { MCPProviderManager } from '../providers/mcp/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { StorageService } from '../storage/types';
+import type { ImageStorageManager } from '../utils/imageStorage';
 // import type { ClaudiaDatabase } from '../storage/database';
 import type { TerminalLine } from '../terminal/TerminalDisplay';
 import type { Personality } from '../types/personality';
@@ -11,10 +13,13 @@ import type { Personality } from '../types/personality';
 export interface CommandContext {
   llmManager: LLMProviderManager;
   imageManager: ImageProviderManager;
+  mcpManager: MCPProviderManager;
   avatarController: AvatarController;
-  storage: StorageService; 
+  storage: StorageService;
+  imageStorageManager: ImageStorageManager; 
   addLines: (lines: TerminalLine | TerminalLine[]) => void; // Can accept single or multiple lines
   setLoading: (loading: boolean) => void;
+  updateStreamingLine?: (lineId: string, content: string) => void; // For real-time content updates
   currentTheme: string;
   setTheme: (theme: string) => void;
   openPersonalityEditor: (personality?: Personality | null | undefined) => void; 

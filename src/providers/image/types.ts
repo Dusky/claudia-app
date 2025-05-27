@@ -41,6 +41,7 @@ export interface ImageProviderConfig {
   baseURL?: string;
   model?: string;
   defaultParameters?: Record<string, any>;
+  logPromptsToFile?: boolean; // New setting to enable prompt logging
   [key: string]: any;
 }
 
@@ -62,23 +63,31 @@ export interface PredictionStatus {
 }
 
 export interface ImagePromptComponents {
-  character: string;
-  expression: string;
-  pose: string;
-  action: string;
-  style: string;
-  lighting: string;
-  background: string;
-  quality: string;
+  character: string; // Core, consistent character description
+  style: string; // Core stylistic keywords
+  quality: string; // Core quality keywords
   negativePrompt?: string;
+
+  // Fields for dynamic prompting
+  settingDescription: string; // Main description, either AI-provided or generated from state
+  expressionKeywords: string; // Keywords for current expression
+  poseKeywords: string; // Keywords for current pose
+  actionKeywords: string; // Keywords for current action
+  lightingKeywords: string; // Keywords for lighting
+  backgroundKeywords: string; // Keywords for background
+
+  // For variation
+  variationSeed?: number;
+  contextualKeywords?: string[];
 }
 
 export interface PromptModificationContext {
-  personality: {
-    name: string;
-    systemPrompt: string;
-  };
+  personality: import('../../types/personality').Personality; // Use the full Personality type
   currentMood?: string;
   previousActions?: string[];
   conversationContext?: string;
+  isAIDescription?: boolean; // True if settingDescription comes directly from AI's [IMAGE:] tag
+  isMetaPrompted?: boolean; // True if using meta-prompting
+  variationSeed?: number;
+  contextualKeywords?: string[];
 }

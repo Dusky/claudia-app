@@ -2,25 +2,111 @@ import { create } from 'zustand';
 import { type TerminalLine } from '../terminal/TerminalDisplay';
 import type { AvatarState } from '../avatar/types';
 import type { Personality } from '../types/personality';
-import { config } from '../config/env';
+import { config as globalAppConfig } from '../config/env'; // Renamed to avoid conflict with state 'config'
 import { type ClaudiaDatabase } from '../storage';
 import { type StorageService } from '../storage/types';
 import { DEFAULT_PERSONALITY } from '../types/personality';
+import { SettingsManager } from '../services/settingsManager';
+
+// ConfigSettings type - will be imported from components
+export interface ConfigSettings {
+  // Boot Sequence
+  enhancedBoot: boolean;
+  bootSpeed: 'slow' | 'normal' | 'fast' | 'instant';
+  glitchIntensity: 'off' | 'subtle' | 'medium' | 'heavy';
+  asciiLogo: boolean;
+  strangeMessages: boolean;
+  
+  // Visual Effects
+  screenFlicker: boolean;
+  flickerIntensity: number;
+  scanLines: 'off' | 'subtle' | 'heavy';
+  terminalBreathing: boolean;
+  visualArtifacts: boolean;
+  progressiveClarity: boolean;
+  
+  // Atmosphere
+  crtGlow: boolean;
+  backgroundAnimation: boolean; // This was for terminal breathing, might be repurposed or removed if app background has animation
+  colorShifts: boolean;
+  staticOverlay: boolean;
+  screenCurvature: boolean; // Added for screen curvature effect
+  enableAppBackground: boolean; // Toggle for the entire app background
+  appBackgroundOverride?: string; // User-defined CSS background string
+  enableCRTEffect?: boolean; // New setting for the full-screen CRT shader
+  useMetaPromptingForImages: boolean; // Enable AI-powered image prompting
+  
+  // Performance
+  reducedAnimations: boolean;
+  highContrast: boolean;
+}
+
+export const defaultConfig: ConfigSettings = {
+  // Boot Sequence
+  enhancedBoot: true,
+  bootSpeed: 'normal',
+  glitchIntensity: 'subtle',
+  asciiLogo: true,
+  strangeMessages: true,
+  
+  // Visual Effects
+  screenFlicker: true,
+  flickerIntensity: 0.3,
+  scanLines: 'subtle',
+  terminalBreathing: true,
+  visualArtifacts: true,
+  progressiveClarity: true,
+  
+  // Atmosphere
+  crtGlow: true,
+  backgroundAnimation: true, // Keeping for now, relates to terminal breathing
+  colorShifts: true,
+  staticOverlay: false,
+  screenCurvature: false, // Default to false, themes or user can enable
+  enableAppBackground: true, // App background enabled by default
+  appBackgroundOverride: undefined, // No override by default
+  enableCRTEffect: true, // Enable CRT Shader by default, can be set to false if it was causing issues
+  useMetaPromptingForImages: false, // Default to false for now
+  
+  // Performance
+  reducedAnimations: false,
+  highContrast: false,
+};
 
 const LAST_ACTIVE_CONVERSATION_ID_KEY = 'lastActiveConversationId';
 
 export interface AppState {
+  // Core application state
   currentTheme: string;
+  isThemeTransitioning: boolean;
   lines: TerminalLine[];
   isLoading: boolean;
   avatarState: AvatarState;
+  activeConversationId: string | null;
+  
+  // Application configuration
+  config: ConfigSettings;
+  configLoaded: boolean;
+  
+  // Modal states
   personalityModalOpen: boolean;
+  configModalOpen: boolean;
+  helpModalOpen: boolean;
+  helpModalCommandName: string | null;
+  imageModalOpen: boolean;
+  aiOptionsModalOpen: boolean;
+  appSettingsModalOpen: boolean;
+  showBootSequence: boolean;
+  
+  // Personality modal state
   editingPersonalityInModal: Personality | null;
   allPersonalitiesInModal: Personality[];
   activePersonalityIdInModal: string | null;
-  activeConversationId: string | null;
   
-  // Actions
+  // Initialization state
+  isInitialized: boolean;
+  
+  // Core actions
   setTheme: (theme: string) => void;
   addLines: (newLines: TerminalLine | TerminalLine[]) => void;
   setLines: (lines: TerminalLine[]) => void;
@@ -28,6 +114,25 @@ export interface AppState {
   setAvatarState: (partialState: Partial<AvatarState> | ((prevState: AvatarState) => Partial<AvatarState>)) => void;
   saveAvatarState: () => void;
   restoreAvatarState: () => Promise<void>;
+  
+  // Config actions
+  setConfig: (config: ConfigSettings) => void;
+  loadConfig: () => void;
+  
+  // Settings manager
+  settingsManager: SettingsManager | null;
+  initializeSettingsManager: (storage: StorageService) => void;
+  
+  // Modal actions
+  setConfigModalOpen: (open: boolean) => void;
+  setHelpModalOpen: (open: boolean, commandName?: string | null) => void;
+  setImageModalOpen: (open: boolean) => void;
+  setAiOptionsModalOpen: (open: boolean) => void;
+  setAppSettingsModalOpen: (open: boolean) => void;
+  setShowBootSequence: (show: boolean) => void;
+  
+  // Initialization actions
+  setIsInitialized: (initialized: boolean) => void;
   
   openPersonalityEditorModal: (db: ClaudiaDatabase, personalityToEdit?: Personality | null) => Promise<void>;
   closePersonalityModal: () => void;
@@ -44,7 +149,9 @@ export interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentTheme: config.defaultTheme,
+  // Core application state
+  currentTheme: globalAppConfig.defaultTheme, // Use renamed import
+  isThemeTransitioning: false,
   lines: [],
   isLoading: false,
   avatarState: {
@@ -59,24 +166,114 @@ export const useAppStore = create<AppState>((set, get) => ({
     hasError: false,
     lastUpdate: new Date().toISOString(),
   },
+  activeConversationId: null,
+  
+  // Application configuration
+  config: defaultConfig,
+  configLoaded: false,
+  
+  // Settings manager
+  settingsManager: null,
+  
+  // Modal states
   personalityModalOpen: false,
+  configModalOpen: false,
+  helpModalOpen: false,
+  helpModalCommandName: null,
+  imageModalOpen: false,
+  aiOptionsModalOpen: false,
+  appSettingsModalOpen: false,
+  showBootSequence: false,
+  
+  // Personality modal state
   editingPersonalityInModal: null,
   allPersonalitiesInModal: [],
   activePersonalityIdInModal: null,
-  activeConversationId: null,
+  
+  // Initialization state
+  isInitialized: false,
 
-  setTheme: (theme) => set({ currentTheme: theme }),
+  // Core actions
+  setTheme: (theme) => {
+    set({ isThemeTransitioning: true });
+    setTimeout(() => {
+      set({ currentTheme: theme });
+      setTimeout(() => {
+        set({ isThemeTransitioning: false });
+      }, 100);
+    }, 150);
+  },
   addLines: (newLines) => {
     const linesToAdd = Array.isArray(newLines) ? newLines : [newLines];
     set(state => ({ lines: [...state.lines, ...linesToAdd].flat() }));
   },
   setLines: (lines) => set({ lines }),
   setLoading: (loading) => set({ isLoading: loading }),
+  
+  // Config actions
+  setConfig: async (newConfig) => { // Renamed parameter to avoid conflict
+    const { settingsManager } = get();
+    set({ config: newConfig });
+    if (settingsManager) {
+      await settingsManager.setAppConfig(newConfig);
+    } else {
+      // Fallback to localStorage if settings manager not initialized
+      localStorage.setItem('claudia-config', JSON.stringify(newConfig));
+    }
+  },
+  loadConfig: async () => {
+    const { settingsManager } = get();
+    try {
+      let savedConfig = null;
+      if (settingsManager) {
+        savedConfig = await settingsManager.getAppConfig();
+      } else {
+        // Fallback to localStorage
+        const saved = localStorage.getItem('claudia-config');
+        savedConfig = saved ? JSON.parse(saved) : null;
+      }
+      
+      if (savedConfig) {
+        // Merge with defaultConfig to ensure all keys are present
+        set({ config: { ...defaultConfig, ...savedConfig } });
+      } else {
+        set({ config: defaultConfig });
+      }
+    } catch (error) {
+      console.warn('Failed to load saved config:', error);
+      set({ config: defaultConfig }); // Fallback to default on error
+    }
+    set({ configLoaded: true });
+  },
+  
+  // Settings manager
+  initializeSettingsManager: (storage) => {
+    const settingsManager = new SettingsManager(storage);
+    set({ settingsManager });
+    
+    // Run migration on first initialization
+    settingsManager.migrateOldSettings().catch(error => {
+      console.warn('Settings migration failed:', error);
+    });
+  },
+  
+  // Modal actions
+  setConfigModalOpen: (open) => set({ configModalOpen: open }),
+  setHelpModalOpen: (open, commandName = null) => set({ 
+    helpModalOpen: open, 
+    helpModalCommandName: commandName 
+  }),
+  setImageModalOpen: (open) => set({ imageModalOpen: open }),
+  setAiOptionsModalOpen: (open) => set({ aiOptionsModalOpen: open }),
+  setAppSettingsModalOpen: (open) => set({ appSettingsModalOpen: open }),
+  setShowBootSequence: (show) => set({ showBootSequence: show }),
+  
+  // Initialization actions
+  setIsInitialized: (initialized) => set({ isInitialized: initialized }),
   setAvatarState: (partialState) => {
     const newState = typeof partialState === 'function' 
       ? (state: AppState) => {
           const newAvatarState = { ...state.avatarState, ...partialState(state.avatarState) };
-          // Save to localStorage for persistence
           localStorage.setItem('claudia-avatar-state', JSON.stringify({
             visible: newAvatarState.visible,
             expression: newAvatarState.expression,
@@ -89,7 +286,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       : (state: AppState) => {
           const newAvatarState = { ...state.avatarState, ...partialState };
-          // Save to localStorage for persistence
           localStorage.setItem('claudia-avatar-state', JSON.stringify({
             visible: newAvatarState.visible,
             expression: newAvatarState.expression,
@@ -165,7 +361,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       allPersonalitiesInModal: allPs,
       activePersonalityIdInModal: activeP ? activeP.id : null,
-      editingPersonalityInModal: personality, // Keep the saved personality in view
+      editingPersonalityInModal: personality, 
     });
   },
   deletePersonalityInModal: async (db, personalityId) => {
@@ -180,7 +376,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     const activeP = await db.getActivePersonality();
     if (activeP && activeP.id === personalityId) {
-      // Ensure DEFAULT_PERSONALITY exists before setting it active
       const defaultP = await db.getPersonality(DEFAULT_PERSONALITY.id);
       if (!defaultP) {
         await db.savePersonality(DEFAULT_PERSONALITY);
@@ -196,7 +391,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       allPersonalitiesInModal: allPs,
       activePersonalityIdInModal: newActiveP ? newActiveP.id : null,
-      editingPersonalityInModal: newActiveP || null, // Show the new active personality or null
+      editingPersonalityInModal: newActiveP || null, 
     });
   },
   
@@ -209,16 +404,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } else {
       await db.setSetting(LAST_ACTIVE_CONVERSATION_ID_KEY, null);
-      if (loadMessages) set({ lines: [] }); // Clear lines if no active conversation
+      if (loadMessages) set({ lines: [] }); 
     }
   },
 
   loadConversationMessages: async (db: StorageService, id) => {
-    const history = await db.getMessages(id, config.conversationHistoryLength + 20);
+    const history = await db.getMessages(id, globalAppConfig.conversationHistoryLength + 20); // Use renamed import
     const newLines = history.map(m => ({
-      id: `hist-${m.id}-${m.timestamp}`, type: m.role === 'user' ? 'input' : 'output',
-      content: m.content, timestamp: m.timestamp,
-      user: m.role === 'user' ? 'user' : 'claudia'
+      id: `hist-${m.id}-${m.timestamp}`, 
+      type: m.role === 'user' ? 'input' : 'output',
+      content: m.content, 
+      timestamp: m.timestamp,
+      user: m.role === 'user' ? 'user' : 'claudia',
+      isChatResponse: m.role === 'assistant' ? true : undefined  // Mark AI messages for proper grouping
     } as TerminalLine));
     set({ lines: newLines });
   },
@@ -235,43 +433,30 @@ export const useAppStore = create<AppState>((set, get) => ({
             activeConvIdToUse = conv.id;
             const messages = await db.getMessages(conv.id, 1);
             if (messages.length === 0) {
-                playBootAnimation = true; // Existing conversation is empty, treat as fresh start
+                playBootAnimation = true; 
             }
-            // If messages.length > 0, playBootAnimation remains false, normal load
         } else {
-            // lastActiveId exists, but conversation doesn't (e.g., deleted) -> new session
             playBootAnimation = true;
-            activeConvIdToUse = null; // Ensure we don't try to use the invalid ID
+            activeConvIdToUse = null; 
         }
     } else {
-        // No lastActiveId, so it's a completely fresh session
         playBootAnimation = true;
     }
 
     if (playBootAnimation) {
-        // If we're playing boot animation, we want a "clean slate".
-        // If activeConvIdToUse was from an existing (but empty) conversation, we can reuse its ID.
-        // Otherwise (no valid last active ID, or it pointed to a deleted convo), create a new one.
         if (!activeConvIdToUse) { 
             const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
             activeConvIdToUse = newConv.id;
         }
-        // Explicitly clear lines in the store *before* App.tsx starts adding boot animation lines.
-        // App.tsx also calls setLines([]), but this ensures the store state is definitely clean for the boot sequence.
         set({ lines: [] }); 
     }
     
-    // Set the determined active conversation ID in the store and persist it.
-    // Crucially, do NOT load messages here; App.tsx will handle that based on playBootAnimation.
-    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, false); 
+    await get().setActiveConversationAndLoadMessages(db, activeConvIdToUse, true); 
 
     return { activeConvId: activeConvIdToUse, playBootAnimation };
   },
   
   clearTerminalForNewSession: async () => {
-    // This function is now mostly for specific commands like /conversation-clearhist
-    // that only want to clear lines and show boot messages without resetting the conversation.
-    // The /clear command uses resetConversationAndTerminal for a full reset.
     set({ lines: [
       { id: `clear-${Date.now()}`, type: 'system', content: 'INITIALIZING CLAUDIA OS...', timestamp: new Date().toISOString()}
     ]});
@@ -281,7 +466,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetConversationAndTerminal: async (db: StorageService) => {
     const newConv = await db.createConversation({ title: `Chat Session - ${new Date().toLocaleString()}` });
-    // Set new conversation active, but don't load messages (it's new and empty)
     await get().setActiveConversationAndLoadMessages(db, newConv.id, false);
 
     const now = new Date().toISOString();
@@ -298,7 +482,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         content: 'Ready for new commands!', 
         timestamp: now, 
         user: 'claudia',
-        isChatResponse: true // To get the "claudia>" prefix
+        isChatResponse: true 
       }
     ];
     set({ lines: initialLines });
@@ -306,6 +490,5 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 }));
 
-// Helper to use outside of React components if needed
 export const getAppStoreState = useAppStore.getState;
 export const setAppStoreState = useAppStore.setState;

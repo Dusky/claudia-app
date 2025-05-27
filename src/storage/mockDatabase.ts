@@ -9,6 +9,7 @@ import type {
   AppSetting, // Use AppSetting from common types
   CachedAvatarImage, // Use CachedAvatarImage from common types
   MemoryEntry,
+  ImageMetadata, // Add ImageMetadata import
 } from './types'; // Import from the new types file
 
 export class MockDatabase implements StorageService {
@@ -18,6 +19,7 @@ export class MockDatabase implements StorageService {
   private avatarCache: Map<string, CachedAvatarImage> = new Map(); // Use CachedAvatarImage
   private personalities: Map<string, Personality> = new Map();
   private memoryEntries: Map<number, MemoryEntry> = new Map(); // For MemoryEntry
+  private imageMetadata: Map<string, ImageMetadata> = new Map(); // For ImageMetadata
   private memoryIdCounter = 0;
   private messageIdCounter = 0; // For generating message IDs
 
@@ -98,6 +100,11 @@ export class MockDatabase implements StorageService {
         });
         this.memoryIdCounter = maxId;
       }
+      
+      const imageMetadataData = localStorage.getItem('claudia_image_metadata');
+      if (imageMetadataData) {
+        this.imageMetadata = new Map(JSON.parse(imageMetadataData) as [string, ImageMetadata][]);
+      }
 
     } catch (error) {
       console.warn('Failed to load data from localStorage:', error);
@@ -114,6 +121,7 @@ export class MockDatabase implements StorageService {
       localStorage.setItem('claudia_avatar_cache', JSON.stringify(Array.from(this.avatarCache.entries())));
       localStorage.setItem('claudia_personalities', JSON.stringify(Array.from(this.personalities.entries())));
       localStorage.setItem('claudia_memory_entries', JSON.stringify(Array.from(this.memoryEntries.entries())));
+      localStorage.setItem('claudia_image_metadata', JSON.stringify(Array.from(this.imageMetadata.entries())));
     } catch (error) {
       console.warn('Failed to save data to localStorage:', error);
     }
@@ -131,6 +139,7 @@ export class MockDatabase implements StorageService {
       createdAt: conversationInput.createdAt || now,
       updatedAt: conversationInput.updatedAt || now,
       metadata: conversationInput.metadata,
+      totalTokens: conversationInput.totalTokens || 0,
     };
     this.conversations.set(id, newConversation);
     this.saveToLocalStorage();
@@ -391,6 +400,134 @@ export class MockDatabase implements StorageService {
     await this.savePersonality(updatedPersonality);
     
     return true;
+  }
+
+  // Image Metadata methods
+  async saveImageMetadata(metadata: ImageMetadata): Promise<void> {
+    this.imageMetadata.set(metadata.id, metadata);
+    this.saveToLocalStorage();
+  }
+
+  async getImageMetadata(id: string): Promise<ImageMetadata | null> {
+    return this.imageMetadata.get(id) || null;
+  }
+
+  async getAllImageMetadata(options?: {
+    limit?: number;
+    offset?: number;
+    sortBy?: keyof ImageMetadata;
+    sortOrder?: 'asc' | 'desc';
+    filterTags?: string[];
+    searchTerm?: string;
+  }): Promise<ImageMetadata[]> {
+    let results = Array.from(this.imageMetadata.values());
+    
+    // Filter by tags
+    if (options?.filterTags && options.filterTags.length > 0) {
+      results = results.filter(metadata => 
+        options.filterTags!.some(tag => metadata.tags.includes(tag))
+      );
+    }
+    
+    // Filter by search term
+    if (options?.searchTerm) {
+      const searchLower = options.searchTerm.toLowerCase();
+      results = results.filter(metadata => 
+        metadata.prompt.toLowerCase().includes(searchLower) ||
+        metadata.description?.toLowerCase().includes(searchLower) ||
+        metadata.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Sort
+    if (options?.sortBy) {
+      const sortOrder = options.sortOrder || 'desc';
+      results.sort((a, b) => {
+        const aVal = a[options.sortBy!];
+        const bVal = b[options.sortBy!];
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        return sortOrder === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+      });
+    } else {
+      // Default sort by generatedAt descending
+      results.sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
+    }
+    
+    // Apply offset and limit
+    const offset = options?.offset || 0;
+    const limit = options?.limit;
+    
+    if (limit) {
+      return results.slice(offset, offset + limit);
+    }
+    
+    return results.slice(offset);
+  }
+
+  async countAllImageMetadata(options?: {
+    filterTags?: string[];
+    searchTerm?: string;
+  }): Promise<number> {
+    let results = Array.from(this.imageMetadata.values());
+    
+    // Filter by tags
+    if (options?.filterTags && options.filterTags.length > 0) {
+      results = results.filter(metadata => 
+        options.filterTags!.some(tag => metadata.tags.includes(tag))
+      );
+    }
+    
+    // Filter by search term
+    if (options?.searchTerm) {
+      const searchLower = options.searchTerm.toLowerCase();
+      results = results.filter(metadata => 
+        metadata.prompt.toLowerCase().includes(searchLower) ||
+        metadata.description?.toLowerCase().includes(searchLower) ||
+        metadata.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    return results.length;
+  }
+
+  async deleteImageMetadata(id: string): Promise<boolean> {
+    const deleted = this.imageMetadata.delete(id);
+    if (deleted) {
+      this.saveToLocalStorage();
+    }
+    return deleted;
+  }
+
+  async updateImageMetadata(id: string, updates: Partial<Omit<ImageMetadata, 'id' | 'generatedAt'>>): Promise<boolean> {
+    const metadata = this.imageMetadata.get(id);
+    if (!metadata) return false;
+    
+    const updatedMetadata = { ...metadata, ...updates };
+    this.imageMetadata.set(id, updatedMetadata);
+    this.saveToLocalStorage();
+    return true;
+  }
+
+  async deleteOldestImageMetadata(count: number): Promise<number> {
+    const allMetadata = Array.from(this.imageMetadata.values())
+      .sort((a, b) => new Date(a.generatedAt).getTime() - new Date(b.generatedAt).getTime());
+    
+    const toDelete = allMetadata.slice(0, count);
+    let deletedCount = 0;
+    
+    for (const metadata of toDelete) {
+      if (this.imageMetadata.delete(metadata.id)) {
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      this.saveToLocalStorage();
+    }
+    
+    return deletedCount;
   }
 
   // Close method (no-op for mock)

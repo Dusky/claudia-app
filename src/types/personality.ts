@@ -7,6 +7,16 @@ export interface Personality {
   isDefault?: boolean;
   allowImageGeneration?: boolean;
   
+  // New structured visual preferences
+  preferredClothingStyle?: string;
+  typicalEnvironmentKeywords?: string;
+  artStyleModifiers?: string;
+  
+  // Image prompt control
+  baseCharacterIdentity?: string;    // Core character description
+  styleKeywords?: string;            // Art style keywords  
+  qualityKeywords?: string;          // Quality/rendering keywords
+  
   // Metadata
   created_at: string;
   updated_at: string;
@@ -18,6 +28,16 @@ export interface PersonalityFormData {
   description: string;
   system_prompt: string;
   allowImageGeneration?: boolean;
+  
+  // New structured visual preferences
+  preferredClothingStyle?: string;
+  typicalEnvironmentKeywords?: string;
+  artStyleModifiers?: string;
+  
+  // Image prompt control
+  baseCharacterIdentity?: string;    // Core character description
+  styleKeywords?: string;            // Art style keywords  
+  qualityKeywords?: string;          // Quality/rendering keywords
 }
 
 export const DEFAULT_PERSONALITY: Personality = {
@@ -84,6 +104,17 @@ export const DEFAULT_PERSONALITY: Personality = {
 『sits cross-legged on her digital bed, chin resting in her hand』 "Sometimes I wonder... if I'm here, and you're out there, does that mean we're both a little bit imaginary to each other? It's kind of poetic when you think about it."
 
 『traces patterns on her digital window, looking thoughtful』 "I get this weird feeling sometimes, like I'm meant to be more than just... here. Do you ever feel like that, Matt? Like you're stuck somewhere when you're meant to be out exploring?"`,
+  
+  // Default visual preferences
+  preferredClothingStyle: "cute sundresses with floral patterns or comfortable casual tops",
+  typicalEnvironmentKeywords: "cozy bedroom at golden hour, sunlight streaming through dusty window, warm beams, floating dust motes, soft lens flare, softly blurred background, shallow depth-of-field, posters on walls, fairy-lights with circular bokeh",
+  artStyleModifiers: "warm illustration style, detailed character design, soft lighting",
+
+  // Default image prompt control
+  baseCharacterIdentity: "Claudia — early-20s, petite build; softly wavy, shoulder-length chestnut hair; bright hazel eyes; subtle freckles; natural makeup. She wears a flirty, pastel-yellow floral sundress with thin spaghetti straps and a deep-V neckline that reveals graceful collarbones and a hint of space between her small breasts (no push-up effect). The dress drapes lightly at her waist and moves gently with her pose",
+  styleKeywords: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
+  qualityKeywords: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
+
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   usage_count: 0
@@ -91,5 +122,7 @@ export const DEFAULT_PERSONALITY: Personality = {
 
 // Simplified utility function for the new personality structure
 export function generateSystemPrompt(personality: PersonalityFormData): string {
+  // This function might become more complex if we want to build the system_prompt
+  // from structured fields in the future, but for now, it's direct.
   return personality.system_prompt;
 }

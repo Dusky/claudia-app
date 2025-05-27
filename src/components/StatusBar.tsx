@@ -4,6 +4,7 @@ import type { LLMProviderManager } from '../providers/llm/manager';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { StorageService } from '../storage/types';
 import type { Personality } from '../types/personality';
+import { formatTokenCount } from '../utils/tokenCounter';
 import styles from './StatusBar.module.css';
 
 interface StatusBarProps {
@@ -12,6 +13,7 @@ interface StatusBarProps {
   llmManager: LLMProviderManager;
   imageManager: ImageProviderManager;
   storage: StorageService;
+  activeConversationId: string | null;
   onThemeClick?: () => void;
   onPersonalityClick?: () => void;
   onImageProviderClick?: () => void;
@@ -24,6 +26,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   llmManager,
   imageManager,
   storage,
+  activeConversationId,
   onThemeClick,
   onPersonalityClick,
   onImageProviderClick,
@@ -34,6 +37,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   const [activeImage, setActiveImage] = useState(imageManager.getActiveProvider());
   const [activePersonality, setActivePersonality] = useState<Personality | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [conversationTokens, setConversationTokens] = useState<number>(0);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000); // Update time every minute
@@ -54,7 +58,20 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
     return () => clearInterval(intervalId);
   }, [llmManager, imageManager, storage]);
 
-  const themeDisplayName = theme.name; // Use the full name from the theme object
+  useEffect(() => {
+    const loadConversationTokens = async () => {
+      if (activeConversationId) {
+        const conversation = await storage.getConversation(activeConversationId);
+        setConversationTokens(conversation?.totalTokens || 0);
+      } else {
+        setConversationTokens(0);
+      }
+    };
+
+    loadConversationTokens();
+  }, [activeConversationId, storage]);
+
+  const themeDisplayName = theme.name; 
   const llmProviderId = activeLLM?.id || 'N/A';
   const llmConfigured = activeLLM?.isConfigured() ?? false;
   const imageProviderId = activeImage?.id || 'N/A';
@@ -65,6 +82,13 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const handleImageProviderClick = () => {
+    console.log("StatusBar.tsx: Image provider item clicked.");
+    if (onImageProviderClick) {
+      onImageProviderClick();
+    }
   };
 
   return (
@@ -107,7 +131,7 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
         <div className={styles.statusBarItem}>
           <span>📷</span> {/* Image Icon */}
            <span
-            onClick={onImageProviderClick}
+            onClick={handleImageProviderClick} // Use the new handler
             className={`${styles.providerStatus} ${imageConfigured ? styles.configured : styles.notConfigured} ${onImageProviderClick ? styles.clickableItem : ''}`}
             data-status={imageConfigured ? 'configured' : 'not-configured'}
             title={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'} - Click to configure`}
@@ -134,6 +158,12 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
             title="Keyboard Shortcuts: ⌘K (Clear), ⌘/ (Help), ⌘⇧T (Themes), ⌘R (Retry), ⌘⇧N (New Chat)"
           >
             Shortcuts
+          </span>
+        </div>
+        <div className={styles.statusBarItem}>
+          <span>🧮</span> {/* Token Count Icon */}
+          <span title={`Conversation tokens: ${conversationTokens}`}>
+            {formatTokenCount(conversationTokens)}
           </span>
         </div>
         <div className={styles.statusBarItem}>

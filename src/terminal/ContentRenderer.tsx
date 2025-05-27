@@ -8,6 +8,21 @@ interface ContentRendererProps {
 
 // Parse content with markdown and HTML support
 const parseContent = (content: string): React.ReactNode => {
+  // First, split content into paragraphs and handle them separately
+  const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
+  
+  if (paragraphs.length > 1) {
+    return paragraphs.map((paragraph, paragraphIndex) => (
+      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? '16px' : '0' }}>
+        {parseContentSegment(paragraph.trim())}
+      </div>
+    ));
+  }
+  
+  return parseContentSegment(content);
+};
+
+const parseContentSegment = (content: string): React.ReactNode => {
   const elements: React.ReactNode[] = [];
   let remaining = content;
   let index = 0;
@@ -44,10 +59,12 @@ const parseContent = (content: string): React.ReactNode => {
       }
     }
 
-    // _Emphasis text_ (but not __)
+    // _Emphasis text_ (but not __, and only when not part of identifier/code)
     else if (remaining.startsWith('_') && !remaining.startsWith('__')) {
+      // Only treat as emphasis if preceded by whitespace or start of string
+      // and the content doesn't look like code/identifiers
       const emphasisMatch = remaining.match(/^_([^_]+)_/);
-      if (emphasisMatch) {
+      if (emphasisMatch && !/\w_\w/.test(remaining.slice(0, 10))) {
         elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: 0.8 }}>{emphasisMatch[1]}</em>);
         remaining = remaining.slice(emphasisMatch[0].length);
         matched = true;
@@ -62,11 +79,14 @@ const parseContent = (content: string): React.ReactNode => {
           <code 
             key={index++}
             style={{ 
-              fontFamily: 'monospace',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              padding: '2px 4px',
-              borderRadius: '2px',
-              fontSize: '0.9em'
+              fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
+              backgroundColor: 'rgba(0, 255, 255, 0.08)',
+              color: 'rgba(0, 255, 255, 0.9)',
+              padding: '3px 6px',
+              borderRadius: '3px',
+              fontSize: '0.9em',
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
             }}
           >
             {codeMatch[1]}
@@ -150,11 +170,14 @@ const parseContent = (content: string): React.ReactNode => {
           <code 
             key={index++}
             style={{ 
-              fontFamily: 'monospace',
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              padding: '2px 4px',
-              borderRadius: '2px',
-              fontSize: '0.9em'
+              fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
+              backgroundColor: 'rgba(0, 255, 255, 0.08)',
+              color: 'rgba(0, 255, 255, 0.9)',
+              padding: '3px 6px',
+              borderRadius: '3px',
+              fontSize: '0.9em',
+              border: '1px solid rgba(0, 255, 255, 0.2)',
+              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
             }}
           >
             {codeMatch[1]}

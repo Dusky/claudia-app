@@ -14,6 +14,7 @@ export type {
 // Image Providers
 export { ImageProviderManager } from './image/manager';
 export { ReplicateProvider } from './image/replicate';
+export { GoogleImageProvider } from './image/google';
 export { ImagePromptComposer } from './image/promptComposer';
 export type { 
   ImageProvider, 

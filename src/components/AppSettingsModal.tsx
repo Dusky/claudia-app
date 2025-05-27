@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { StorageService } from '../storage/types';
 import type { TerminalTheme } from '../terminal/themes';
+import { APIKeyManager } from './APIKeyManager';
 import styles from './AppSettingsModal.module.css';
 
 interface AppSettingsModalProps {
@@ -13,29 +14,46 @@ interface AppSettingsModalProps {
 // Settings keys for persistence
 export const APP_SETTINGS_KEYS = {
   GLOBAL_IMAGE_GENERATION: 'app.globalImageGeneration',
+  USE_META_PROMPTING_FOR_IMAGES: 'app.useMetaPromptingForImages', // New key
+  LOG_PROMPTS_TO_FILE: 'image.logPromptsToFile', // New key for prompt logging
   AUTO_SAVE_IMAGES: 'app.autoSaveImages',
   IMAGE_CACHE_SIZE: 'app.imageCacheSize',
   DEBUG_MODE: 'app.debugMode',
   BOOT_ANIMATION: 'app.bootAnimation',
   CONVERSATION_HISTORY_LIMIT: 'app.conversationHistoryLimit',
   AUTO_SCROLL: 'app.autoScroll',
-  SOUND_EFFECTS: 'app.soundEffects'
+  SOUND_EFFECTS: 'app.soundEffects',
+  // MCP Settings
+  MCP_ENABLED: 'mcp.enabled',
+  MCP_AUTO_CONNECT: 'mcp.autoConnect',
+  MCP_TIMEOUT: 'mcp.timeout',
+  MCP_SERVERS: 'mcp.servers',
+  MCP_TOOL_CONFIRMATION: 'mcp.toolConfirmation'
 } as const;
 
 // Default values
 const DEFAULT_SETTINGS = {
   globalImageGeneration: true,
+  useMetaPromptingForImages: false, // New default
+  logPromptsToFile: false, // New default for prompt logging
   autoSaveImages: true,
   imageCacheSize: 100,
   debugMode: false,
   bootAnimation: true,
   conversationHistoryLimit: 50,
   autoScroll: true,
-  soundEffects: false
+  soundEffects: false,
+  // MCP Settings
+  mcpEnabled: true,
+  mcpAutoConnect: true,
+  mcpTimeout: 10000,
+  mcpToolConfirmation: true
 };
 
 interface AppSettings {
   globalImageGeneration: boolean;
+  useMetaPromptingForImages: boolean; // New setting
+  logPromptsToFile: boolean; // New setting for prompt logging
   autoSaveImages: boolean;
   imageCacheSize: number;
   debugMode: boolean;
@@ -43,6 +61,11 @@ interface AppSettings {
   conversationHistoryLimit: number;
   autoScroll: boolean;
   soundEffects: boolean;
+  // MCP Settings
+  mcpEnabled: boolean;
+  mcpAutoConnect: boolean;
+  mcpTimeout: number;
+  mcpToolConfirmation: boolean;
 }
 
 export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
@@ -54,6 +77,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [error, setError] = useState<string>('');
 
   // Load settings when modal opens
   useEffect(() => {
@@ -70,6 +94,14 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
           APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, 
           DEFAULT_SETTINGS.globalImageGeneration
         )) ?? DEFAULT_SETTINGS.globalImageGeneration,
+        useMetaPromptingForImages: (await storage.getSetting<boolean>( // Load new setting
+          APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES,
+          DEFAULT_SETTINGS.useMetaPromptingForImages
+        )) ?? DEFAULT_SETTINGS.useMetaPromptingForImages,
+        logPromptsToFile: (await storage.getSetting<boolean>( // Load prompt logging setting
+          APP_SETTINGS_KEYS.LOG_PROMPTS_TO_FILE,
+          DEFAULT_SETTINGS.logPromptsToFile
+        )) ?? DEFAULT_SETTINGS.logPromptsToFile,
         autoSaveImages: (await storage.getSetting<boolean>(
           APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, 
           DEFAULT_SETTINGS.autoSaveImages
@@ -97,12 +129,33 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
         soundEffects: (await storage.getSetting<boolean>(
           APP_SETTINGS_KEYS.SOUND_EFFECTS, 
           DEFAULT_SETTINGS.soundEffects
-        )) ?? DEFAULT_SETTINGS.soundEffects
+        )) ?? DEFAULT_SETTINGS.soundEffects,
+        // MCP Settings
+        mcpEnabled: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_ENABLED, 
+          DEFAULT_SETTINGS.mcpEnabled
+        )) ?? DEFAULT_SETTINGS.mcpEnabled,
+        mcpAutoConnect: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_AUTO_CONNECT, 
+          DEFAULT_SETTINGS.mcpAutoConnect
+        )) ?? DEFAULT_SETTINGS.mcpAutoConnect,
+        mcpTimeout: (await storage.getSetting<number>(
+          APP_SETTINGS_KEYS.MCP_TIMEOUT, 
+          DEFAULT_SETTINGS.mcpTimeout
+        )) ?? DEFAULT_SETTINGS.mcpTimeout,
+        mcpToolConfirmation: (await storage.getSetting<boolean>(
+          APP_SETTINGS_KEYS.MCP_TOOL_CONFIRMATION, 
+          DEFAULT_SETTINGS.mcpToolConfirmation
+        )) ?? DEFAULT_SETTINGS.mcpToolConfirmation
       };
-      setSettings(loadedSettings);
+      // Ensure all properties are defined by merging with defaults
+      const safeLoadedSettings = { ...DEFAULT_SETTINGS, ...loadedSettings };
+      setSettings(safeLoadedSettings);
       setHasChanges(false);
     } catch (error) {
       console.error('Failed to load app settings:', error);
+      // On error, reset to defaults to ensure controlled components
+      setSettings({ ...DEFAULT_SETTINGS });
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +167,8 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
   ) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
+    // Clear error when user makes changes
+    if (error) setError('');
   };
 
   const saveSettings = async () => {
@@ -121,19 +176,29 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
     try {
       await Promise.all([
         storage.setSetting(APP_SETTINGS_KEYS.GLOBAL_IMAGE_GENERATION, settings.globalImageGeneration, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.USE_META_PROMPTING_FOR_IMAGES, settings.useMetaPromptingForImages, 'boolean'), // Save new setting
+        storage.setSetting(APP_SETTINGS_KEYS.LOG_PROMPTS_TO_FILE, settings.logPromptsToFile, 'boolean'), // Save prompt logging setting
         storage.setSetting(APP_SETTINGS_KEYS.AUTO_SAVE_IMAGES, settings.autoSaveImages, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.IMAGE_CACHE_SIZE, settings.imageCacheSize, 'number'),
         storage.setSetting(APP_SETTINGS_KEYS.DEBUG_MODE, settings.debugMode, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.BOOT_ANIMATION, settings.bootAnimation, 'boolean'),
         storage.setSetting(APP_SETTINGS_KEYS.CONVERSATION_HISTORY_LIMIT, settings.conversationHistoryLimit, 'number'),
         storage.setSetting(APP_SETTINGS_KEYS.AUTO_SCROLL, settings.autoScroll, 'boolean'),
-        storage.setSetting(APP_SETTINGS_KEYS.SOUND_EFFECTS, settings.soundEffects, 'boolean')
+        storage.setSetting(APP_SETTINGS_KEYS.SOUND_EFFECTS, settings.soundEffects, 'boolean'),
+        // MCP Settings
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_ENABLED, settings.mcpEnabled, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_AUTO_CONNECT, settings.mcpAutoConnect, 'boolean'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_TIMEOUT, settings.mcpTimeout, 'number'),
+        storage.setSetting(APP_SETTINGS_KEYS.MCP_TOOL_CONFIRMATION, settings.mcpToolConfirmation, 'boolean')
       ]);
       setHasChanges(false);
       console.log('✅ App settings saved successfully');
+      // Optionally, notify other parts of the app that settings have changed
+      // This might involve a Zustand action or event bus if immediate effect is needed elsewhere
+      // For now, we assume components re-read from store or localStorage on next relevant action
     } catch (error) {
       console.error('Failed to save app settings:', error);
-      alert('Failed to save settings. Please try again.');
+      setError('Failed to save settings. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +215,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
     if (hasChanges) {
       if (confirm('You have unsaved changes. Are you sure you want to close without saving?')) {
         onClose();
-        setHasChanges(false);
+        setHasChanges(false); // Reset changes flag if closing without saving
       }
     } else {
       onClose();
@@ -181,10 +246,33 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
         </div>
 
         <div className={styles.content}>
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              background: 'rgba(244, 67, 54, 0.1)',
+              border: '1px solid #f44336',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              marginBottom: '16px',
+              color: '#f44336',
+              fontSize: '0.9rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ❌ {error}
+            </div>
+          )}
+
           {isLoading ? (
             <div className={styles.loading}>Loading settings...</div>
           ) : (
             <>
+              {/* API Keys Section */}
+              <div className={styles.section}>
+                <APIKeyManager theme={theme} />
+              </div>
+
               {/* Image Generation Section */}
               <div className={styles.section}>
                 <h3>Image Generation</h3>
@@ -201,6 +289,36 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                     Master switch for all image generation features. When disabled, no personalities can generate images.
                   </p>
                 </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.useMetaPromptingForImages}
+                      onChange={(e) => updateSetting('useMetaPromptingForImages', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
+                    />
+                    <span>Use AI to enhance image prompts (Experimental)</span>
+                  </label>
+                  <p className={styles.description}>
+                    Allow an AI to rewrite and enrich image prompts for more creative results. May increase latency and cost.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.logPromptsToFile}
+                      onChange={(e) => updateSetting('logPromptsToFile', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
+                    />
+                    <span>Log prompts to file (Development)</span>
+                  </label>
+                  <p className={styles.description}>
+                    Save detailed prompt information as downloadable JSON files for debugging and analysis. Includes full prompts, parameters, and metadata.
+                  </p>
+                </div>
                 
                 <div className={styles.setting}>
                   <label className={styles.checkbox}>
@@ -208,6 +326,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       type="checkbox"
                       checked={settings.autoSaveImages}
                       onChange={(e) => updateSetting('autoSaveImages', e.target.checked)}
+                      disabled={!settings.globalImageGeneration} // Disable if global image gen is off
                     />
                     <span>Auto-save generated images</span>
                   </label>
@@ -224,7 +343,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       min="10"
                       max="500"
                       step="10"
-                      value={settings.imageCacheSize}
+                      value={settings.imageCacheSize || DEFAULT_SETTINGS.imageCacheSize}
                       onChange={(e) => updateSetting('imageCacheSize', parseInt(e.target.value))}
                       style={{ backgroundColor: theme.colors.background }}
                     />
@@ -246,7 +365,7 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                       min="5"
                       max="200"
                       step="5"
-                      value={settings.conversationHistoryLimit}
+                      value={settings.conversationHistoryLimit || DEFAULT_SETTINGS.conversationHistoryLimit}
                       onChange={(e) => updateSetting('conversationHistoryLimit', parseInt(e.target.value))}
                       style={{ backgroundColor: theme.colors.background }}
                     />
@@ -299,6 +418,73 @@ export const AppSettingsModal: React.FC<AppSettingsModalProps> = ({
                   </label>
                   <p className={styles.description}>
                     Enable audio feedback for actions (coming soon).
+                  </p>
+                </div>
+              </div>
+
+              {/* MCP Section */}
+              <div className={styles.section}>
+                <h3>MCP Tools</h3>
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpEnabled}
+                      onChange={(e) => updateSetting('mcpEnabled', e.target.checked)}
+                    />
+                    <span>Enable MCP tools</span>
+                  </label>
+                  <p className={styles.description}>
+                    Enable Model Context Protocol tools for enhanced capabilities.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpAutoConnect}
+                      onChange={(e) => updateSetting('mcpAutoConnect', e.target.checked)}
+                      disabled={!settings.mcpEnabled}
+                    />
+                    <span>Auto-connect to MCP servers</span>
+                  </label>
+                  <p className={styles.description}>
+                    Automatically connect to configured MCP servers on startup.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.slider}>
+                    <span>MCP timeout: {settings.mcpTimeout}ms</span>
+                    <input
+                      type="range"
+                      min="5000"
+                      max="60000"
+                      step="1000"
+                      value={settings.mcpTimeout || DEFAULT_SETTINGS.mcpTimeout}
+                      onChange={(e) => updateSetting('mcpTimeout', parseInt(e.target.value))}
+                      disabled={!settings.mcpEnabled}
+                      style={{ backgroundColor: theme.colors.background }}
+                    />
+                  </label>
+                  <p className={styles.description}>
+                    Timeout for MCP server connections and tool calls.
+                  </p>
+                </div>
+
+                <div className={styles.setting}>
+                  <label className={styles.checkbox}>
+                    <input
+                      type="checkbox"
+                      checked={settings.mcpToolConfirmation}
+                      onChange={(e) => updateSetting('mcpToolConfirmation', e.target.checked)}
+                      disabled={!settings.mcpEnabled}
+                    />
+                    <span>Require confirmation for tool calls</span>
+                  </label>
+                  <p className={styles.description}>
+                    Ask for confirmation before executing potentially dangerous operations.
                   </p>
                 </div>
               </div>

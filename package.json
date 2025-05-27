@@ -1,7 +1,7 @@
 {
   "name": "claudia-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,17 +10,28 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "test:security": "vitest run --config vitest.security.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:ci": "vitest run --coverage --reporter=verbose"
   },
   "dependencies": {
+    "@react-three/drei": "^10.0.8",
+    "@react-three/fiber": "^9.1.2",
     "@types/better-sqlite3": "^7.6.13",
     "axios": "^1.9.0",
     "better-sqlite3": "^11.10.0",
+    "html2canvas": "^1.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-virtualized-auto-sizer": "^1.0.26",
     "react-window": "^1.8.11",
     "sqlite3": "^5.1.7",
+    "three": "^0.176.0",
     "zustand": "^5.0.5"
   },
   "devDependencies": {

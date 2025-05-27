@@ -42,3 +42,4 @@ temp/
 .aider*
 package-lock.json
 package-lock.json
+build/

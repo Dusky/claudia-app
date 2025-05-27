@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { ConfigSettings } from './ConfigModal';
+import type { ConfigSettings } from '../store/appStore';
 import './BootSequence.css';
 
 interface BootSequenceProps {
