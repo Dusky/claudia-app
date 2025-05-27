@@ -2,6 +2,21 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useBootInterrupt } from '../hooks/useBootInterrupt';
 import './BootSequence.css';
 
+const ASCII_LOGO = `
+   ╔═══════════════════════════════════════════════════════════╗
+   ║                                                           ║
+   ║     ██████╗██╗      █████╗ ██╗   ██╗██████╗ ██╗ █████╗    ║
+   ║    ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██║██╔══██╗   ║
+   ║    ██║     ██║     ███████║██║   ██║██║  ██║██║███████║   ║
+   ║    ██║     ██║     ██╔══██║██║   ██║██║  ██║██║██╔══██║   ║
+   ║    ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝██║██║  ██║   ║
+   ║     ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝   ║
+   ║                                                           ║
+   ║                   AI TERMINAL SYSTEM                      ║
+   ║                                                           ║
+   ╚═══════════════════════════════════════════════════════════╝
+`;
+
 interface BootStage {
   id: string;
   text: string;
@@ -45,13 +60,28 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
   const [fadeOut, setFadeOut] = useState(false);
   const [showNeutralAvatar, setShowNeutralAvatar] = useState(false);
   const [audioPlayed, setAudioPlayed] = useState(false);
+  const [showLogo, setShowLogo] = useState(true);
+  const [logoComplete, setLogoComplete] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stageCheckRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Handle logo display first
+  useEffect(() => {
+    if (showLogo) {
+      const logoTimer = setTimeout(() => {
+        setShowLogo(false);
+        setLogoComplete(true);
+      }, 2000); // Show logo for 2 seconds
+
+      return () => clearTimeout(logoTimer);
+    }
+  }, [showLogo]);
+
   // Initialize boot stages with their tasks
   useEffect(() => {
+    if (!logoComplete) return; // Wait for logo to complete
     const loadPersonality = async () => {
       try {
         const activePersonality = await database.getActivePersonality();
@@ -171,7 +201,7 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
         }, 100);
       }
     });
-  }, [database, llmManager, imageManager, avatarController]);
+  }, [logoComplete, database, llmManager, imageManager, avatarController]);
 
   // Check if all tasks are complete
   useEffect(() => {
@@ -183,7 +213,7 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
 
   // Handle typewriter effect
   useEffect(() => {
-    if (currentStageIndex >= bootStages.length) return;
+    if (!logoComplete || currentStageIndex >= bootStages.length) return;
 
     const currentStage = bootStages[currentStageIndex];
     if (!currentStage) return;
@@ -216,7 +246,7 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [currentStageIndex, bootStages]);
+  }, [logoComplete, currentStageIndex, bootStages]);
 
   // Handle audio chime and avatar display
   useEffect(() => {
@@ -295,11 +325,18 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
 
   // Handle skip functionality
   const handleSkip = useCallback(() => {
+    if (showLogo) {
+      // If showing logo, skip to boot sequence
+      setShowLogo(false);
+      setLogoComplete(true);
+      return;
+    }
+    
     setFadeOut(true);
     setTimeout(() => {
       onSkip();
     }, 100);
-  }, [onSkip]);
+  }, [showLogo, onSkip]);
 
   // Use the boot interrupt hook
   useBootInterrupt({
@@ -318,16 +355,33 @@ export const BootAnimation: React.FC<BootAnimationProps> = ({
     return stage.completed ? ' ✔' : ' ∙';
   };
 
+  // Show logo first
+  if (showLogo) {
+    return (
+      <div className="boot-sequence">
+        <div className="boot-content">
+          <pre className="ascii-logo">
+            {ASCII_LOGO}
+          </pre>
+        </div>
+        <div className="skip-hint">Press ⎋, ⏎, SPACE, or tap anywhere to skip...</div>
+      </div>
+    );
+  }
+
   return (
     <div className={`boot-sequence ${fadeOut ? 'fade-out' : ''}`}>
       <div className="boot-content">
         <pre className="boot-text">
           {/* Show all previous stages */}
-          {bootStages.slice(0, currentStageIndex).map((stage, index) => (
-            <div key={stage.id}>
-              {stage.text}{getSpinner(index)}
-            </div>
-          ))}
+          {bootStages.slice(0, currentStageIndex).map((stage, index) => {
+            const spinner = getSpinner(index);
+            return (
+              <div key={stage.id}>
+                {stage.text}{spinner}
+              </div>
+            );
+          })}
           
           {/* Show current stage being typed */}
           {currentStageIndex < bootStages.length && (
