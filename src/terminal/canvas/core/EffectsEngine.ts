@@ -19,6 +19,9 @@ export class EffectsEngine {
   private bloomEffect: BloomEffect;
   private screenBurn: ScreenBurn;
   private enabled: boolean = true;
+  private canvasCache = new Map<string, HTMLCanvasElement>();
+  private imageDataCache = new Map<string, ImageData>();
+  private maxCacheSize: number = 10; // Limit cache size
 
   constructor() {
     this.phosphorGlow = new PhosphorGlow();
@@ -246,9 +249,98 @@ export class EffectsEngine {
   }
 
   /**
+   * Create or get cached canvas
+   */
+  private getOrCreateCanvas(key: string, width: number, height: number): HTMLCanvasElement {
+    const cacheKey = `${key}_${width}x${height}`;
+    
+    if (this.canvasCache.has(cacheKey)) {
+      return this.canvasCache.get(cacheKey)!;
+    }
+    
+    // Clean cache if it's getting too large
+    if (this.canvasCache.size >= this.maxCacheSize) {
+      this.clearOldestCacheEntries();
+    }
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    
+    this.canvasCache.set(cacheKey, canvas);
+    return canvas;
+  }
+  
+  /**
+   * Cache ImageData for reuse
+   */
+  private cacheImageData(key: string, imageData: ImageData): void {
+    if (this.imageDataCache.size >= this.maxCacheSize) {
+      this.clearOldestCacheEntries();
+    }
+    
+    this.imageDataCache.set(key, imageData);
+  }
+  
+  /**
+   * Get cached ImageData
+   */
+  private getCachedImageData(key: string): ImageData | undefined {
+    return this.imageDataCache.get(key);
+  }
+  
+  /**
+   * Clear oldest cache entries to prevent memory overflow
+   */
+  private clearOldestCacheEntries(): void {
+    // Clear half the cache when limit is reached
+    const entriesToRemove = Math.floor(this.maxCacheSize / 2);
+    
+    const canvasKeys = Array.from(this.canvasCache.keys());
+    const imageDataKeys = Array.from(this.imageDataCache.keys());
+    
+    // Remove oldest canvas entries
+    for (let i = 0; i < Math.min(entriesToRemove, canvasKeys.length); i++) {
+      this.canvasCache.delete(canvasKeys[i]);
+    }
+    
+    // Remove oldest ImageData entries
+    for (let i = 0; i < Math.min(entriesToRemove, imageDataKeys.length); i++) {
+      this.imageDataCache.delete(imageDataKeys[i]);
+    }
+  }
+  
+  /**
+   * Clear all cached resources
+   */
+  clearCache(): void {
+    this.canvasCache.clear();
+    this.imageDataCache.clear();
+  }
+  
+  /**
+   * Get memory usage statistics
+   */
+  getMemoryStats(): {
+    canvasCacheSize: number;
+    imageDataCacheSize: number;
+    totalCacheEntries: number;
+  } {
+    return {
+      canvasCacheSize: this.canvasCache.size,
+      imageDataCacheSize: this.imageDataCache.size,
+      totalCacheEntries: this.canvasCache.size + this.imageDataCache.size
+    };
+  }
+  
+  /**
    * Cleanup resources
    */
   destroy(): void {
+    // Clear all caches
+    this.clearCache();
+    
+    // Destroy effect renderers
     this.clear();
     this.curvature.destroy();
     this.bloomEffect.destroy();

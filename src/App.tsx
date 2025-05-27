@@ -1,5 +1,6 @@
 import { useMemo, useEffect, Suspense, lazy } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
+import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy load heavy components
 const AvatarPanel = lazy(() => import('./components/AvatarPanel').then(module => ({ default: module.AvatarPanel })));
 const ImageGenerationModal = lazy(() => import('./components/ImageGenerationModal').then(module => ({ default: module.ImageGenerationModal })));
@@ -396,7 +397,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
   };
 
   return (
-    <> 
+    <ErrorBoundary>
       {/* <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}> */}
         <div className="App">
           {showBootSequence && (
@@ -510,7 +511,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
           theme={themeObject}
         />
       </Suspense>
-    </>
+    </ErrorBoundary>
   );
 }
 

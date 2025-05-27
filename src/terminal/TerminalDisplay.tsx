@@ -491,7 +491,41 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }), [theme.spacing.lineSpacing]);
 
   return (
-    <div className="app-background-layer" style={appBackgroundStyle} onClick={handleTerminalClick}>
+    <>
+      {/* Off-screen accessibility log for screen readers */}
+      <div
+        ref={accessibilityLogRef}
+        role="log"
+        aria-live="polite"
+        aria-label="Terminal output for screen readers"
+        style={{
+          position: 'absolute',
+          left: '-10000px',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)'
+        }}
+      />
+      
+      {/* Hidden accessibility buffer for screen reader navigation */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: '-10000px',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)'
+        }}
+      >
+        {accessibilityBuffer.map((line, index) => (
+          <div key={`accessibility-${index}`}>{line}</div>
+        ))}
+      </div>
+      
+      <div className="app-background-layer" style={appBackgroundStyle} onClick={handleTerminalClick}>
       <div
         ref={terminalContainerRef}
         className={`terminal-container ${config?.screenFlicker ? 'screen-flicker' : ''} ${theme.effects.crt ? 'crt-effect' : ''}`}
@@ -741,5 +775,6 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
         `}</style>
       </div>
     </div>
+    </>
   );
 };

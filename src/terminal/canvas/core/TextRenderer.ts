@@ -21,6 +21,12 @@ export class TextRenderer {
   private rows: number = 0;
   private scrolling: ScrollingAnimation;
   private autoScroll: boolean = true;
+  
+  // Buffer virtualization settings
+  private maxBufferLines: number = 2000;
+  private virtualBufferLines: number = 1000;
+  private textBufferHistory: TerminalChar[][] = [];
+  private currentLineCount: number = 0;
 
   constructor() {
     this.fontMetrics = new FontMetricsCalculator();
@@ -64,6 +70,7 @@ export class TextRenderer {
       if (char === '\n') {
         x = 0;
         y++;
+        this.currentLineCount++;
         continue;
       }
 
@@ -87,6 +94,7 @@ export class TextRenderer {
       if (x >= this.cols) {
         x = 0;
         y++;
+        this.currentLineCount++;
       }
 
       // Handle vertical scrolling
@@ -95,6 +103,9 @@ export class TextRenderer {
         y = this.rows - 1;
       }
     }
+    
+    // Check if we need to trim the buffer
+    this.trimBufferIfNeeded();
   }
 
   /**
@@ -178,6 +189,8 @@ export class TextRenderer {
    */
   clear(): void {
     this.textBuffer = [];
+    this.textBufferHistory = [];
+    this.currentLineCount = 0;
   }
 
   /**
@@ -297,6 +310,97 @@ export class TextRenderer {
     return this.scrolling;
   }
 
+  /**
+   * Trim buffer to prevent memory overflow
+   */
+  private trimBufferIfNeeded(): void {
+    if (this.currentLineCount <= this.maxBufferLines) {
+      return;
+    }
+    
+    const linesToTrim = this.currentLineCount - this.virtualBufferLines;
+    const trimmedChars: TerminalChar[] = [];
+    const remainingChars: TerminalChar[] = [];
+    
+    // Separate characters by line number
+    this.textBuffer.forEach(char => {
+      if (char.y < linesToTrim) {
+        trimmedChars.push(char);
+      } else {
+        // Adjust y position for remaining characters
+        remainingChars.push({
+          ...char,
+          y: char.y - linesToTrim
+        });
+      }
+    });
+    
+    // Store trimmed lines in compressed history if needed
+    if (trimmedChars.length > 0) {
+      const compressedLine = this.compressLine(trimmedChars);
+      this.textBufferHistory.push(compressedLine);
+      
+      // Limit history storage to prevent unbounded growth
+      if (this.textBufferHistory.length > 100) {
+        this.textBufferHistory.shift();
+      }
+    }
+    
+    this.textBuffer = remainingChars;
+    this.currentLineCount = this.virtualBufferLines;
+    
+    console.log(`Buffer trimmed: removed ${linesToTrim} lines, ${trimmedChars.length} characters`);
+  }
+  
+  /**
+   * Compress a line of characters for history storage
+   */
+  private compressLine(chars: TerminalChar[]): TerminalChar[] {
+    // Simple compression: only store first and last few characters of each line
+    // Group by line
+    const lineMap = new Map<number, TerminalChar[]>();
+    chars.forEach(char => {
+      if (!lineMap.has(char.y)) {
+        lineMap.set(char.y, []);
+      }
+      lineMap.get(char.y)!.push(char);
+    });
+    
+    const compressed: TerminalChar[] = [];
+    lineMap.forEach((lineChars, y) => {
+      if (lineChars.length <= 10) {
+        // Store short lines completely
+        compressed.push(...lineChars);
+      } else {
+        // Store first 5 and last 5 characters
+        compressed.push(...lineChars.slice(0, 5));
+        compressed.push(...lineChars.slice(-5));
+      }
+    });
+    
+    return compressed;
+  }
+  
+  /**
+   * Get memory usage statistics
+   */
+  getMemoryStats(): {
+    currentBuffer: number;
+    historyBuffer: number;
+    totalLines: number;
+    virtualizedLines: number;
+  } {
+    const currentBufferSize = this.textBuffer.length * 64; // Approximate bytes per char
+    const historyBufferSize = this.textBufferHistory.reduce((acc, line) => acc + line.length * 64, 0);
+    
+    return {
+      currentBuffer: currentBufferSize,
+      historyBuffer: historyBufferSize,
+      totalLines: this.currentLineCount,
+      virtualizedLines: this.textBufferHistory.length
+    };
+  }
+  
   /**
    * Cleanup resources
    */
