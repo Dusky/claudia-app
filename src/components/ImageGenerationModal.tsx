@@ -1,28 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { TerminalTheme } from '../terminal/themes';
 import type { ImageProviderManager } from '../providers/image/manager';
 import type { AvatarController } from '../avatar/AvatarController';
 import type { StorageService } from '../storage/types';
-import type { ImagePromptComponents } from '../providers/image/types';
-import type { ModelConfig, ReplicateProvider } from '../providers/image/replicate'; // Import ReplicateProvider for type check
+import type { ModelConfig, ReplicateProvider } from '../providers/image/replicate';
 import { configManager } from '../config/env';
+import { useAppStore } from '../store/appStore'; // For accessing useMetaPromptingForImages config
 import styles from './ImageGenerationModal.module.css';
+import type { AvatarExpression, AvatarPose, AvatarAction } from '../avatar/types';
 
 interface ImageGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
   imageManager: ImageProviderManager;
   avatarController: AvatarController;
-  storage: StorageService;
+  storage: StorageService; // Kept for potential future settings persistence
   theme: TerminalTheme;
 }
+
+type GenerationMode = 'currentState' | 'describeScene' | 'fullCustom';
 
 export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   isOpen,
   onClose,
   imageManager,
   avatarController,
-  storage,
+  storage, // Keep for future settings if needed
   theme
 }) => {
   const [activeProviderId, setActiveProviderId] = useState<string>('');
@@ -30,59 +33,61 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [availableModels, setAvailableModels] = useState<Record<string, ModelConfig>>({});
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
-  const [imageStyle, setImageStyle] = useState<string>('realistic digital photography, warm natural lighting, detailed, beautiful composition');
-  const [promptComponents, setPromptComponents] = useState<ImagePromptComponents>({
-    character: '',
-    expressionKeywords: '',
-    poseKeywords: '',
-    actionKeywords: '',
-    style: '',
-    lightingKeywords: '',
-    backgroundKeywords: '',
-    quality: '',
-    negativePrompt: '',
-    situationalDescription: '',
-    variationSeed: undefined,
-    contextualKeywords: undefined
-  });
+  
+  const [globalImageStyle, setGlobalImageStyle] = useState<string>('');
+  
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('currentState');
+  const [sceneDescription, setSceneDescription] = useState<string>('');
+  const [fullCustomPromptText, setFullCustomPromptText] = useState<string>('');
+  const [negativePrompt, setNegativePrompt] = useState<string>('');
+
+  const [currentAvatarStateDisplay, setCurrentAvatarStateDisplay] = useState<string>('');
+  const [previewPrompt, setPreviewPrompt] = useState<string>('');
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedImage, setLastGeneratedImage] = useState<string>('');
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  const appConfig = useAppStore(state => state.config);
+
+  const updateCurrentAvatarStateDisplay = useCallback(() => {
+    if (avatarController) {
+      const state = avatarController.getState();
+      setCurrentAvatarStateDisplay(`Expression: ${state.expression}, Pose: ${state.pose}, Action: ${state.action}`);
+    }
+  }, [avatarController]);
 
   useEffect(() => {
     if (isOpen) {
       console.log("ImageGenerationModal: Opening, attempting to load settings.");
-      setModalError(null); 
-      // Add defensive timeout to prevent hanging
+      setModalError(null);
       const loadTimeout = setTimeout(() => {
-        setModalError('Modal loading timed out. Please close and try again.');
-      }, 10000); // 10 second timeout
+        if (isOpen && !activeProviderId) { // Check if still open and not loaded
+             setModalError('Modal loading timed out. Please close and try again.');
+        }
+      }, 10000);
 
-      loadSettings()
-        .then(() => {
-          clearTimeout(loadTimeout);
-        })
+      loadModalSettings()
+        .then(() => clearTimeout(loadTimeout))
         .catch(err => {
           clearTimeout(loadTimeout);
-          console.error("ImageGenerationModal: Critical error during loadSettings:", err);
+          console.error("ImageGenerationModal: Critical error during loadModalSettings:", err);
           setModalError(`Failed to load modal settings: ${err instanceof Error ? err.message : String(err)}. Please check console.`);
         });
     }
-  }, [isOpen]);
+  }, [isOpen]); // Only re-run when isOpen changes
 
-  const loadSettings = async () => {
-    console.log("ImageGenerationModal: loadSettings started.");
+  const loadModalSettings = async () => {
+    console.log("ImageGenerationModal: loadModalSettings started.");
     try {
       const currentActiveProvider = imageManager.getActiveProvider();
       setActiveProviderId(currentActiveProvider?.id || '');
       setAvailableProviders(imageManager.getAvailableProviders() || []);
       
-      setImageStyle(configManager.getImageStyle());
+      setGlobalImageStyle(configManager.getImageStyle());
+      updateCurrentAvatarStateDisplay();
       
-      setAvailableModels({}); // Reset before loading
+      setAvailableModels({}); 
       setModelConfig(null);
       setSelectedModel('');
 
@@ -96,99 +101,89 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             const currentModelConfig = replicateProvider.getModelConfig();
             setModelConfig(currentModelConfig || null);
           }
-
           const currentProviderModel = (replicateProvider as any).config?.model; 
-          if (currentProviderModel) {
-            setSelectedModel(currentProviderModel);
-          } else if (models && Object.keys(models).length > 0) {
-            setSelectedModel(Object.keys(models)[0]);
-          }
+          if (currentProviderModel) setSelectedModel(currentProviderModel);
+          else if (models && Object.keys(models).length > 0) setSelectedModel(Object.keys(models)[0]);
         } else {
-          console.warn("Replicate provider instance does not have getAllModelConfigs method or is not fully initialized.");
           setAvailableModels({});
         }
       }
       
-      let savedComponents: ImagePromptComponents | null = null;
+      // Load last used values for text areas if desired (using storage prop)
       if (storage && typeof storage.getSetting === 'function') {
-        savedComponents = await storage.getSetting<ImagePromptComponents>('image.promptComponents');
+        const savedSceneDesc = await storage.getSetting<string>('imageModal.sceneDescription');
+        if (savedSceneDesc) setSceneDescription(savedSceneDesc);
+        const savedCustomPrompt = await storage.getSetting<string>('imageModal.fullCustomPrompt');
+        if (savedCustomPrompt) setFullCustomPromptText(savedCustomPrompt);
+        const savedNegativePrompt = await storage.getSetting<string>('imageModal.negativePrompt');
+        if (savedNegativePrompt) setNegativePrompt(savedNegativePrompt);
+        const savedGenMode = await storage.getSetting<GenerationMode>('imageModal.generationMode');
+        if (savedGenMode) setGenerationMode(savedGenMode);
       } else {
-        console.warn("ImageGenerationModal: storage.getSetting is not available.");
+        // Fallback to composer's default negative prompt if storage isn't available
+        setNegativePrompt(avatarController.getPromptComposer().getNegativePrompt({} as any));
       }
 
-      if (savedComponents) {
-        // Validate and fill in missing properties from saved components
-        const validatedComponents: ImagePromptComponents = {
-          character: savedComponents.character || '',
-          style: savedComponents.style || '',
-          quality: savedComponents.quality || '',
-          negativePrompt: savedComponents.negativePrompt || '',
-          situationalDescription: savedComponents.situationalDescription || '',
-          expressionKeywords: savedComponents.expressionKeywords || '',
-          poseKeywords: savedComponents.poseKeywords || '',
-          actionKeywords: savedComponents.actionKeywords || '',
-          lightingKeywords: savedComponents.lightingKeywords || '',
-          backgroundKeywords: savedComponents.backgroundKeywords || '',
-          variationSeed: savedComponents.variationSeed,
-          contextualKeywords: savedComponents.contextualKeywords
-        };
-        setPromptComponents(validatedComponents);
-      } else {
-        // Defensive checks for avatarController
-        if (!avatarController) {
-          console.warn("ImageGenerationModal: avatarController is not available");
-          return;
-        }
-        
-        try {
-          const composer = avatarController.getPromptComposer();
-          const avatarState = avatarController.getState();
-          
-          if (!composer || !avatarState) {
-            console.warn("ImageGenerationModal: composer or avatarState is not available");
-            return;
-          }
-          
-          const components = composer.generatePromptComponents({
-            expression: avatarState.expression,
-            pose: avatarState.pose,
-            action: avatarState.action,
-            style: configManager.getImageStyle(),
-            background: 'none',
-            lighting: 'soft',
-            quality: 'high'
-          });
-          setPromptComponents(components);
-        } catch (error) {
-          console.error("ImageGenerationModal: Error generating prompt components:", error);
-          setModalError(`Failed to generate prompt components: ${error instanceof Error ? error.message : String(error)}`);
-          return;
-        }
-      }
 
-      let savedUseCustomPrompt: boolean | null = null;
-      let savedCustomPrompt: string | null = null;
-
-      if (storage && typeof storage.getSetting === 'function') {
-        savedUseCustomPrompt = await storage.getSetting<boolean>('image.useCustomPrompt');
-        savedCustomPrompt = await storage.getSetting<string>('image.customPrompt');
-      }
-      
-      setUseCustomPrompt(savedUseCustomPrompt ?? false);
-      setCustomPrompt(savedCustomPrompt ?? '');
-      console.log("ImageGenerationModal: loadSettings finished successfully.");
-
+      console.log("ImageGenerationModal: loadModalSettings finished successfully.");
     } catch (error) {
       console.error('ImageGenerationModal: Failed to load settings:', error);
       setModalError(`Error loading settings: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
+  
+  // Update preview whenever relevant state changes
+  useEffect(() => {
+    updatePreviewPrompt();
+    updateCurrentAvatarStateDisplay();
+  }, [generationMode, sceneDescription, fullCustomPromptText, negativePrompt, globalImageStyle, appConfig.useMetaPromptingForImages, avatarController, updateCurrentAvatarStateDisplay]);
+
+
+  const updatePreviewPrompt = () => {
+    if (!avatarController) {
+      setPreviewPrompt("Avatar controller not available.");
+      return;
+    }
+    const composer = avatarController.getPromptComposer();
+    const currentAvatarState = avatarController.getState();
+
+    let desc = "";
+    let isAiDesc = false;
+
+    if (generationMode === 'currentState') {
+      desc = `Claudia, ${currentAvatarState.expression}, ${currentAvatarState.pose}, ${currentAvatarState.action}`;
+    } else if (generationMode === 'describeScene') {
+      desc = sceneDescription;
+      isAiDesc = true; // Treat manual scene description like an AI-provided one for composer logic
+    } else if (generationMode === 'fullCustom') {
+      setPreviewPrompt(`Full Custom Prompt:\n${fullCustomPromptText}\n\nNegative: ${negativePrompt}`);
+      return;
+    }
+
+    if (appConfig.useMetaPromptingForImages) {
+      let metaContext = `Current State: ${currentAvatarState.expression}, ${currentAvatarState.pose}, ${currentAvatarState.action}. `;
+      if (generationMode === 'describeScene') metaContext += `Scene Request: "${sceneDescription}". `;
+      metaContext += `Style: ${globalImageStyle}.`;
+      setPreviewPrompt(`Meta-Prompt Input (Simplified):\n${metaContext}\n(Actual prompt will be generated by LLM)\n\nNegative: ${negativePrompt}`);
+    } else {
+      const components = composer.generatePromptComponents({
+        expression: currentAvatarState.expression,
+        pose: currentAvatarState.pose,
+        action: currentAvatarState.action,
+        style: globalImageStyle,
+        aiDescription: isAiDesc ? desc : undefined, // Pass scene description if in that mode
+        // Other params like background, lighting will use defaults or be influenced by composer logic
+      });
+      setPreviewPrompt(`Directly Composed Prompt:\n${composer.compilePrompt(components)}\n\nNegative: ${composer.getNegativePrompt(components)}`);
+    }
+  };
+
 
   const handleProviderChange = async (providerId: string) => {
     try {
       imageManager.setActiveProvider(providerId);
       setActiveProviderId(providerId);
-      await loadSettings(); 
+      await loadModalSettings(); 
     } catch (error) {
       console.error('Failed to switch provider:', error);
       setModalError(`Error switching provider: ${error instanceof Error ? error.message : String(error)}`);
@@ -212,8 +207,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           setSelectedModel(modelId);
           const newConfig = replicateProvider.getModelConfig();
           setModelConfig(newConfig || null);
-        } else {
-          console.warn("Replicate provider methods or config not available for model change.");
         }
       }
     } catch (error) {
@@ -222,96 +215,104 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     }
   };
 
-  const handleStyleSave = () => {
-    localStorage.setItem('claudia-image-style', imageStyle);
-    (configManager as any).config.imageStyle = imageStyle;
-    console.log('💾 Image style saved:', imageStyle);
+  const handleGlobalStyleSave = () => {
+    localStorage.setItem('claudia-image-style', globalImageStyle);
+    (configManager as any).config.imageStyle = globalImageStyle; // Directly update runtime config
+    avatarController.getPromptComposer().setBasePrompts({ style: globalImageStyle }); // Update composer's base
+    console.log('💾 Global Image style saved:', globalImageStyle);
+    updatePreviewPrompt(); // Refresh preview
   };
 
-  const handleComponentChange = (component: keyof ImagePromptComponents, value: string) => {
-    setPromptComponents(prev => ({
-      ...prev,
-      [component]: value
-    }));
-  };
-
-  const generatePreview = () => {
-    try {
-      if (useCustomPrompt) {
-        return customPrompt;
-      }
-      
-      if (!avatarController) {
-        return 'Avatar controller not available';
-      }
-      
-      const composer = avatarController.getPromptComposer();
-      if (!composer) {
-        return 'Prompt composer not available';
-      }
-      
-      // Ensure promptComponents has all required fields
-      const safeComponents: ImagePromptComponents = {
-        character: promptComponents.character || '',
-        style: promptComponents.style || '',
-        quality: promptComponents.quality || '',
-        negativePrompt: promptComponents.negativePrompt || '',
-        situationalDescription: promptComponents.situationalDescription || '',
-        expressionKeywords: promptComponents.expressionKeywords || '',
-        poseKeywords: promptComponents.poseKeywords || '',
-        actionKeywords: promptComponents.actionKeywords || '',
-        lightingKeywords: promptComponents.lightingKeywords || '',
-        backgroundKeywords: promptComponents.backgroundKeywords || '',
-        variationSeed: promptComponents.variationSeed,
-        contextualKeywords: promptComponents.contextualKeywords
-      };
-      
-      return composer.compilePrompt(safeComponents);
-    } catch (error) {
-      console.error('Error generating preview:', error);
-      return 'Error generating preview';
-    }
-  };
 
   const handleGenerate = async () => {
-    const provider = imageManager.getActiveProvider();
-    if (!provider) {
-      console.error('No active provider');
+    const imageGenProvider = imageManager.getActiveProvider();
+    if (!imageGenProvider) {
       setModalError("No active image provider selected.");
       return;
     }
+    if (!avatarController) {
+      setModalError("Avatar controller not available.");
+      return;
+    }
+
     setModalError(null);
     setIsGenerating(true);
-    try {
-      const composer = avatarController.getPromptComposer();
-      let finalPrompt: string;
-      let negativePrompt: string;
+    setLastGeneratedImage(''); // Clear previous image
 
-      if (useCustomPrompt) {
-        finalPrompt = customPrompt;
-        negativePrompt = promptComponents.negativePrompt || '';
+    try {
+      let finalPromptForGeneration: string;
+      let finalNegativePrompt = negativePrompt || avatarController.getPromptComposer().getNegativePrompt({} as any);
+
+      if (generationMode === 'fullCustom') {
+        finalPromptForGeneration = fullCustomPromptText;
+        // Negative prompt is already set via state
       } else {
-        finalPrompt = composer.compilePrompt(promptComponents);
-        negativePrompt = composer.getNegativePrompt(promptComponents);
+        // For 'currentState' or 'describeScene', let AvatarController handle it
+        // It will use meta-prompting if enabled.
+        // We need to ensure AvatarController's internal state is what we want for 'currentState'
+        // or that it uses the sceneDescription appropriately.
+        
+        // For 'describeScene', we call generateAvatarFromDescription
+        // For 'currentState', we call generateAvatarImage (or a more specific state-based method)
+        
+        let tempImageUrl = ''; // To capture the URL from AvatarController methods
+
+        const tempOnStateChange = (newState: any) => { // Temp listener
+            if(newState.imageUrl && newState.imageUrl !== avatarController.getState().imageUrl) {
+                 tempImageUrl = newState.imageUrl;
+            }
+            if(!newState.isGenerating && newState.hasError) {
+                setModalError(newState.errorMessage || "Error during avatar generation.");
+            }
+        };
+        const originalOnStateChange = (avatarController as any).onStateChange;
+        (avatarController as any).onStateChange = tempOnStateChange;
+
+
+        if (generationMode === 'describeScene') {
+          await avatarController.generateAvatarFromDescription(sceneDescription);
+        } else { // currentState
+          // Ensure current state is used by calling generateAvatarImage without specific description
+          await avatarController.generateAvatarImage(undefined, { seed: Date.now() });
+        }
+        
+        (avatarController as any).onStateChange = originalOnStateChange; // Restore original
+
+        if (avatarController.getState().hasError) {
+            throw new Error(avatarController.getState().errorMessage || "Avatar generation failed via controller.");
+        }
+        tempImageUrl = avatarController.getState().imageUrl || ''; // Get the latest URL
+
+        // The actual prompt used by AvatarController (especially if meta-prompted) isn't directly available here
+        // unless we modify AvatarController to return it or store it.
+        // For now, the preview gives an idea.
+        // We'll use the generated image URL.
+        if (tempImageUrl) {
+          setLastGeneratedImage(tempImageUrl);
+        } else if (!avatarController.getState().hasError) {
+          // This case might happen if caching was hit and no new URL was set via the temp listener
+          setLastGeneratedImage(avatarController.getState().imageUrl || '');
+        }
+        // finalPromptForGeneration and finalNegativePrompt are handled by AvatarController in these modes.
+        // So, we don't need to call imageGenProvider.generateImage directly here for these modes.
+        setIsGenerating(false);
+        return; // Generation handled by AvatarController
       }
 
-      const response = await provider.generateImage({
-        prompt: finalPrompt,
-        negativePrompt,
+      // This part is now only for 'fullCustom' mode
+      const response = await imageGenProvider.generateImage({
+        prompt: finalPromptForGeneration,
+        negativePrompt: finalNegativePrompt,
         width: 512,
         height: 512,
         steps: modelConfig?.defaultSteps || 20,
         guidance: modelConfig?.defaultGuidance || 7.5
       });
 
-      const avatarState = avatarController.getState();
-      avatarController.setState({
-        ...avatarState,
-        imageUrl: response.imageUrl,
-        visible: true
-      });
-
       setLastGeneratedImage(response.imageUrl);
+      // Optionally update avatar controller if this custom image should be the new avatar
+      // avatarController.setState({ imageUrl: response.imageUrl, visible: true });
+
     } catch (error) {
       console.error('Failed to generate image:', error);
       setModalError(`Image generation failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -320,77 +321,34 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     }
   };
 
-  const saveSettings = async () => {
-    try {
-      if (storage && typeof storage.setSetting === 'function') {
-        await storage.setSetting('image.promptComponents', promptComponents, 'json');
-        await storage.setSetting('image.useCustomPrompt', useCustomPrompt, 'boolean');
-        await storage.setSetting('image.customPrompt', customPrompt, 'string');
-      } else {
-        console.warn("ImageGenerationModal: storage.setSetting is not available. Skipping save.");
-      }
-      localStorage.setItem('claudia-image-style', imageStyle);
-      console.log('✅ Image settings saved successfully');
-    } catch (error) {
-      console.error('Failed to save image settings:', error);
-      setModalError(`Failed to save settings: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  };
-
-  const resetToDefaults = async () => {
-    const composer = avatarController.getPromptComposer();
-    const avatarState = avatarController.getState();
-    
-    const defaultComponents = composer.generatePromptComponents({
-      expression: avatarState.expression,
-      pose: avatarState.pose,
-      action: avatarState.action,
-      style: configManager.getImageStyle(), 
-      background: 'none',
-      lighting: 'soft',
-      quality: 'high'
-    });
-    
-    setPromptComponents(defaultComponents);
-    setUseCustomPrompt(false);
-    setCustomPrompt('');
-    setImageStyle(configManager.getImageStyle()); 
-    
-    await saveSettings();
-  };
-
+  // Persist text area contents
   useEffect(() => {
-    if (isOpen) {
-      const timeoutId = setTimeout(() => {
-        saveSettings().catch(err => console.error("Autosave failed in ImageGenerationModal:", err));
-      }, 1000); 
-      
-      return () => clearTimeout(timeoutId);
+    if (isOpen && storage && typeof storage.setSetting === 'function') {
+      const timer = setTimeout(() => {
+        storage.setSetting('imageModal.sceneDescription', sceneDescription, 'string');
+        storage.setSetting('imageModal.fullCustomPrompt', fullCustomPromptText, 'string');
+        storage.setSetting('imageModal.negativePrompt', negativePrompt, 'string');
+        storage.setSetting('imageModal.generationMode', generationMode, 'string');
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [promptComponents, useCustomPrompt, customPrompt, imageStyle, isOpen]);
+  }, [isOpen, storage, sceneDescription, fullCustomPromptText, negativePrompt, generationMode]);
+
 
   if (!isOpen) return null;
 
-  // Defensive check for theme object
   if (!theme || !theme.colors) {
-    console.error('ImageGenerationModal: Invalid theme object passed:', theme);
     return (
       <div className={styles.overlay} onClick={onClose}>
-        <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-          <div className={styles.header}>
-            <h2 className={styles.title}>Theme Error</h2>
-            <button className={styles.closeButton} onClick={onClose}>×</button>
-          </div>
-          <div className={styles.content}>
-            <p>Invalid theme configuration. Please try again.</p>
-          </div>
+        <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{padding: '20px', background: 'black', color: 'red', border: '1px solid red'}}>
+          Error: Theme not available. Cannot render modal.
+          <button onClick={onClose} style={{marginTop: '10px'}}>Close</button>
         </div>
       </div>
     );
   }
-
-  // If there's a modal error, render only the error and close button
-  if (modalError) {
+  
+  if (modalError && !modalError.startsWith("Modal loading timed out")) { // Don't show full error page for timeout during initial load
     return (
       <div className={styles.overlay} onClick={onClose}>
         <div 
@@ -406,33 +364,15 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
             <h2 className={styles.title} style={{ color: theme.colors.error }}>
               Modal Error
             </h2>
-            <button 
-              className={styles.closeButton}
-              onClick={onClose}
-              style={{ color: theme.colors.foreground }}
-            >
-              ×
-            </button>
+            <button className={styles.closeButton} onClick={onClose} style={{ color: theme.colors.foreground }}>×</button>
           </div>
-          <div className={styles.content}>
-            <div className={styles.modalError} style={{color: theme.colors.error, padding: '20px'}}>
-              <p>Something went wrong while loading or operating this modal:</p>
-              <p>{modalError}</p>
-              <p>Please try closing and reopening the modal. If the issue persists, check the browser console for more details.</p>
-            </div>
-          </div>
-           <div className={styles.footer}>
-            <button 
-              onClick={onClose} 
-              className={styles.button}
-            >
-              Close
-            </button>
-          </div>
+          <div className={styles.content}><p>{modalError}</p></div>
+           <div className={styles.footer}><button onClick={onClose} className={styles.button}>Close</button></div>
         </div>
       </div>
     );
   }
+
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -447,44 +387,31 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
       >
         <div className={styles.header}>
           <h2 className={styles.title} style={{ color: theme.colors.accent }}>
-            🖼️ Image Generation Settings
+            🖼️ Image Generation Lab
           </h2>
-          <button 
-            className={styles.closeButton}
-            onClick={onClose}
-            style={{ color: theme.colors.foreground }}
-          >
-            ×
-          </button>
+          <button className={styles.closeButton} onClick={onClose} style={{ color: theme.colors.foreground }}>×</button>
         </div>
 
         <div className={styles.content}>
-          {/* Provider Selection */}
+          {modalError && <div className={styles.modalError} style={{color: theme.colors.warning}}>{modalError}</div>}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Provider Settings
-            </h3>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Provider & Model</h3>
             <div className={styles.providerSection}>
               <label className={styles.label}>Active Provider:</label>
               <select 
                 value={activeProviderId}
                 onChange={(e) => handleProviderChange(e.target.value)}
                 className={styles.select}
-                style={{
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.foreground || '#333',
-                  color: theme.colors.foreground
-                }}
+                style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
               >
                 <option value="">Select Provider</option>
-                {availableProviders.map(provider => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name} {!provider.configured && '(Not Configured)'}
+                {availableProviders.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {!p.configured && '(Not Configured)'}
                   </option>
                 ))}
               </select>
             </div>
-            
             {activeProviderId === 'replicate' && Object.keys(availableModels).length > 0 && (
               <div className={styles.modelSection}>
                 <label className={styles.label}>Model:</label>
@@ -492,218 +419,108 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
                   value={selectedModel}
                   onChange={(e) => handleModelChange(e.target.value)}
                   className={styles.select}
-                  style={{
-                    backgroundColor: theme.colors.background,
-                    borderColor: theme.colors.foreground || '#333',
-                    color: theme.colors.foreground
-                  }}
+                  style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
                 >
-                  {Object.entries(availableModels).map(([modelId, config]) => (
-                    <option key={modelId} value={modelId}>
-                      {modelId} - {config.description}
-                    </option>
-                  ))}
+                  {Object.entries(availableModels).map(([modelId, config]) => ( <option key={modelId} value={modelId}>{modelId} - {config.description}</option> ))}
                 </select>
-                
-                {modelConfig && (
-                  <div className={styles.modelInfo}>
-                    <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
-                      Max Steps: {modelConfig.maxSteps} | 
-                      Max Guidance: {modelConfig.maxGuidance} | 
-                      Neg Prompt: {modelConfig.supportsNegativePrompt ? 'Yes' : 'No'}
-                    </small>
-                  </div>
-                )}
+                {modelConfig && <div className={styles.modelInfo}><small>Max Steps: {modelConfig.maxSteps} | Max Guidance: {modelConfig.maxGuidance} | Neg Prompt: {modelConfig.supportsNegativePrompt ? 'Yes' : 'No'}</small></div>}
               </div>
             )}
           </div>
 
-          {/* Image Style Settings */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Global Image Style
-            </h3>
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>Style Description:</label>
-              <textarea
-                value={imageStyle}
-                onChange={(e) => setImageStyle(e.target.value)}
-                className={styles.textarea}
-                style={{
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.foreground || '#333',
-                  color: theme.colors.foreground
-                }}
-                placeholder="Describe the overall style for generated images..."
-                rows={3}
-              />
-              <small style={{ color: theme.colors.foreground, opacity: 0.7 }}>
-                This style is used by default. Changes here are saved immediately.
-              </small>
-              <button
-                onClick={handleStyleSave}
-                className={styles.button}
-                style={{
-                  backgroundColor: theme.colors.accent,
-                  color: theme.colors.background,
-                  marginTop: '8px'
-                }}
-              >
-                Save Global Style
-              </button>
-            </div>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Global Image Style</h3>
+            <textarea
+              value={globalImageStyle}
+              onChange={(e) => setGlobalImageStyle(e.target.value)}
+              className={styles.textarea}
+              rows={2}
+              placeholder="e.g., photorealistic, oil painting, anime sketch"
+              style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+            />
+            <button onClick={handleGlobalStyleSave} className={`${styles.button} ${styles.smallButton}`} style={{ backgroundColor: theme.colors.accent, color: theme.colors.background, marginTop: '8px' }}>Save Global Style</button>
           </div>
 
-          {/* Prompt Mode Toggle */}
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Prompt Mode (For this Modal)
-            </h3>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Generation Mode</h3>
             <div className={styles.toggleGroup}>
-              <label className={styles.radioLabel}>
-                <input
-                  type="radio"
-                  name="promptMode"
-                  checked={!useCustomPrompt}
-                  onChange={() => setUseCustomPrompt(false)}
-                />
-                <span>Component-based (Recommended)</span>
-              </label>
-              <label className={styles.radioLabel}>
-                <input
-                  type="radio"
-                  name="promptMode"
-                  checked={useCustomPrompt}
-                  onChange={() => setUseCustomPrompt(true)}
-                />
-                <span>Custom Prompt</span>
-              </label>
+              <label className={styles.radioLabel}><input type="radio" name="generationMode" value="currentState" checked={generationMode === 'currentState'} onChange={() => setGenerationMode('currentState')} /> From Current Avatar State</label>
+              <label className={styles.radioLabel}><input type="radio" name="generationMode" value="describeScene" checked={generationMode === 'describeScene'} onChange={() => setGenerationMode('describeScene')} /> Describe a Scene</label>
+              <label className={styles.radioLabel}><input type="radio" name="generationMode" value="fullCustom" checked={generationMode === 'fullCustom'} onChange={() => setGenerationMode('fullCustom')} /> Full Custom Prompt (Advanced)</label>
             </div>
           </div>
 
-          {useCustomPrompt && (
+          {generationMode === 'currentState' && (
             <div className={styles.section}>
-              <label className={styles.label}>Custom Prompt:</label>
+              <p className={styles.description}>Current Avatar: {currentAvatarStateDisplay}</p>
+              <p className={styles.description}>Uses current expression, pose, action. Meta-prompting will be used if enabled.</p>
+            </div>
+          )}
+
+          {generationMode === 'describeScene' && (
+            <div className={styles.section}>
+              <label className={styles.label}>Scene Description:</label>
               <textarea
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
+                value={sceneDescription}
+                onChange={(e) => setSceneDescription(e.target.value)}
                 className={styles.textarea}
-                style={{
-                  backgroundColor: theme.colors.background,
-                  borderColor: theme.colors.foreground || '#333',
-                  color: theme.colors.foreground
-                }}
-                placeholder="Enter your custom prompt here..."
-                rows={4}
+                rows={3}
+                placeholder="e.g., Claudia coding at her desk in a sunlit room, looking focused."
+                style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
               />
             </div>
           )}
 
-          {!useCustomPrompt && (
-            <>
-              <div className={styles.section}>
-                <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Prompt Components
-                </h3>
-                {Object.keys(promptComponents).filter(k => k !== 'negativePrompt' && k !== 'variationSeed' && k !== 'contextualKeywords').map((key) => (
-                  <div className={styles.inputGroup} key={key}>
-                    <label className={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:</label>
-                    <input
-                      type="text"
-                      value={(promptComponents as any)[key] || ''}
-                      onChange={(e) => handleComponentChange(key as keyof ImagePromptComponents, e.target.value)}
-                      className={styles.input}
-                      style={{
-                        backgroundColor: theme.colors.background,
-                        borderColor: theme.colors.foreground || '#333',
-                        color: theme.colors.foreground
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className={styles.section}>
-                <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                  Negative Prompt
-                </h3>
-                <div className={styles.inputGroup}>
-                  <textarea
-                    value={promptComponents.negativePrompt || ''}
-                    onChange={(e) => handleComponentChange('negativePrompt', e.target.value)}
-                    className={styles.textarea}
-                    style={{
-                      backgroundColor: theme.colors.background,
-                      borderColor: theme.colors.foreground || '#333',
-                      color: theme.colors.foreground
-                    }}
-                    rows={2}
-                  />
-                </div>
-              </div>
-            </>
+          {generationMode === 'fullCustom' && (
+            <div className={styles.section}>
+              <label className={styles.label}>Custom Image Prompt:</label>
+              <textarea
+                value={fullCustomPromptText}
+                onChange={(e) => setFullCustomPromptText(e.target.value)}
+                className={styles.textarea}
+                rows={4}
+                placeholder="Enter the exact prompt for the image generator."
+                style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+              />
+            </div>
           )}
+          
+          <div className={styles.section}>
+            <label className={styles.label}>Negative Prompt:</label>
+            <textarea
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value)}
+              className={styles.textarea}
+              rows={2}
+              placeholder="e.g., blurry, ugly, text, watermark"
+              style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+            />
+          </div>
 
           <div className={styles.section}>
-            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-              Preview
-            </h3>
-            <div 
-              className={styles.preview}
-              style={{
-                backgroundColor: `${theme.colors.accent}10`,
-                borderColor: theme.colors.accent
-              }}
-            >
-              <pre className={styles.previewText}>
-                {generatePreview()}
-              </pre>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Prompt Preview</h3>
+            <div className={styles.preview} style={{ backgroundColor: `${theme.colors.accent}10`, borderColor: theme.colors.accent }}>
+              <pre className={styles.previewText}>{previewPrompt}</pre>
             </div>
           </div>
 
           {lastGeneratedImage && (
             <div className={styles.section}>
-              <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>
-                Last Generated
-              </h3>
-              <div className={styles.imagePreview}>
-                <img 
-                  src={lastGeneratedImage} 
-                  alt="Generated avatar"
-                  className={styles.generatedImage}
-                />
-              </div>
+              <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Last Generated</h3>
+              <div className={styles.imagePreview}><img src={lastGeneratedImage} alt="Generated avatar" className={styles.generatedImage}/></div>
             </div>
           )}
         </div>
 
         <div className={styles.footer}>
-          <div className={styles.buttonGroup}>
-            <button
-              onClick={resetToDefaults}
-              className={styles.button}
-              style={{
-                backgroundColor: 'transparent',
-                borderColor: theme.colors.foreground || '#333',
-                color: theme.colors.foreground
-              }}
-            >
-              Reset to Defaults
-            </button>
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || !activeProviderId}
-              className={`${styles.button} ${styles.primaryButton}`}
-              style={{
-                backgroundColor: theme.colors.accent,
-                borderColor: theme.colors.accent,
-                color: theme.colors.background,
-                opacity: (isGenerating || !activeProviderId) ? 0.5 : 1
-              }}
-            >
-              {isGenerating ? 'Generating...' : 'Generate Avatar'}
-            </button>
-          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !activeProviderId}
+            className={`${styles.button} ${styles.primaryButton}`}
+            style={{ backgroundColor: theme.colors.accent, borderColor: theme.colors.accent, color: theme.colors.background, opacity: (isGenerating || !activeProviderId) ? 0.5 : 1 }}
+          >
+            {isGenerating ? 'Generating...' : 'Generate Image'}
+          </button>
         </div>
       </div>
     </div>
