@@ -1,8 +1,7 @@
 import { useMemo, useEffect, useState, useRef, Suspense, lazy } from 'react'; 
 import { TerminalDisplay, type TerminalLine } from './terminal/TerminalDisplay';
 import { ErrorBoundary } from './components/ErrorBoundary';
-// Lazy load heavy components
-const AvatarPanel = lazy(() => import('./components/AvatarPanel').then(module => ({ default: module.AvatarPanel })));
+// Lazy load heavy components  
 const ImageGenerationModal = lazy(() => import('./components/ImageGenerationModal').then(module => ({ default: module.ImageGenerationModal })));
 const PersonalityModal = lazy(() => import('./components/PersonalityModal').then(module => ({ default: module.PersonalityModal })));
 const AIOptionsModal = lazy(() => import('./components/AIOptionsModal'));
@@ -541,14 +540,12 @@ user: 'claudia' // Use claudia instead of system for type compatibility
                   prompt=">" isLoading={isLoading} commandRegistry={commandRegistry}
                   config={config}
                 />
-                <Suspense fallback={<ComponentLoader type="avatar" />}>
-                  <AvatarPanel state={avatarState} theme={themeObject} />
-                </Suspense>
               </div>
               <StatusBar
                 theme={themeObject} currentTheme={currentTheme}
                 llmManager={llmManager} imageManager={imageManager} storage={database}
                 activeConversationId={activeConversationId}
+                avatarState={avatarState}
                 onThemeChange={handleThemeChange}
                 onPersonalityClick={() => openPersonalityEditorModal(database)}
                 onImageProviderClick={() => {
@@ -557,6 +554,10 @@ user: 'claudia' // Use claudia instead of system for type compatibility
                 }}
                 onAIOptionsClick={() => setAiOptionsModalOpen(true)}
                 onAppSettingsClick={() => setAppSettingsModalOpen(true)}
+                onAvatarClick={() => {
+                  // For now, just log - we can add avatar panel toggle later
+                  console.log("System tray avatar clicked");
+                }}
               />
             </>
           )}
