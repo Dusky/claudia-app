@@ -5,9 +5,7 @@ import type { LLMProviderManager } from '../../providers/llm/manager';
 import type { ImageProviderManager } from '../../providers/image/manager';
 import type { StorageService } from '../../storage/types';
 import type { Personality } from '../../types/personality';
-import type { AvatarState } from '../../avatar/types';
 import { Indicator } from './Indicator';
-import { SystemTrayAvatar } from '../SystemTrayAvatar';
 import { useLatency } from '../../hooks/useLatency';
 import { useFPS } from '../../hooks/useFPS';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
@@ -23,13 +21,11 @@ interface StatusBarProps {
   imageManager: ImageProviderManager;
   storage: StorageService;
   activeConversationId: string | null;
-  avatarState?: AvatarState;
   onThemeChange?: (themeId: string) => void;
   onPersonalityClick?: () => void;
   onImageProviderClick?: () => void;
   onAIOptionsClick?: () => void;
   onAppSettingsClick?: () => void;
-  onAvatarClick?: () => void;
 }
 
 export type StatusBarMode = 'compact' | 'full';
@@ -41,13 +37,11 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   imageManager,
   storage,
   activeConversationId,
-  avatarState,
   onThemeChange,
   onPersonalityClick,
   onImageProviderClick,
   onAIOptionsClick,
   onAppSettingsClick,
-  onAvatarClick,
 }) => {
   // Local state for provider information
   const [activeLLM, setActiveLLM] = useState(llmManager.getActiveProvider());
@@ -332,24 +326,6 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
             tooltip={`Recent error: ${errorState.lastError}. Click to dismiss.`}
             aria-label={`Error indicator. Last error: ${errorState.lastError}. Click to clear.`}
           />
-        )}
-
-        {/* System Avatar */}
-        {avatarState && (
-          <div 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              marginRight: '8px',
-              marginLeft: '4px'
-            }}
-          >
-            <SystemTrayAvatar
-              state={avatarState}
-              theme={theme}
-              onClick={onAvatarClick}
-            />
-          </div>
         )}
 
         <Indicator
