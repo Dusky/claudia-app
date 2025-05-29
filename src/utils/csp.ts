@@ -35,7 +35,8 @@ export const CSP_DIRECTIVES = {
   'connect-src': [
     "'self'",
     'https://api.anthropic.com',
-    'https://api.replicate.com', 
+    'https://api.replicate.com',
+    'https://replicate.delivery', // For Replicate image URLs
     'https://generativelanguage.googleapis.com',
     'https://api.openai.com',
     'ws://localhost:*', // For development

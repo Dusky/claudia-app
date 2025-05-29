@@ -48,6 +48,10 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   const [activeImage, setActiveImage] = useState(imageManager.getActiveProvider());
   const [activePersonality, setActivePersonality] = useState<Personality | null>(null);
   const [mode, setMode] = useState<StatusBarMode>('full');
+  
+  // Cache configuration status to avoid frequent isConfigured() calls
+  const [llmConfigured, setLLMConfigured] = useState(false);
+  const [imageConfigured, setImageConfigured] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showThemeSwitcher, setShowThemeSwitcher] = useState(false);
 
@@ -75,8 +79,16 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
   // Update providers and personality less frequently
   useEffect(() => {
     const updateProviders = async () => {
-      setActiveLLM(llmManager.getActiveProvider());
-      setActiveImage(imageManager.getActiveProvider());
+      const llmProvider = llmManager.getActiveProvider();
+      const imageProvider = imageManager.getActiveProvider();
+      
+      setActiveLLM(llmProvider);
+      setActiveImage(imageProvider);
+      
+      // Cache configuration status to avoid frequent isConfigured() calls
+      setLLMConfigured(llmProvider?.isConfigured() ?? false);
+      setImageConfigured(imageProvider?.isConfigured() ?? false);
+      
       const personality = await storage.getActivePersonality();
       setActivePersonality(personality);
     };
@@ -256,20 +268,20 @@ const StatusBarComponent: React.FC<StatusBarProps> = ({
           icon="💬"
           label="LLM"
           value={getLLMDisplayText()}
-          status={activeLLM?.isConfigured() ? 'success' : 'error'}
+          status={llmConfigured ? 'success' : 'error'}
           onClick={onAIOptionsClick}
-          tooltip={`LLM: ${activeLLM?.name || 'None'} - ${activeLLM?.isConfigured() ? 'Ready' : 'Needs API Key'}`}
-          aria-label={`LLM provider: ${getLLMDisplayText()}. Status: ${activeLLM?.isConfigured() ? 'configured' : 'not configured'}.`}
+          tooltip={`LLM: ${activeLLM?.name || 'None'} - ${llmConfigured ? 'Ready' : 'Needs API Key'}`}
+          aria-label={`LLM provider: ${getLLMDisplayText()}. Status: ${llmConfigured ? 'configured' : 'not configured'}.`}
         />
         
         <Indicator
           icon="📷"
           label="IMG"
           value={activeImage?.id || 'N/A'}
-          status={activeImage?.isConfigured() ? 'success' : 'error'}
+          status={imageConfigured ? 'success' : 'error'}
           onClick={onImageProviderClick}
-          tooltip={`Image: ${activeImage?.name || 'None'} - ${activeImage?.isConfigured() ? 'Ready' : 'Needs API Key'}`}
-          aria-label={`Image provider: ${activeImage?.id || 'N/A'}. Status: ${activeImage?.isConfigured() ? 'configured' : 'not configured'}.`}
+          tooltip={`Image: ${activeImage?.name || 'None'} - ${imageConfigured ? 'Ready' : 'Needs API Key'}`}
+          aria-label={`Image provider: ${activeImage?.id || 'N/A'}. Status: ${imageConfigured ? 'configured' : 'not configured'}.`}
         />
 
         {mode === 'full' && (

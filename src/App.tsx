@@ -135,6 +135,7 @@ function App() {
   
   // Configuration state
   const config = useAppStore(state => state.config);
+  const settingsManager = useAppStore(state => state.settingsManager);
   
   // Modal states
   const personalityModalOpen = useAppStore(state => state.personalityModalOpen);
@@ -189,8 +190,8 @@ function App() {
   const imageStorageManager = useMemo(() => new ImageStorageManager(), []);
   
   const avatarController = useMemo(() =>
-    new AvatarController(imageManager, llmManager, database, imageStorageManager, setAvatarState), // Pass imageStorageManager
-    [imageManager, llmManager, database, imageStorageManager, setAvatarState] 
+    new AvatarController(imageManager, llmManager, database, imageStorageManager, setAvatarState, settingsManager), // Pass imageStorageManager and settingsManager
+    [imageManager, llmManager, database, imageStorageManager, setAvatarState, settingsManager] 
   );
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
   
@@ -241,7 +242,6 @@ function App() {
   };
 
   useEffect(() => {
-    console.log("App.tsx: imageModalOpen state changed to:", imageModalOpen);
   }, [imageModalOpen]);
 
 
@@ -331,12 +331,10 @@ function App() {
     if (imageManager.getActiveProvider() && avatarController) {
       const currentState = avatarController.getState();
       if (!currentState.imageUrl) {
-        console.log('🎬 ClaudiaOS boot complete - initializing visual interface subsystem');
         await avatarController.executeCommands([{
           show: true, expression: 'happy', action: 'wave', pose: 'standing'
         }]);
       } else {
-        console.log('🎬 Boot sequence complete - showing existing avatar without generating new image');
         await avatarController.executeCommands([{
           show: true
         }]);
@@ -552,7 +550,6 @@ user: 'claudia' // Use claudia instead of system for type compatibility
                 onThemeChange={handleThemeChange}
                 onPersonalityClick={() => openPersonalityEditorModal(database)}
                 onImageProviderClick={() => {
-                  console.log("App.tsx: onImageProviderClick in StatusBar triggered. Attempting to open ImageGenerationModal.");
                   setImageModalOpen(true);
                 }}
                 onAIOptionsClick={() => setAiOptionsModalOpen(true)}
@@ -594,7 +591,6 @@ user: 'claudia' // Use claudia instead of system for type compatibility
         <ImageGenerationModal
           isOpen={imageModalOpen}
           onClose={() => {
-            console.log("App.tsx: Closing ImageGenerationModal.");
             setImageModalOpen(false);
           }}
           imageManager={imageManager}
@@ -629,7 +625,6 @@ user: 'claudia' // Use claudia instead of system for type compatibility
           mcpManager={mcpManager}
           onPermissionsChange={(permissions) => {
             // Handle permissions changes - store them in database or localStorage
-            console.log('MCP permissions updated:', permissions);
             setMcpPermissionsModalOpen(false);
           }}
         />

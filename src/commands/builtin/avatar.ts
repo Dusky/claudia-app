@@ -4,7 +4,13 @@ import type { AvatarAction, AvatarExpression, AvatarPosition, AvatarPose } from 
 import { imageStorage } from '../../utils/imageStorage';
 
 const availableExpressions: AvatarExpression[] = ['neutral', 'happy', 'curious', 'focused', 'thinking', 'surprised', 'confused', 'excited', 'confident', 'mischievous', 'sleepy', 'shocked'];
-const availablePositions: AvatarPosition[] = ['center', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'beside-text', 'overlay-left', 'overlay-right', 'floating', 'peeking'];
+const availablePositions: AvatarPosition[] = [
+  'center', 'top-left', 'top-right', 'bottom-left', 'bottom-right', 
+  'center-left', 'center-right', 'top-center', 'bottom-center',
+  'beside-text', 'overlay-left', 'overlay-right', 'floating', 'peeking',
+  'floating-left', 'floating-right', 'peek-left', 'peek-right', 
+  'peek-top', 'peek-bottom', 'center-overlay', 'custom'
+];
 const availableActions: AvatarAction[] = ['idle', 'type', 'search', 'read', 'wave', 'nod', 'shrug', 'point', 'think', 'work'];
 const availablePoses: AvatarPose[] = ['standing', 'sitting', 'leaning', 'crossed-arms', 'hands-on-hips', 'casual'];
 
@@ -12,7 +18,7 @@ const availablePoses: AvatarPose[] = ['standing', 'sitting', 'leaning', 'crossed
 export const avatarCommand: Command = {
   name: 'avatar',
   description: 'Configure visual interface subsystem',
-  usage: '/avatar <show|hide|expression|position|action|pose> [value]',
+  usage: '/avatar <show|hide|expression|position|action|pose|scale|prompt> [value]',
   aliases: ['av'],
   
   async execute(args: string[], context: CommandContext): Promise<CommandResult> {
@@ -61,6 +67,13 @@ export const avatarCommand: Command = {
         id: `avatar-status-${timestamp}-action`,
         type: 'output',
         content: `  Action:      ${state.action}`,
+        timestamp, user: 'claudia'
+      });
+      
+      lines.push({
+        id: `avatar-status-${timestamp}-scale`,
+        type: 'output',
+        content: `  Scale:       ${state.scale}x`,
         timestamp, user: 'claudia'
       });
       
@@ -206,6 +219,66 @@ export const avatarCommand: Command = {
           }
           break;
           
+        case 'scale':
+        case 'size':
+          if (!value) {
+            lines.push({
+              id: `avatar-scale-err-${timestamp}`, type: 'error',
+              content: `Error: Scale value needed. Usage: /avatar scale <value>`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-scale-opts-${timestamp}`, type: 'output',
+              content: `   Range: 0.5 to 2.0 (1.0 = normal size)`, timestamp, user: 'claudia'
+            });
+          } else {
+            const scaleValue = parseFloat(value);
+            if (isNaN(scaleValue) || scaleValue < 0.5 || scaleValue > 2.0) {
+              lines.push({
+                id: `avatar-scale-invalid-${timestamp}`, type: 'error',
+                content: `Error: Invalid scale value: "${value}". Must be between 0.5 and 2.0.`, timestamp, user: 'claudia'
+              });
+            } else {
+              await context.avatarController.executeCommands([{ scale: scaleValue }]);
+              lines.push({
+                id: `avatar-scale-succ-${timestamp}`, type: 'output',
+                content: `Info: Avatar scale set to: ${scaleValue}x`, timestamp, user: 'claudia'
+              });
+            }
+          }
+          break;
+
+        case 'move':
+        case 'place':
+          if (!value) {
+            lines.push({
+              id: `avatar-move-err-${timestamp}`, type: 'error',
+              content: `Error: Coordinates needed. Usage: /avatar move <x,y> (percentages 0-100)`, timestamp, user: 'claudia'
+            });
+            lines.push({
+              id: `avatar-move-example-${timestamp}`, type: 'output',
+              content: `   Examples: /avatar move 50,20 (center horizontally, 20% from top)`, timestamp, user: 'claudia'
+            });
+          } else {
+            const coords = value.split(',').map(s => parseFloat(s.trim()));
+            if (coords.length !== 2 || coords.some(isNaN) || coords.some(c => c < 0 || c > 100)) {
+              lines.push({
+                id: `avatar-move-invalid-${timestamp}`, type: 'error',
+                content: `Error: Invalid coordinates: "${value}". Use format "x,y" with values 0-100.`, timestamp, user: 'claudia'
+              });
+            } else {
+              await context.avatarController.executeCommands([{ 
+                position: 'custom' as AvatarPosition, 
+                customX: coords[0], 
+                customY: coords[1] 
+              }]);
+              lines.push({
+                id: `avatar-move-succ-${timestamp}`, type: 'output',
+                content: `Info: Avatar moved to position (${coords[0]}%, ${coords[1]}%)`, timestamp, user: 'claudia'
+              });
+            }
+          }
+          break;
+          
         case 'generate':
           lines.push({
             id: `avatar-generate-start-${timestamp}`,
@@ -246,11 +319,85 @@ export const avatarCommand: Command = {
           break;
         }
 
+        case 'prompt': {
+          // Manage custom avatar prompt
+          if (!value) {
+            const currentPrompt = context.avatarController.getCustomAvatarPrompt();
+            if (currentPrompt) {
+              lines.push({
+                id: `avatar-prompt-current-${timestamp}`,
+                type: 'output',
+                content: `Current custom avatar prompt:`,
+                timestamp, user: 'claudia'
+              });
+              lines.push({
+                id: `avatar-prompt-value-${timestamp}`,
+                type: 'output',
+                content: `"${currentPrompt}"`,
+                timestamp, user: 'claudia'
+              });
+            } else {
+              lines.push({
+                id: `avatar-prompt-none-${timestamp}`,
+                type: 'output',
+                content: `No custom avatar prompt set. Using default Claudia description.`,
+                timestamp, user: 'claudia'
+              });
+            }
+            lines.push({
+              id: `avatar-prompt-usage-${timestamp}`,
+              type: 'output',
+              content: `Usage: /avatar prompt set "<description>" or /avatar prompt clear`,
+              timestamp, user: 'claudia'
+            });
+          } else if (value === 'clear' || value === 'reset') {
+            await context.avatarController.setCustomAvatarPrompt(null);
+            lines.push({
+              id: `avatar-prompt-cleared-${timestamp}`,
+              type: 'output',
+              content: `Custom avatar prompt cleared. Using default Claudia description.`,
+              timestamp, user: 'claudia'
+            });
+          } else if (value === 'set') {
+            const promptText = args.slice(2).join(' ');
+            if (!promptText) {
+              lines.push({
+                id: `avatar-prompt-setErr-${timestamp}`,
+                type: 'error',
+                content: `Error: Please provide a description. Usage: /avatar prompt set "<description>"`,
+                timestamp, user: 'claudia'
+              });
+            } else {
+              await context.avatarController.setCustomAvatarPrompt(promptText);
+              lines.push({
+                id: `avatar-prompt-set-${timestamp}`,
+                type: 'output',
+                content: `Custom avatar prompt set: "${promptText}"`,
+                timestamp, user: 'claudia'
+              });
+              lines.push({
+                id: `avatar-prompt-regen-${timestamp}`,
+                type: 'output',
+                content: `New avatar images will use this custom description.`,
+                timestamp, user: 'claudia'
+              });
+            }
+          } else {
+            lines.push({
+              id: `avatar-prompt-invalid-${timestamp}`,
+              type: 'error',
+              content: `Error: Invalid prompt command: "${value}". Use: set, clear, or no argument to view.`,
+              timestamp, user: 'claudia'
+            });
+          }
+          break;
+        }
+
         default:
           lines.push({
             id: `avatar-unknown-${timestamp}`,
             type: 'error',
-            content: `Error: Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose, generate, test.`, // Emoji removed
+            content: `Error: Unknown avatar command: ${subCommand}. Use: show, hide, expression, position, action, pose, scale, move, generate, test, prompt.`, // Emoji removed
             timestamp, user: 'claudia'
           });
       }

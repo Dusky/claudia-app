@@ -18,28 +18,29 @@ interface ExtendedAvatarGenerationParams extends AvatarGenerationParams {
 }
 
 export class ImagePromptComposer {
-  private baseCharacterIdentity = "Claudia — early-20s, petite build; softly wavy, shoulder-length chestnut hair; bright hazel eyes; subtle freckles; natural makeup. She wears a flirty, pastel-yellow floral sundress with thin spaghetti straps and a deep-V neckline that reveals graceful collarbones and a hint of space between her small breasts (no push-up effect). The dress drapes lightly at her waist and moves gently with her pose";
+  private baseCharacterIdentity = "Claudia — early-20s woman, petite build, softly wavy shoulder-length chestnut hair, bright hazel eyes, subtle freckles, friendly appearance. She wears a casual tech-style outfit: fitted dark jeans and a comfortable light blue hoodie or sweater. Full body character sprite suitable for digital avatar";
+  private customCharacterDescription?: string;
   
   private basePrompts: Omit<ImagePromptComponents, 
     'expressionKeywords' | 'poseKeywords' | 'actionKeywords' | 
     'variationSeed' | 'contextualKeywords'
   > = {
     character: `${this.baseCharacterIdentity}`,
-    style: "35mm full-frame mirrorless, 85mm prime lens, f/1.8, ISO 200, 1/125s, vertical 2:3 aspect ratio, Kodak Portra 400 film aesthetic",
-    quality: "subtle film grain, slight vignette, soft highlights, rich midtones, timeless intimate atmosphere, dreamy yet grounded, organic textures",
-    settingDescription: "A cozy bedroom at golden hour. Sunlight streams through a slightly dusty window, casting warm beams that pick up floating dust motes and create soft lens flare. The background is softly blurred (shallow depth-of-field) but hints at posters on the walls and fairy-lights whose bulbs form circular bokeh.",
-    lightingKeywords: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting",
-    backgroundKeywords: "cozy bedroom, golden hour sunlight, floating dust motes, soft lens flare, blurred background",
-    negativePrompt: "blurry, low quality, distorted, ugly, deformed, disfigured, extra limbs, missing limbs, bad anatomy, watermark, signature, text, jpeg artifacts, poorly drawn, amateur, monochrome, grayscale, signature, username, artist name, logo, anime, cartoon, CGI, plastic skin, over-smoothness, harsh sharpening, digital over-processing, overly saturated colors, harsh studio lighting, artificial lighting, fluorescent lighting, invasive text, oversaturated, HDR effect",
+    style: "anime style, 2d flat anime art, konosuba style, k-on style, modern anime art, flat 2d illustration, anime character design, manga style, cel-shading, transparent background, no shadows",
+    quality: "clean anime lineart, sharp cel-shading, flat colors, anime character design, moe style, kawaii, high quality anime art, crisp 2d illustration",
+    settingDescription: "transparent background, no environment, character isolated on transparent background, white background, studio lighting",
+    lightingKeywords: "even studio lighting, soft diffused light, no dramatic shadows, clean illumination",
+    backgroundKeywords: "transparent background, isolated character, no background elements, white background",
+    negativePrompt: "realistic, 3d, photorealistic, photograph, real person, detailed shadows, harsh lighting, complex background, environment, landscape",
     // Additional required fields
     primaryDescription: `${this.baseCharacterIdentity}`,
     poseAndExpression: "neutral pose with calm expression",
     baseCharacterReference: `${this.baseCharacterIdentity}`,
     subjectDescription: "young woman in sundress",
-    cameraPerspectiveAndComposition: "35mm portrait, shallow depth of field, vertical composition",
-    realismAndDetails: "photorealistic, high detail, natural textures",
-    styleKeywords: "film photography, natural lighting, intimate portrait",
-    qualityKeywords: "high resolution, professional photography, crisp detail",
+    cameraPerspectiveAndComposition: "full body view, character sprite perspective, vertical composition showing complete figure from head to toe",
+    realismAndDetails: "anime art style, 2d flat illustration, cel-shaded character design",
+    styleKeywords: "anime, manga style, konosuba, k-on, 2d flat art, cel-shading",
+    qualityKeywords: "high resolution anime art, clean lineart, flat colors, moe style",
     atmosphereAndStyle: "warm, intimate, natural lighting",
     lightingDescription: "Single natural key light from the sunlit window, balanced with faint ambient fill, natural lighting"
   };
@@ -69,16 +70,16 @@ export class ImagePromptComposer {
   };
 
   private actionDetailsMap: Record<AvatarAction, string> = {
-    idle: 'at ease, observing her surroundings or waiting calmly',
-    type: 'typing on a sleek holographic keyboard, focused on a floating display screen in her digital workspace',
-    search: 'intently searching through data streams, analyzing information on a holographic display, focused and curious',
-    read: 'reading from a floating digital tablet or holographic document, absorbed in the content',
-    wave: 'a friendly waving gesture with a warm smile, welcoming and open',
-    nod: 'nodding in agreement or understanding, attentive and engaged',
-    shrug: 'a light shrug with palms slightly upturned, conveying uncertainty or a casual "who knows?"',
-    point: 'pointing towards something specific, perhaps an element on a holographic display or off-screen, guiding attention',
-    think: 'deep in thought, perhaps with a hand to her chin or looking upwards contemplatively',
-    work: 'interacting with complex digital interfaces, manipulating holographic elements with focused precision',
+    idle: 'standing naturally with arms at her sides, relaxed neutral pose',
+    type: 'hands positioned as if typing, fingers slightly curved, focused working pose',
+    search: 'one hand raised near her face in a searching gesture, looking attentive and curious',
+    read: 'holding an invisible tablet or device, looking down with concentration',
+    wave: 'one hand raised in a friendly waving gesture, warm and welcoming',
+    nod: 'head tilted slightly forward in a nodding motion, engaged and agreeable',
+    shrug: 'shoulders slightly raised with palms turned upward, casual uncertain gesture',
+    point: 'one arm extended pointing forward, directing attention with confidence',
+    think: 'one hand near her chin or temple, thoughtful contemplative pose',
+    work: 'hands positioned for interaction, focused productive stance',
   };
 
   generatePromptComponents = (params: ExtendedAvatarGenerationParams): ImagePromptComponents => {
@@ -193,28 +194,49 @@ export class ImagePromptComposer {
       let finalPrompt = components.primaryDescription;
       
       // Limit AI description length to prevent overwhelming the prompt
-      if (finalPrompt.length > 300) {
-        finalPrompt = finalPrompt.substring(0, 300) + "...";
+      if (finalPrompt.length > 400) {
+        finalPrompt = finalPrompt.substring(0, 400) + "...";
       }
       
-      // Ensure core character identity is present and append style/quality
+      // Ensure core character identity is present and validate prompt quality
       finalPrompt = this.ensureBaseCharacter(finalPrompt);
-      finalPrompt += `, ${components.styleKeywords}, ${components.qualityKeywords}`;
+      finalPrompt = this.validatePromptCoherence(finalPrompt);
+      finalPrompt += `. Photography style: ${components.styleKeywords}. Quality: ${components.qualityKeywords}`;
       return finalPrompt;
     } else {
       // Assemble from detailed components if no primary description
       const promptParts = [
-        `Subject: ${this.ensureBaseCharacter(components.subjectDescription)}`, // Ensure base character here too
-        `Pose / Expression: ${components.poseAndExpression}`,
+        `Subject: ${this.ensureBaseCharacter(components.subjectDescription)}`,
+        `Pose and Expression: ${components.poseAndExpression}`,
         `Setting: ${components.settingDescription}`,
-        `Atmosphere / Style: ${components.atmosphereAndStyle}, ${components.styleKeywords}`,
+        `Style: ${components.styleKeywords}`,
         `Lighting: ${components.lightingDescription}`,
-        `Camera Perspective: ${components.cameraPerspectiveAndComposition}`,
-        `Details & Realism Cues: ${components.realismAndDetails}`,
-        components.qualityKeywords
+        `Camera: ${components.cameraPerspectiveAndComposition}`,
+        `Quality: ${components.qualityKeywords}`
       ];
-      return promptParts.filter(part => part && part.trim() !== '').join('. ');
+      return promptParts.filter(part => part && part.trim() !== '' && !part.includes('undefined')).join(', ');
     }
+  }
+
+  private validatePromptCoherence = (prompt: string): string => {
+    let cleanPrompt = prompt;
+    
+    // Remove contradictory or problematic phrases
+    const problematicPhrases = [
+      'low quality', 'bad anatomy', 'blurry', 'distorted', 
+      'deformed', 'ugly', 'amateur', 'jpeg artifacts'
+    ];
+    
+    problematicPhrases.forEach(phrase => {
+      const regex = new RegExp(phrase, 'gi');
+      cleanPrompt = cleanPrompt.replace(regex, '');
+    });
+    
+    // Clean up extra commas and spaces
+    cleanPrompt = cleanPrompt.replace(/,+/g, ',').replace(/\s+/g, ' ').trim();
+    cleanPrompt = cleanPrompt.replace(/^,+|,+$/g, ''); // Remove leading/trailing commas
+    
+    return cleanPrompt;
   }
 
   getNegativePrompt = (components: ImagePromptComponents): string => {
@@ -268,5 +290,60 @@ export class ImagePromptComposer {
   }
   getAvailableActions = (): string[] => {
     return Object.keys(this.actionDetailsMap) as AvatarAction[];
+  }
+
+  getCustomCharacterDescription = (): string | undefined => {
+    return this.customCharacterDescription;
+  }
+
+  setCustomCharacterDescription = (description: string | undefined): void => {
+    this.customCharacterDescription = description;
+    // Update basePrompts to reflect the new character description
+    this.basePrompts.character = this.getCharacterDescription();
+    this.basePrompts.primaryDescription = this.getCharacterDescription();
+    this.basePrompts.baseCharacterReference = this.getCharacterDescription();
+  }
+
+  getCharacterDescription = (): string => {
+    return this.customCharacterDescription || this.baseCharacterIdentity;
+  }
+
+  // Advanced prompt customization
+  setCustomQualityKeywords = (keywords: string): void => {
+    if (keywords.trim()) {
+      this.basePrompts.quality = keywords;
+      this.basePrompts.qualityKeywords = keywords;
+    }
+  }
+
+  setCustomStyleKeywords = (keywords: string): void => {
+    if (keywords.trim()) {
+      this.basePrompts.style = keywords;
+      this.basePrompts.styleKeywords = keywords;
+    }
+  }
+
+  setCustomLightingKeywords = (keywords: string): void => {
+    if (keywords.trim()) {
+      this.basePrompts.lightingKeywords = keywords;
+      this.basePrompts.lightingDescription = keywords;
+    }
+  }
+
+  setCustomCompositionRules = (rules: string): void => {
+    if (rules.trim()) {
+      this.basePrompts.cameraPerspectiveAndComposition = rules;
+    }
+  }
+
+  // Get current prompt components for UI display
+  getCurrentPromptComponents = () => {
+    return {
+      quality: this.basePrompts.quality,
+      style: this.basePrompts.style,
+      lighting: this.basePrompts.lightingKeywords,
+      composition: this.basePrompts.cameraPerspectiveAndComposition,
+      negative: this.basePrompts.negativePrompt
+    };
   }
 }

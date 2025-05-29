@@ -88,6 +88,16 @@ export class SettingsManager {
     this.cache.set('active_personality', personalityId);
   }
 
+  // Image Generation Settings
+  async getRemoveBackground(defaultValue = false): Promise<boolean> {
+    return await this.storage.getSetting<boolean>('imageGen.removeBackground', defaultValue) ?? defaultValue;
+  }
+
+  async setRemoveBackground(enabled: boolean): Promise<void> {
+    await this.storage.setSetting('imageGen.removeBackground', enabled, 'boolean');
+    this.cache.set('imageGen.removeBackground', enabled);
+  }
+
   // Configuration Management
   async getAppConfig(): Promise<ConfigSettings | null> {
     try {
@@ -116,6 +126,16 @@ export class SettingsManager {
   async setLastActiveConversationId(conversationId: string | null): Promise<void> {
     await this.storage.setSetting('lastActiveConversationId', conversationId, 'string');
     this.cache.set('lastActiveConversationId', conversationId);
+  }
+
+  // Avatar Settings
+  async getCustomAvatarPrompt(): Promise<string | null> {
+    return await this.storage.getSetting<string>('avatar.customPrompt');
+  }
+
+  async setCustomAvatarPrompt(prompt: string | null): Promise<void> {
+    await this.storage.setSetting('avatar.customPrompt', prompt, 'string');
+    this.cache.set('avatar.customPrompt', prompt);
   }
 
   // Bulk operations

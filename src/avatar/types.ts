@@ -18,11 +18,23 @@ export type AvatarPosition =
   | 'top-right' 
   | 'bottom-left' 
   | 'bottom-right'
+  | 'center-left'
+  | 'center-right'
+  | 'top-center'
+  | 'bottom-center'
   | 'beside-text'
   | 'overlay-left'
   | 'overlay-right'
   | 'floating'
-  | 'peeking';
+  | 'peeking'
+  | 'floating-left'
+  | 'floating-right'
+  | 'peek-left'
+  | 'peek-right'
+  | 'peek-top'
+  | 'peek-bottom'
+  | 'center-overlay'
+  | 'custom';
 
 export type AvatarExpression = 
   | 'neutral'
@@ -86,6 +98,9 @@ export interface AvatarState {
   pose: AvatarPose;
   action: AvatarAction;
   gesture?: AvatarGesture;
+  position?: AvatarPosition;
+  customX?: number; // Custom X coordinate (0-100, percentage)
+  customY?: number; // Custom Y coordinate (0-100, percentage)
   scale: number;
   opacity: number;
   imageUrl?: string;
@@ -94,6 +109,10 @@ export interface AvatarState {
   hasError: boolean;
   errorMessage?: string;
   lastUpdate: string;
+  generationPrompt?: string;
+  negativePrompt?: string;
+  generationModel?: string;
+  generatedAt?: string;
 }
 
 export interface CachedAvatar {

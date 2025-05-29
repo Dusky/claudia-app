@@ -268,24 +268,39 @@ export const getApiKey = (provider: string): string | undefined => {
   // Always use secure storage first, fallback to config
   const secureKey = SecureStorage.getApiKey(provider);
   if (secureKey) {
+    console.log(`🔑 getApiKey(${provider}): Found in secure storage`);
     return secureKey;
   }
   
   // Fallback to config for backward compatibility
+  let configKey: string | undefined;
   switch (provider) {
     case 'anthropic':
-      return config.anthropicApiKey;
+      configKey = config.anthropicApiKey;
+      break;
     case 'google':
-      return config.googleApiKey;
+      configKey = config.googleApiKey;
+      break;
     case 'google-image':
-      return config.googleImageApiKey;
+      configKey = config.googleImageApiKey;
+      break;
     case 'openai':
-      return config.openaiApiKey;
+      configKey = config.openaiApiKey;
+      break;
     case 'replicate':
-      return config.replicateApiToken;
+      configKey = config.replicateApiToken;
+      break;
     default:
-      return undefined;
+      configKey = undefined;
   }
+  
+  console.log(`🔑 getApiKey(${provider}):`, {
+    secureKey: secureKey ? 'found' : 'not found',
+    configKey: configKey ? configKey.substring(0, 6) + '...' : 'undefined',
+    result: configKey ? 'found in config' : 'not found'
+  });
+  
+  return configKey;
 };
 
 export const isProviderConfigured = (provider: string): boolean => {

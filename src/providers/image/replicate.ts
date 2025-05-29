@@ -225,7 +225,7 @@ export class ReplicateProvider implements ImageProvider {
       ? '/api/replicate'  // This will be proxied to api.replicate.com
       : (providerConfig?.baseURL || 'https://api.replicate.com');
     
-    const selectedModel = providerConfig?.model || 'google/imagen-4'; // Default to a known good model
+    const selectedModel = providerConfig?.model || 'minimax/image-01'; // Default to a known good model
     const modelConfig = this.modelConfigs[selectedModel] || this.modelConfigs['minimax/image-01']; // Fallback if selectedModel config is missing
     
     this.config = {
@@ -249,12 +249,13 @@ export class ReplicateProvider implements ImageProvider {
   }
 
   isConfigured(): boolean {
-    return !!this.config.apiKey;
+    // Check both initialized config and environment variable
+    return !!(this.config.apiKey || getApiKey('replicate'));
   }
 
   getSupportedModels(): string[] {
     const baseModels = [
-      'minimax/image-01', // Added new model
+      'minimax/image-01',
       'google/imagen-4',
       'black-forest-labs/flux-1.1-pro',
       'black-forest-labs/flux-schnell',
@@ -291,7 +292,7 @@ export class ReplicateProvider implements ImageProvider {
     try {
       // Load some popular image generation models
       const popularModels = [
-        'minimax/image-01', // Added new model
+        'minimax/image-01',
         'google/imagen-4',
         'black-forest-labs/flux-1.1-pro',
         'black-forest-labs/flux-schnell',
@@ -365,28 +366,45 @@ export class ReplicateProvider implements ImageProvider {
       throw new Error('Replicate provider not configured');
     }
 
+    // Validate and clean request parameters before processing
+    const validatedRequest = this.validateAndCleanRequest(request);
+    const modelConfig = this.getModelConfig();
+    
     try {
       console.log('🎨 Generating image with Replicate:', {
         model: this.config.model,
-        prompt: request.prompt.substring(0, 100) + '...',
-        useOfficialModels: this.config.useOfficialModels
+        prompt: validatedRequest.prompt.substring(0, 100) + '...',
+        useOfficialModels: this.config.useOfficialModels,
+        dimensions: `${validatedRequest.width}x${validatedRequest.height}`,
+        supportsNegativePrompt: modelConfig?.supportsNegativePrompt || false
       });
 
       let predictionResponse: { id: string };
 
-      if (this.config.useOfficialModels) {
-        // Use official models API for better performance
-        predictionResponse = await this.createOfficialModelPrediction(request);
-      } else {
-        // Use traditional prediction API with version
-        predictionResponse = await this.createPrediction(request);
+      try {
+        if (this.config.useOfficialModels) {
+          // Try official models API first
+          predictionResponse = await this.createOfficialModelPrediction(validatedRequest);
+        } else {
+          // Use traditional prediction API with version
+          predictionResponse = await this.createPrediction(validatedRequest);
+        }
+      } catch (error: any) {
+        // If official API fails with 404, try traditional API as fallback
+        if (this.config.useOfficialModels && error.response?.status === 404) {
+          console.log('Official API failed with 404, trying traditional API...');
+          predictionResponse = await this.createPrediction(validatedRequest);
+        } else {
+          throw error;
+        }
       }
       
       // Wait for completion with progress logging
       const completedPrediction = await this.waitForCompletion(predictionResponse.id);
       
       if (completedPrediction.status !== 'succeeded') {
-        throw new Error(`Image generation failed: ${completedPrediction.error || 'Unknown error'}`);
+        const errorMsg = completedPrediction.error || completedPrediction.logs || 'Unknown error';
+        throw new Error(`Image generation failed: ${errorMsg}`);
       }
 
       // Extract image URL from output (handle different formats)
@@ -504,9 +522,22 @@ export class ReplicateProvider implements ImageProvider {
     const input = this.buildInputParameters(request);
     
     // For non-official models, we need a version ID
-    const version = this.config.version;
+    const modelConfig = this.getModelConfig();
+    let version = this.config.version || modelConfig?.version;
+    
+    // If no version specified, try to get the latest version
     if (!version) {
-      throw new Error('Version ID required for non-official models. Set config.version or use official models.');
+      try {
+        const [owner, name] = (this.config.model || 'minimax/image-01').split('/');
+        const modelDetails = await this.getModelDetails(`${owner}/${name}`);
+        version = modelDetails?.latest_version?.id;
+      } catch (error) {
+        console.warn('Failed to get latest version for model:', this.config.model);
+      }
+    }
+    
+    if (!version) {
+      throw new Error(`Version ID required for model ${this.config.model}. Model may need to use official API instead.`);
     }
     
     console.log('📡 Creating prediction with version:', version);
@@ -528,6 +559,44 @@ export class ReplicateProvider implements ImageProvider {
     );
 
     return response.data;
+  }
+
+  private validateAndCleanRequest(request: ImageGenerationRequest): ImageGenerationRequest {
+    const modelConfig = this.getModelConfig();
+    const cleanedRequest = { ...request };
+
+    // Remove negative prompt if model doesn't support it
+    if (cleanedRequest.negativePrompt && !modelConfig?.supportsNegativePrompt) {
+      console.log('⚠️ Removing negative prompt - model does not support it');
+      delete cleanedRequest.negativePrompt;
+    }
+
+    // Validate dimensions against supported dimensions
+    const requestedWidth = cleanedRequest.width || modelConfig?.defaultDimensions.width || 1024;
+    const requestedHeight = cleanedRequest.height || modelConfig?.defaultDimensions.height || 1024;
+    
+    if (modelConfig?.supportedDimensions) {
+      const supportedDimension = modelConfig.supportedDimensions.find(
+        dim => dim.width === requestedWidth && dim.height === requestedHeight
+      );
+      
+      if (!supportedDimension) {
+        console.log('⚠️ Requested dimensions not supported, using default');
+        cleanedRequest.width = modelConfig.defaultDimensions.width;
+        cleanedRequest.height = modelConfig.defaultDimensions.height;
+      }
+    }
+
+    // Validate steps and guidance
+    if (cleanedRequest.steps && modelConfig?.maxSteps) {
+      cleanedRequest.steps = Math.min(cleanedRequest.steps, modelConfig.maxSteps);
+    }
+    
+    if (cleanedRequest.guidance && modelConfig?.maxGuidance) {
+      cleanedRequest.guidance = Math.min(cleanedRequest.guidance, modelConfig.maxGuidance);
+    }
+
+    return cleanedRequest;
   }
 
   private buildInputParameters(request: ImageGenerationRequest): Record<string, any> {
@@ -720,6 +789,55 @@ export class ReplicateProvider implements ImageProvider {
     } catch (error) {
       console.warn('Failed to list predictions:', error);
       return [];
+    }
+  }
+
+  /**
+   * Remove background from an image using lucataco/remove-bg model
+   */
+  async removeBackground(imageUrl: string): Promise<string> {
+    if (!this.isConfigured()) {
+      throw new Error('Replicate provider not configured');
+    }
+
+    try {
+      console.log('🗑️ Removing background from image:', imageUrl.substring(0, 50) + '...');
+
+      const response = await axios.post(
+        `${this.config.baseURL}/v1/predictions`,
+        {
+          version: "95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1", // lucataco/remove-bg version
+          input: {
+            image: imageUrl
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        }
+      );
+
+      const predictionId = response.data.id;
+      console.log('🎯 Background removal prediction created:', predictionId);
+
+      // Wait for completion
+      const result = await this.waitForCompletion(predictionId, 120000); // 2 minute timeout for background removal
+
+      if (result.status === 'succeeded' && result.output) {
+        console.log('✅ Background removal successful');
+        return Array.isArray(result.output) ? result.output[0] : result.output;
+      } else {
+        throw new Error(`Background removal failed: ${result.status} - ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('❌ Background removal failed:', error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Background removal API error: ${error.response?.status} - ${error.response?.data?.detail || error.message}`);
+      }
+      throw error;
     }
   }
 }

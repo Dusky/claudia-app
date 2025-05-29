@@ -67,9 +67,16 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
     return styles.statusInactive;
   };
 
+  // Hide panel when no image and not generating/error
+  const shouldShowPanel = state.imageUrl || state.isGenerating || state.hasError;
+  
+  if (!shouldShowPanel) {
+    return null;
+  }
+
   return (
     <div 
-      className={`${styles.avatarPanel} ${styles[theme.id] || ''} ${className || ''}`}
+      className={`${styles.avatarPanel} ${className || ''}`}
       style={{
         borderColor: theme.colors.foreground || '#333',
         backgroundColor: `${theme.colors.background}E6`, // Semi-transparent background
@@ -149,16 +156,7 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
           />
         )}
 
-        {/* Empty State */}
-        {!state.imageUrl && !state.isGenerating && !state.hasError && (
-          <div 
-            className={styles.emptyState}
-            style={{ color: theme.colors.foreground }}
-          >
-            <div className={styles.emptyIcon}>C</div>
-            <div className={styles.emptyText}>Ready to chat</div>
-          </div>
-        )}
+        {/* Empty State - Hidden when no sprite */}
       </div>
 
       {/* Panel Footer with Avatar Info */}

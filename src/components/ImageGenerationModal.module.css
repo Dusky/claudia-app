@@ -164,6 +164,19 @@
   margin: 0;
 }
 
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
 /* Preview */
 .preview {
   background: var(--terminal-input-bg, rgba(255, 255, 255, 0.05));

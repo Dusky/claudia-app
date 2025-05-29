@@ -8,7 +8,7 @@ export const shortcutsCommand: Command = {
   aliases: ['keys', 'hotkeys'],
   
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async execute(args: string[], _context: CommandContext): Promise<CommandResult> {
+  async execute(_args: string[], _context: CommandContext): Promise<CommandResult> {
     const timestamp = new Date().toISOString();
     
     const shortcutLines: TerminalLine[] = [

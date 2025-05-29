@@ -27,17 +27,71 @@ import { mcpCommand } from './builtin/mcp';
 import { crtCommand } from './builtin/crt';
 import { shortcutsCommand } from './builtin/shortcuts';
 import { 
-  psCommand, 
-  topCommand, 
-  uptimeCommand, 
-  whoamiCommand, 
-  pwdCommand, 
-  lsCommand, 
-  freeCommand, 
-  unameCommand,
-  catCommand,
+  whoamiCommand,
   dateCommand
 } from './builtin/os-commands';
+
+// Enhanced Phase 3 commands
+import {
+  lsEnhancedCommand,
+  cdCommand,
+  pwdEnhancedCommand,
+  catCommand as catEnhancedCommand
+} from './builtin/filesystem';
+
+import {
+  psEnhancedCommand,
+  topCommand as topEnhancedCommand,
+  killCommand,
+  jobsCommand
+} from './builtin/process-manager';
+
+import {
+  freeEnhancedCommand,
+  dfCommand,
+  uptimeEnhancedCommand,
+  systemInfoCommand,
+  cpuInfoCommand,
+  memInfoCommand
+} from './builtin/system-monitor';
+
+import {
+  envCommand,
+  exportCommand,
+  unsetCommand,
+  setCommand,
+  echoCommand,
+  aliasCommand
+} from './builtin/environment';
+
+// Phase 4: Intelligent Interaction Layer
+import {
+  smartHelpCommand,
+  analyticsCommand
+} from './builtin/intelligent-help';
+
+import {
+  workflowCommand
+} from './builtin/workflow-assistant';
+
+// Phase 5: System Integration Features
+import {
+  sessionCommand,
+  servicesCommand
+} from './builtin/session-management';
+
+import {
+  pluginCommand
+} from './builtin/plugin-management';
+
+import {
+  logsCommand,
+  metricsCommand
+} from './builtin/logging';
+
+import {
+  preferencesCommand
+} from './builtin/preferences';
 
 import {
   personalityCommand, 
@@ -102,17 +156,48 @@ export function createCommandRegistry(): CommandRegistryImpl {
     crtCommand,
     shortcutsCommand,
     
-    // OS-style commands
-    psCommand,
-    topCommand,
-    uptimeCommand,
+    // Basic OS-style commands (keeping for compatibility)
     whoamiCommand,
-    pwdCommand,
-    lsCommand,
-    freeCommand,
-    unameCommand,
-    catCommand,
     dateCommand,
+    
+    // Enhanced Phase 3 commands (replace basic ones)
+    lsEnhancedCommand,
+    cdCommand,
+    pwdEnhancedCommand,
+    catEnhancedCommand,
+    psEnhancedCommand,
+    topEnhancedCommand,
+    freeEnhancedCommand,
+    uptimeEnhancedCommand,
+    
+    // New system commands
+    dfCommand,
+    killCommand,
+    jobsCommand,
+    systemInfoCommand,
+    cpuInfoCommand,
+    memInfoCommand,
+    
+    // Environment and configuration
+    envCommand,
+    exportCommand,
+    unsetCommand,
+    setCommand,
+    echoCommand,
+    aliasCommand,
+    
+    // Phase 4: Intelligent Interaction Layer
+    smartHelpCommand,
+    analyticsCommand,
+    workflowCommand,
+    
+    // Phase 5: System Integration Features
+    sessionCommand,
+    servicesCommand,
+    pluginCommand,
+    logsCommand,
+    metricsCommand,
+    preferencesCommand,
   ];
 
   commandsToRegister.forEach(command => {

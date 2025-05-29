@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { AvatarState } from '../avatar/types';
 import type { TerminalTheme } from '../terminal/themes';
 import { useMemoryManager } from '../utils/memoryManager';
+import AvatarPromptModal from './AvatarPromptModal';
 
 type AvatarPosition = 
   | 'top-left' 
@@ -32,11 +33,12 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const [showSpeechBubble, setShowSpeechBubble] = useState(false);
   const [speechText, setSpeechText] = useState('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
   
   const memoryManager = useMemoryManager('TerminalAvatarPanel');
   const previousImageUrl = useRef<string | null>(null);
-  const animationTimeoutRef = useRef<NodeJS.Timeout>();
-  const speechTimeoutRef = useRef<NodeJS.Timeout>();
+  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const speechTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup previous image URL when state changes
   useEffect(() => {
@@ -125,15 +127,21 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
     setIsImageLoaded(false);
   };
 
+  const handleAvatarClick = () => {
+    setShowPromptModal(true);
+  };
+
   // Dynamic styling based on position
   const containerStyle = useMemo((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       position: 'absolute',
       zIndex: 1000,
-      pointerEvents: 'none',
+      pointerEvents: 'auto', // Enable clicking
       transition: 'all 0.5s ease-in-out',
       transformOrigin: 'center',
-    };
+      cursor: 'pointer', // Show it's clickable
+      '--avatar-scale': state.scale || 1,
+    } as React.CSSProperties;
 
     const size = position.includes('peek') ? '80px' : 
                  position === 'center-overlay' ? '120px' : '100px';
@@ -177,7 +185,7 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
           ...baseStyle,
           top: '50%',
           left: '20px',
-          transform: `translateY(-50%) ${isAnimating ? 'scale(1.1)' : 'scale(1)'}`,
+          transform: `translateY(-50%) scale(${(state.scale || 1) * (isAnimating ? 1.1 : 1)})`,
           width: size,
           height: size,
         };
@@ -186,7 +194,7 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
           ...baseStyle,
           top: '50%',
           right: '20px',
-          transform: `translateY(-50%) ${isAnimating ? 'scale(1.1)' : 'scale(1)'}`,
+          transform: `translateY(-50%) scale(${(state.scale || 1) * (isAnimating ? 1.1 : 1)})`,
           width: size,
           height: size,
         };
@@ -195,7 +203,7 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
           ...baseStyle,
           top: '50%',
           left: '50%',
-          transform: `translate(-50%, -50%) ${isAnimating ? 'scale(1.2) rotate(5deg)' : 'scale(1)'}`,
+          transform: `translate(-50%, -50%) scale(${(state.scale || 1) * (isAnimating ? 1.2 : 1)}) ${isAnimating ? 'rotate(5deg)' : ''}`,
           width: size,
           height: size,
           zIndex: 1100,
@@ -242,17 +250,21 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
     width: '100%',
     height: '100%',
     borderRadius: '50%',
-    border: `2px solid ${theme.colors.accent}60`,
-    backgroundColor: `${theme.colors.background}90`,
+    border: state.imageUrl ? 'none' : `2px solid ${theme.colors.foreground}30`, // Remove yellow border when image exists
+    backgroundColor: state.imageUrl ? 'transparent' : `${theme.colors.background}90`, // Remove background when image exists
     overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backdropFilter: 'blur(8px)',
-    boxShadow: theme.effects.glow 
-      ? `0 0 20px ${theme.colors.accent}40, inset 0 0 20px ${theme.colors.accent}20`
-      : `0 4px 12px ${theme.colors.background}60`,
+    backdropFilter: state.imageUrl ? 'none' : 'blur(8px)', // Remove blur when image exists
+    boxShadow: state.imageUrl ? 'none' : ( // Remove glow when image exists
+      theme.effects.glow 
+        ? `0 0 20px ${theme.colors.foreground}20, inset 0 0 20px ${theme.colors.foreground}10`
+        : `0 4px 12px ${theme.colors.background}60`
+    ),
     animation: isAnimating ? 'avatarPulse 2s ease-in-out' : 'avatarIdle 4s ease-in-out infinite',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    transform: `scale(${state.scale || 1})`, // Apply scale directly to avatar-inner
   };
 
   const imageStyle: React.CSSProperties = {
@@ -287,30 +299,38 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
     pointerEvents: 'auto',
   };
 
-  // Don't render if not visible
-  if (!state.visible) {
+  // Don't render if not visible or no image/generation/error
+  const shouldShow = state.visible && (state.imageUrl || state.isGenerating || state.hasError);
+  if (!shouldShow) {
     return null;
   }
 
   const keyframes = `
     @keyframes avatarPulse {
       0%, 100% { 
-        transform: scale(1);
+        transform: scale(var(--avatar-scale, 1));
         filter: brightness(1);
       }
       50% { 
-        transform: scale(1.05);
+        transform: scale(calc(var(--avatar-scale, 1) * 1.05));
         filter: brightness(1.2);
       }
     }
     
     @keyframes avatarIdle {
       0%, 100% { 
-        transform: scale(1) translateY(0px);
+        transform: scale(var(--avatar-scale, 1)) translateY(0px);
       }
       50% { 
-        transform: scale(1.02) translateY(-2px);
+        transform: scale(calc(var(--avatar-scale, 1) * 1.02)) translateY(-2px);
       }
+    }
+    
+    .avatar-container:hover .avatar-inner {
+      transform: scale(calc(var(--avatar-scale, 1) * 1.05));
+      box-shadow: ${theme.effects.glow 
+        ? `0 0 30px ${theme.colors.accent}60, inset 0 0 25px ${theme.colors.accent}30`
+        : `0 6px 16px ${theme.colors.background}80`} !important;
     }
   `;
 
@@ -318,10 +338,12 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
     <>
       <style>{keyframes}</style>
       <div 
-        className={className}
+        className={`${className} avatar-container`}
         style={containerStyle}
+        onClick={handleAvatarClick}
+        title="Click to view generation prompt"
       >
-        <div style={avatarStyle}>
+        <div className="avatar-inner" style={avatarStyle}>
           {state.imageUrl && !hasImageError ? (
             <img
               src={state.imageUrl}
@@ -371,6 +393,14 @@ export const TerminalAvatarPanel: React.FC<TerminalAvatarPanelProps> = ({
           )}
         </div>
       </div>
+      
+      {/* Prompt Modal */}
+      <AvatarPromptModal
+        isOpen={showPromptModal}
+        onClose={() => setShowPromptModal(false)}
+        avatarState={state}
+        theme={theme}
+      />
     </>
   );
 };

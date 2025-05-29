@@ -159,18 +159,18 @@ export const themes: Record<string, TerminalTheme> = {
       // Made the SVG stroke color much lighter for better visibility
       appBackground: '#0a0a0a url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0L10 10ZM10 0L0 10Z\' stroke=\'%23404040\' stroke-width=\'0.8\'/%3E%3C/svg%3E") repeat',
       crtShader: {
-        curvature: 15.0,
-        scanlineDensity: 600.0,
-        scanlineIntensity: 0.20,
-        noiseIntensity: 0.08,
-        brightness: 0.95,
-        distortionAmount: 0.15,
-        vignetteStrength: 1.0,
-        vignetteSmoothness: 0.4,
-        wobbleIntensity: 0.002,
-        wobbleSpeed: 1.5,
-        textBlurIntensity: 0.1,
-        phosphorIntensity: 0.25
+        curvature: 25.0,
+        scanlineDensity: 800.0,
+        scanlineIntensity: 0.40,
+        noiseIntensity: 0.15,
+        brightness: 0.90,
+        distortionAmount: 0.25,
+        vignetteStrength: 1.5,
+        vignetteSmoothness: 0.3,
+        wobbleIntensity: 0.005,
+        wobbleSpeed: 2.0,
+        textBlurIntensity: 0.2,
+        phosphorIntensity: 0.50
       }
     },
     spacing: {
@@ -273,18 +273,18 @@ export const themes: Record<string, TerminalTheme> = {
       // This one was working, keeping its contrast
       appBackground: '#000033 url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Crect x=\'0\' y=\'0\' width=\'100%25\' height=\'100%25\' fill=\'none\' stroke=\'%23000050\' stroke-width=\'0.5\'/%3E%3C/svg%3E") repeat',
       crtShader: {
-        curvature: 18.0,
-        scanlineDensity: 700.0,
-        scanlineIntensity: 0.15,
-        noiseIntensity: 0.05,
-        brightness: 0.9,
-        distortionAmount: 0.2,
-        vignetteStrength: 0.8,
-        vignetteSmoothness: 0.5,
-        wobbleIntensity: 0.001,
-        wobbleSpeed: 2.5,
-        textBlurIntensity: 0.05,
-        phosphorIntensity: 0.3
+        curvature: 25.0,
+        scanlineDensity: 900.0,
+        scanlineIntensity: 0.35,
+        noiseIntensity: 0.12,
+        brightness: 0.85,
+        distortionAmount: 0.3,
+        vignetteStrength: 1.2,
+        vignetteSmoothness: 0.4,
+        wobbleIntensity: 0.003,
+        wobbleSpeed: 3.0,
+        textBlurIntensity: 0.15,
+        phosphorIntensity: 0.45
       }
     },
     spacing: {
@@ -387,18 +387,18 @@ export const themes: Record<string, TerminalTheme> = {
       // Made the gradient much more visible with better contrast
       appBackground: 'radial-gradient(ellipse at center, #2a2a40 0%, #0a0a10 70%, #000000 100%)',
       crtShader: {
-        curvature: 20.0,
-        scanlineDensity: 750.0,
-        scanlineIntensity: 0.12,
-        noiseIntensity: 0.06,
-        brightness: 0.85,
-        distortionAmount: 0.3,
-        vignetteStrength: 0.7,
-        vignetteSmoothness: 0.6,
-        wobbleIntensity: 0.001,
-        wobbleSpeed: 3.5,
-        textBlurIntensity: 0.08,
-        phosphorIntensity: 0.4
+        curvature: 30.0,
+        scanlineDensity: 950.0,
+        scanlineIntensity: 0.30,
+        noiseIntensity: 0.18,
+        brightness: 0.80,
+        distortionAmount: 0.4,
+        vignetteStrength: 1.0,
+        vignetteSmoothness: 0.5,
+        wobbleIntensity: 0.004,
+        wobbleSpeed: 4.0,
+        textBlurIntensity: 0.20,
+        phosphorIntensity: 0.55
       }
     },
     spacing: {

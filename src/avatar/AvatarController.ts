@@ -8,19 +8,9 @@ import type { ImageStorageManager } from '../utils/imageStorage'; // Import type
 import type { Personality } from '../types/personality';
 import type { LLMProviderManager } from '../providers/llm/manager'; 
 import { useAppStore } from '../store/appStore';
-import { memoryManager } from '../utils/memoryManager'; 
+import { memoryManager } from '../utils/memoryManager';
+import type { SettingsManager } from '../services/settingsManager'; 
 
-// Simple hash function for browser environment
-function simpleHash(str: string): string {
-  let hash = 0;
-  if (str.length === 0) return hash.toString();
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return hash.toString(16);
-}
 
 interface VariationOptions {
   seed?: number;
@@ -42,22 +32,29 @@ export class AvatarController {
   private database: ClaudiaDatabase;
   private promptComposer: ImagePromptComposer;
   private imageStorageManager: ImageStorageManager; // Add imageStorageManager instance
+  private settingsManager: SettingsManager | null = null; // Add settings manager
   private onStateChange?: (state: AvatarState) => void;
   private previousImageUrl: string | null = null; // Track previous image for cleanup
+  private customAvatarPrompt: string | null = null; // Cache custom prompt
 
   constructor(
     imageProvider: ImageProviderManager, 
     llmManager: LLMProviderManager, 
     database: ClaudiaDatabase,
     imageStorageManager: ImageStorageManager, // Inject ImageStorageManager
-    onStateChange?: (state: AvatarState) => void
+    onStateChange?: (state: AvatarState) => void,
+    settingsManager?: SettingsManager | null // Add optional settings manager
   ) {
     this.imageProvider = imageProvider;
     this.llmManager = llmManager; 
     this.database = database;
     this.promptComposer = new ImagePromptComposer();
     this.imageStorageManager = imageStorageManager; // Store instance
+    this.settingsManager = settingsManager || null; // Store settings manager
     this.onStateChange = onStateChange;
+    
+    // Load custom avatar prompt if settings manager is available
+    this.loadCustomAvatarPrompt();
     
     this.state = {
       visible: false,
@@ -71,6 +68,51 @@ export class AvatarController {
       hasError: false,
       lastUpdate: new Date().toISOString()
     };
+  }
+
+  /**
+   * Load the custom avatar prompt from settings
+   */
+  private async loadCustomAvatarPrompt(): Promise<void> {
+    if (this.settingsManager) {
+      try {
+        this.customAvatarPrompt = await this.settingsManager.getCustomAvatarPrompt();
+        console.log('📝 Custom avatar prompt loaded:', this.customAvatarPrompt ? 'Set' : 'Not set');
+      } catch (error) {
+        console.warn('Failed to load custom avatar prompt:', error);
+      }
+    }
+  }
+
+  /**
+   * Set a custom avatar prompt and save it to settings
+   */
+  async setCustomAvatarPrompt(prompt: string | null): Promise<void> {
+    this.customAvatarPrompt = prompt;
+    
+    // Apply the new prompt to the composer
+    if (prompt) {
+      this.promptComposer.setCharacterIdentity(prompt);
+    } else {
+      // Reset to default character identity if prompt is cleared
+      this.promptComposer.setCharacterIdentity("Claudia — early-20s woman, petite build, softly wavy shoulder-length chestnut hair, bright hazel eyes, subtle freckles, friendly appearance. She wears a casual tech-style outfit: fitted dark jeans and a comfortable light blue hoodie or sweater. Full body character sprite suitable for digital avatar");
+    }
+    
+    if (this.settingsManager) {
+      try {
+        await this.settingsManager.setCustomAvatarPrompt(prompt);
+        console.log('💾 Custom avatar prompt saved:', prompt ? 'Set' : 'Cleared');
+      } catch (error) {
+        console.warn('Failed to save custom avatar prompt:', error);
+      }
+    }
+  }
+
+  /**
+   * Get the current custom avatar prompt
+   */
+  getCustomAvatarPrompt(): string | null {
+    return this.customAvatarPrompt;
   }
 
   parseAvatarCommands(text: string): { cleanText: string; commands: AvatarCommand[] } {
@@ -221,22 +263,31 @@ export class AvatarController {
       metaInputContext += `\nAdditional Contextual Keywords: ${baseParams.contextualKeywords.join(', ')}.`;
     }
 
-    const metaSystemPrompt = `You are an expert creative director and prompt engineer for an advanced text-to-image AI.
-Your task is to generate a highly detailed, vivid, and artistic image prompt based on the provided context.
-The main subject is ALWAYS Claudia. Claudia is a petite woman in her early 20s, with softly wavy chestnut hair to her shoulders, bright hazel eyes, and light freckles across her cheeks. She has subtle natural makeup. Her clothing should be appropriate for the scene and personality.
+    // Use custom avatar prompt if available, otherwise use default description
+    const characterDescription = this.customAvatarPrompt || 
+      "Claudia is a petite woman in her early 20s, with softly wavy chestnut hair to her shoulders, bright hazel eyes, and light freckles. She wears casual tech-style clothing: fitted dark jeans and a comfortable light blue hoodie or sweater.";
+    
+    const metaSystemPrompt = `You are an expert character designer and prompt engineer for creating digital avatar sprites.
+Your task is to generate a detailed prompt for creating a clean character sprite with transparent background.
+The main subject is ALWAYS Claudia. ${characterDescription}
 
-Follow this structure for your output prompt, ensuring each section is detailed:
-1.  **Subject:** Describe Claudia, including her specific clothing for this scene, ensuring it aligns with the context and personality's preferred clothing. Reiterate her core features (chestnut hair, hazel eyes, freckles).
-2.  **Pose / Expression:** Detail her exact pose and facial expression based on the current avatar state.
-3.  **Setting:** Describe the environment in detail. If an "AI's Specific Image Request" is provided, use that as the primary setting. Otherwise, create a setting that fits her state, personality (typical environment), and conversation context.
-4.  **Atmosphere / Style:** Define the mood, overall artistic style (e.g., photorealistic, oil painting, cinematic), and any relevant textures or visual treatments. Incorporate the "Desired Base Artistic Style" and any "Art Style Modifiers" from the personality.
-5.  **Lighting:** Describe the lighting conditions (type, direction, color, mood).
-6.  **Camera Perspective / Composition:** Specify shot type (e.g., medium shot, close-up), camera angle, composition, and lens characteristics (e.g., shallow depth of field, 50mm lens look).
-7.  **Details & Realism Cues:** Add specific small details that enhance realism or the artistic vision (e.g., rain droplets, lens flare, specific textures).
+CRITICAL REQUIREMENTS:
+- This must be a CHARACTER SPRITE with TRANSPARENT BACKGROUND
+- NO environment, NO scenery, NO background elements
+- Clean digital illustration style, NOT photorealistic
+- Full body or 3/4 body view suitable for use as an avatar
+- Even lighting with no dramatic shadows
 
-If an "AI's Specific Image Request" is given, that is the primary creative direction for the scene, pose, and action. Adapt Claudia's expression and other details to fit this request while maintaining her core identity and personality's visual preferences.
-If no "AI's Specific Image Request" is given, create a compelling scene based on Claudia's current state, personality, and conversation context.
-The final output prompt should be a single block of text, with each section clearly delineated if possible, or as a continuous descriptive paragraph. Aim for a rich, comma-separated list of phrases.
+Follow this structure for your output prompt:
+1.  **Subject:** Describe Claudia's appearance based on the character description provided above.
+2.  **Pose / Expression:** Detail her exact pose and facial expression based on the current avatar state, suitable for a sprite.
+3.  **Style:** Specify "digital character sprite, clean vector art style, character reference sheet style, avatar illustration"
+4.  **Background:** ALWAYS specify "transparent background, no environment, isolated character"
+5.  **Lighting:** Specify "even studio lighting, soft diffused light, no dramatic shadows"
+6.  **Quality:** Specify "clean lines, sharp details, character design, sprite art, digital illustration"
+
+If an "AI's Specific Image Request" is given, adapt Claudia's pose and expression to fit this request while maintaining the sprite format and transparent background.
+The final output should focus on creating a clean, usable character sprite that can overlay on any background.
 Output ONLY the generated image prompt. Do not include any preambles, apologies, or explanations.`;
 
     console.log("🤖 Generating image prompt via meta-LLM with context:", metaInputContext);
@@ -261,16 +312,14 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     variationOptions?: VariationOptions,
     aiProvidedDescription?: string 
   ): Promise<void> {
-    const { configManager } = await import('../config/env');
-    const configuredStyle = configManager.getImageStyle();
     const appConfig = useAppStore.getState().config; 
     
     const params: InternalAvatarGenerationParams = {
       expression: this.state.expression,
       pose: this.state.pose,
       action: this.state.action,
-      style: configuredStyle, 
-      background: 'none', 
+      style: 'digital character sprite', 
+      background: 'transparent', 
       lighting: 'soft',
       quality: 'high',
       aiDescription: aiProvidedDescription, 
@@ -327,10 +376,6 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     
     const negativePrompt = this.promptComposer.getNegativePrompt(promptComponents);
     
-    const currentParamsForHash = { ...params, prompt: finalImagePrompt, negativePrompt };
-    Object.keys(currentParamsForHash).forEach(key => (currentParamsForHash as any)[key] === undefined && delete (currentParamsForHash as any)[key]);
-    const promptHash = this.generatePromptHash(currentParamsForHash as InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string });
-    
     // Skip caching for TOS compliance - provider URLs should not be cached
     console.log('🚫 Avatar caching disabled to comply with provider Terms of Service');
 
@@ -349,17 +394,18 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
 
       const imageRequest: ImageGenerationRequest = {
         prompt: finalImagePrompt,
-        width: 512, height: 512, steps: 30, guidance: 7.0 
+        width: 512, height: 768, steps: 30, guidance: 7.0  // Taller aspect ratio for full body sprite
       };
 
-      // Only include negative prompt for providers that support it
-      const providerSupportsNegativePrompts = this.shouldIncludeNegativePrompt(provider);
-      if (providerSupportsNegativePrompts && negativePrompt) {
+      // Include negative prompt if provided by user
+      if (negativePrompt && negativePrompt.trim()) {
         imageRequest.negativePrompt = negativePrompt;
       }
 
       console.log('Generating avatar with final prompt:', { finalImagePrompt, negativePrompt, params });
-      const response = await provider.generateImage(imageRequest);
+      
+      // Use fallback system for better reliability
+      const response = await this.imageProvider.generateImageWithFallback(imageRequest);
       
       // Log prompt to file if enabled
       await this.logPromptToFile(finalImagePrompt, negativePrompt, response.imageUrl, params, promptComponents);
@@ -371,7 +417,12 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
         memoryManager.revokeObjectURL(this.previousImageUrl);
       }
       
+      // Store generation details for debugging/display
       this.state.imageUrl = response.imageUrl;
+      this.state.generationPrompt = finalImagePrompt;
+      this.state.negativePrompt = negativePrompt;
+      this.state.generationModel = provider.name || 'unknown';
+      this.state.generatedAt = new Date().toISOString();
       this.previousImageUrl = response.imageUrl;
     } catch (error) {
       console.error('Failed to generate avatar image:', error);
@@ -389,7 +440,16 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
 
   async generateAvatarWithContext(conversationContext?: string): Promise<void> {
     const keywords = conversationContext?.toLowerCase().match(/\b(\w{4,})\b/g)?.slice(0, 5) || [];
+    
+    // Make avatar visible when generating
+    this.state.visible = true;
+    this.state.opacity = 0.9;
+    this.state.lastUpdate = new Date().toISOString();
+    
     await this.generateAvatarImage(conversationContext, { seed: Date.now(), contextualKeywords: keywords });
+    
+    // Apply post-processing (background removal) if enabled
+    await this.applyPostProcessing();
   }
 
   async generateAvatarFromDescription(description: string, position?: AvatarPosition): Promise<void> {
@@ -405,6 +465,9 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     this.state.lastUpdate = new Date().toISOString();
 
     await this.generateAvatarImage(description, { seed: Date.now() }, description);
+    
+    // Apply post-processing (background removal) if enabled
+    await this.applyPostProcessing();
 
     if (this.state.imageUrl && !this.state.hasError) {
       try {
@@ -426,6 +489,31 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       }
     }
     this.notifyStateChange(); 
+  }
+
+  private async applyPostProcessing(): Promise<void> {
+    if (!this.state.imageUrl || this.state.hasError) return;
+
+    try {
+      // Check if background removal is enabled
+      const shouldRemoveBackground = await this.database.getSetting<boolean>('imageGen.removeBackground', false);
+      
+      if (shouldRemoveBackground) {
+        const provider = this.imageProvider.getActiveProvider();
+        if (provider && provider.id === 'replicate') {
+          console.log('🗑️ Applying background removal to AI-generated avatar...');
+          const replicateProvider = provider as any;
+          if (replicateProvider.removeBackground) {
+            const processedImageUrl = await replicateProvider.removeBackground(this.state.imageUrl);
+            this.state.imageUrl = processedImageUrl;
+            this.state.lastUpdate = new Date().toISOString();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Post-processing failed:', error);
+      // Don't fail the entire generation if post-processing fails
+    }
   }
   
   async generateAvatarFromResponse(aiResponse: string): Promise<void> {
@@ -589,14 +677,6 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     return params;
   }
 
-  private generatePromptHash(params: InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string }): string {
-    const orderedParams: Record<string, any> = {};
-    Object.keys(params).sort().forEach(key => {
-      orderedParams[key] = (params as any)[key];
-    });
-    const keyString = JSON.stringify(orderedParams);
-    return simpleHash(keyString);
-  }
 
   getState(): AvatarState {
     return { ...this.state };
@@ -621,40 +701,6 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     await this.executeCommand({ hide: true });
   }
 
-  /**
-   * Check if the current provider supports negative prompts
-   */
-  private shouldIncludeNegativePrompt(provider: any): boolean {
-    if (!provider) return false;
-    
-    // List of providers/models that support negative prompts
-    const providersWithNegativePrompts = [
-      'replicate',  // Most Replicate models support negative prompts
-      'stability',  // Stability AI models
-      'runpod'      // RunPod typically uses SDXL which supports them
-    ];
-    
-    // Models that specifically don't support negative prompts
-    const modelsWithoutNegativePrompts = [
-      'minimax/video-01',
-      'minimax/image-01', 
-      'flux',
-      'midjourney',
-      'dalle',
-      'imagen'
-    ];
-    
-    const providerId = provider.id?.toLowerCase() || '';
-    const modelName = provider.config?.model?.toLowerCase() || '';
-    
-    // Check if model specifically doesn't support negative prompts
-    if (modelsWithoutNegativePrompts.some(model => modelName.includes(model))) {
-      return false;
-    }
-    
-    // Check if provider generally supports negative prompts
-    return providersWithNegativePrompts.some(p => providerId.includes(p));
-  }
 
   /**
    * Log prompt details to file if enabled in provider config
@@ -764,5 +810,9 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     }
     
     console.log('🧹 AvatarController cleanup completed');
+  }
+
+  getDefaultAvatarPrompt(): string {
+    return this.promptComposer.getCharacterDescription();
   }
 }

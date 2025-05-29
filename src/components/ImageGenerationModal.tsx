@@ -34,11 +34,19 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   
   const [globalImageStyle, setGlobalImageStyle] = useState<string>('');
+  const [customAvatarPrompt, setCustomAvatarPrompt] = useState<string>('');
   
   const [generationMode, setGenerationMode] = useState<GenerationMode>('currentState');
   const [sceneDescription, setSceneDescription] = useState<string>('');
   const [fullCustomPromptText, setFullCustomPromptText] = useState<string>('');
   const [negativePrompt, setNegativePrompt] = useState<string>('');
+  
+  // Advanced prompt settings
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  const [customQualityKeywords, setCustomQualityKeywords] = useState<string>('');
+  const [customStyleKeywords, setCustomStyleKeywords] = useState<string>('');
+  const [customLightingKeywords, setCustomLightingKeywords] = useState<string>('');
+  const [customCompositionRules, setCustomCompositionRules] = useState<string>('');
 
   const [currentAvatarStateDisplay, setCurrentAvatarStateDisplay] = useState<string>('');
   const [previewPrompt, setPreviewPrompt] = useState<string>('');
@@ -46,6 +54,10 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGeneratedImage, setLastGeneratedImage] = useState<string>('');
   const [modalError, setModalError] = useState<string | null>(null);
+  
+  // Background removal state
+  const [removeBackground, setRemoveBackground] = useState<boolean>(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
 
   const appConfig = useAppStore(state => state.config);
 
@@ -58,7 +70,6 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      console.log("ImageGenerationModal: Opening, attempting to load settings.");
       setModalError(null);
       const loadTimeout = setTimeout(() => {
         if (isOpen && !activeProviderId) { // Check if still open and not loaded
@@ -77,13 +88,50 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
   }, [isOpen]); // Only re-run when isOpen changes
 
   const loadModalSettings = async () => {
-    console.log("ImageGenerationModal: loadModalSettings started.");
     try {
       const currentActiveProvider = imageManager.getActiveProvider();
       setActiveProviderId(currentActiveProvider?.id || '');
       setAvailableProviders(imageManager.getAvailableProviders() || []);
       
       setGlobalImageStyle(configManager.getImageStyle());
+      
+      // Load custom avatar prompt safely
+      const customPrompt = avatarController.getCustomAvatarPrompt();
+      const defaultPrompt = avatarController.getDefaultAvatarPrompt();
+      setCustomAvatarPrompt(customPrompt || defaultPrompt || '');
+      
+      // Load advanced prompt settings from storage if available
+      if (storage && typeof storage.getSetting === 'function') {
+        const savedQualityKeywords = await storage.getSetting<string>('imageModal.customQualityKeywords');
+        if (savedQualityKeywords) {
+          setCustomQualityKeywords(savedQualityKeywords);
+          avatarController.getPromptComposer().setCustomQualityKeywords(savedQualityKeywords);
+        }
+        const savedStyleKeywords = await storage.getSetting<string>('imageModal.customStyleKeywords');
+        if (savedStyleKeywords) {
+          setCustomStyleKeywords(savedStyleKeywords);
+          avatarController.getPromptComposer().setCustomStyleKeywords(savedStyleKeywords);
+        }
+        const savedLightingKeywords = await storage.getSetting<string>('imageModal.customLightingKeywords');
+        if (savedLightingKeywords) {
+          setCustomLightingKeywords(savedLightingKeywords);
+          avatarController.getPromptComposer().setCustomLightingKeywords(savedLightingKeywords);
+        }
+        const savedCompositionRules = await storage.getSetting<string>('imageModal.customCompositionRules');
+        if (savedCompositionRules) {
+          setCustomCompositionRules(savedCompositionRules);
+          avatarController.getPromptComposer().setCustomCompositionRules(savedCompositionRules);
+        }
+      } else {
+        // Load defaults from prompt composer to show current values
+        const composer = avatarController.getPromptComposer();
+        const currentComponents = composer.getCurrentPromptComponents();
+        setCustomQualityKeywords(currentComponents.quality || '');
+        setCustomStyleKeywords(currentComponents.style || '');
+        setCustomLightingKeywords(currentComponents.lighting || '');
+        setCustomCompositionRules(currentComponents.composition || '');
+      }
+      
       updateCurrentAvatarStateDisplay();
       
       setAvailableModels({}); 
@@ -118,13 +166,14 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         if (savedNegativePrompt) setNegativePrompt(savedNegativePrompt);
         const savedGenMode = await storage.getSetting<GenerationMode>('imageModal.generationMode');
         if (savedGenMode) setGenerationMode(savedGenMode);
+        const savedRemoveBackground = await storage.getSetting<boolean>('imageGen.removeBackground');
+        if (savedRemoveBackground !== undefined) setRemoveBackground(savedRemoveBackground);
       } else {
         // Fallback to composer's default negative prompt if storage isn't available
         setNegativePrompt(avatarController.getPromptComposer().getNegativePrompt({} as any));
       }
 
 
-      console.log("ImageGenerationModal: loadModalSettings finished successfully.");
     } catch (error) {
       console.error('ImageGenerationModal: Failed to load settings:', error);
       setModalError(`Error loading settings: ${error instanceof Error ? error.message : String(error)}`);
@@ -222,6 +271,54 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
     updatePreviewPrompt(); // Refresh preview
   };
 
+  const handleCustomAvatarPromptSave = async () => {
+    try {
+      await avatarController.setCustomAvatarPrompt(customAvatarPrompt || null);
+      console.log('💾 Custom avatar prompt saved:', customAvatarPrompt);
+      updatePreviewPrompt(); // Refresh preview
+    } catch (error) {
+      console.error('❌ Failed to save custom avatar prompt:', error);
+      setModalError(`Failed to save custom avatar prompt: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleResetAvatarPrompt = () => {
+    const defaultPrompt = avatarController.getDefaultAvatarPrompt();
+    setCustomAvatarPrompt(defaultPrompt);
+  };
+
+  const handleSaveAdvancedSettings = async () => {
+    if (!storage) return;
+    
+    try {
+      // Save to storage
+      await storage.setSetting('imageModal.customQualityKeywords', customQualityKeywords, 'string');
+      await storage.setSetting('imageModal.customStyleKeywords', customStyleKeywords, 'string');
+      await storage.setSetting('imageModal.customLightingKeywords', customLightingKeywords, 'string');
+      await storage.setSetting('imageModal.customCompositionRules', customCompositionRules, 'string');
+      
+      // Apply to prompt composer immediately
+      const composer = avatarController.getPromptComposer();
+      if (customQualityKeywords.trim()) composer.setCustomQualityKeywords(customQualityKeywords);
+      if (customStyleKeywords.trim()) composer.setCustomStyleKeywords(customStyleKeywords);
+      if (customLightingKeywords.trim()) composer.setCustomLightingKeywords(customLightingKeywords);
+      if (customCompositionRules.trim()) composer.setCustomCompositionRules(customCompositionRules);
+      
+      console.log('💾 Advanced prompt settings saved and applied');
+      updatePreviewPrompt(); // Refresh preview
+    } catch (error) {
+      console.error('❌ Failed to save advanced prompt settings:', error);
+      setModalError(`Failed to save advanced settings: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleResetAdvancedSettings = () => {
+    setCustomQualityKeywords('');
+    setCustomStyleKeywords('');
+    setCustomLightingKeywords('');
+    setCustomCompositionRules('');
+  };
+
 
   const handleGenerate = async () => {
     const imageGenProvider = imageManager.getActiveProvider();
@@ -286,12 +383,33 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         // unless we modify AvatarController to return it or store it.
         // For now, the preview gives an idea.
         // We'll use the generated image URL.
+        let finalImageUrl = '';
         if (tempImageUrl) {
-          setLastGeneratedImage(tempImageUrl);
+          finalImageUrl = tempImageUrl;
         } else if (!avatarController.getState().hasError) {
           // This case might happen if caching was hit and no new URL was set via the temp listener
-          setLastGeneratedImage(avatarController.getState().imageUrl || '');
+          finalImageUrl = avatarController.getState().imageUrl || '';
         }
+
+        // Apply background removal if requested
+        if (removeBackground && finalImageUrl && imageGenProvider.id === 'replicate') {
+          try {
+            setIsRemovingBackground(true);
+            const replicateProvider = imageGenProvider as any;
+            if (replicateProvider.removeBackground) {
+              finalImageUrl = await replicateProvider.removeBackground(finalImageUrl);
+              // Update avatar controller with the background-removed image
+              avatarController.setState({ imageUrl: finalImageUrl });
+            }
+          } catch (error) {
+            console.error('Background removal failed:', error);
+            setModalError(`Background removal failed: ${error instanceof Error ? error.message : String(error)}`);
+          } finally {
+            setIsRemovingBackground(false);
+          }
+        }
+
+        setLastGeneratedImage(finalImageUrl);
         // finalPromptForGeneration and finalNegativePrompt are handled by AvatarController in these modes.
         // So, we don't need to call imageGenProvider.generateImage directly here for these modes.
         setIsGenerating(false);
@@ -308,9 +426,27 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         guidance: modelConfig?.defaultGuidance || 7.5
       });
 
-      setLastGeneratedImage(response.imageUrl);
+      let finalImageUrl = response.imageUrl;
+
+      // Apply background removal if requested
+      if (removeBackground && finalImageUrl && imageGenProvider.id === 'replicate') {
+        try {
+          setIsRemovingBackground(true);
+          const replicateProvider = imageGenProvider as any;
+          if (replicateProvider.removeBackground) {
+            finalImageUrl = await replicateProvider.removeBackground(finalImageUrl);
+          }
+        } catch (error) {
+          console.error('Background removal failed:', error);
+          setModalError(`Background removal failed: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+          setIsRemovingBackground(false);
+        }
+      }
+
+      setLastGeneratedImage(finalImageUrl);
       // Optionally update avatar controller if this custom image should be the new avatar
-      // avatarController.setState({ imageUrl: response.imageUrl, visible: true });
+      // avatarController.setState({ imageUrl: finalImageUrl, visible: true });
 
     } catch (error) {
       console.error('Failed to generate image:', error);
@@ -328,10 +464,11 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
         storage.setSetting('imageModal.fullCustomPrompt', fullCustomPromptText, 'string');
         storage.setSetting('imageModal.negativePrompt', negativePrompt, 'string');
         storage.setSetting('imageModal.generationMode', generationMode, 'string');
+        storage.setSetting('imageGen.removeBackground', removeBackground, 'boolean');
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, storage, sceneDescription, fullCustomPromptText, negativePrompt, generationMode]);
+  }, [isOpen, storage, sceneDescription, fullCustomPromptText, negativePrompt, generationMode, removeBackground]);
 
 
   if (!isOpen) return null;
@@ -441,6 +578,125 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           </div>
 
           <div className={styles.section}>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Custom Avatar Description</h3>
+            <p className={styles.description} style={{ color: theme.colors.foreground, opacity: 0.8, marginBottom: '8px' }}>
+              Override the default avatar appearance for all generations. This affects both "/avatar generate" and scene descriptions.
+            </p>
+            <textarea
+              value={customAvatarPrompt}
+              onChange={(e) => setCustomAvatarPrompt(e.target.value)}
+              className={styles.textarea}
+              rows={4}
+              placeholder="Describe Claudia's appearance, clothing, and style..."
+              style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button onClick={handleCustomAvatarPromptSave} className={`${styles.button} ${styles.smallButton}`} style={{ backgroundColor: theme.colors.accent, color: theme.colors.background }}>
+                Save Custom Description
+              </button>
+              <button onClick={handleResetAvatarPrompt} className={`${styles.button} ${styles.smallButton}`} style={{ backgroundColor: theme.colors.secondary, color: theme.colors.background }}>
+                Reset to Default
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.section}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent, margin: 0 }}>Advanced Prompt Settings</h3>
+              <button 
+                onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                className={`${styles.button} ${styles.smallButton}`}
+                style={{ backgroundColor: theme.colors.secondary, color: theme.colors.background }}
+              >
+                {showAdvancedSettings ? 'Hide' : 'Show'} Advanced
+              </button>
+            </div>
+            
+            {showAdvancedSettings && (
+              <>
+                <p className={styles.description} style={{ color: theme.colors.foreground, opacity: 0.8, marginBottom: '12px' }}>
+                  Customize the technical aspects of image generation. These override the hardcoded prompt engineering defaults.
+                </p>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label className={styles.label}>Style Keywords:</label>
+                  <textarea
+                    value={customStyleKeywords}
+                    onChange={(e) => setCustomStyleKeywords(e.target.value)}
+                    className={styles.textarea}
+                    rows={2}
+                    placeholder="e.g., digital art style, character sprite, game character design"
+                    style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label className={styles.label}>Quality Keywords:</label>
+                  <textarea
+                    value={customQualityKeywords}
+                    onChange={(e) => setCustomQualityKeywords(e.target.value)}
+                    className={styles.textarea}
+                    rows={2}
+                    placeholder="e.g., high resolution, sharp details, masterpiece, clean lines"
+                    style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label className={styles.label}>Lighting Keywords:</label>
+                  <textarea
+                    value={customLightingKeywords}
+                    onChange={(e) => setCustomLightingKeywords(e.target.value)}
+                    className={styles.textarea}
+                    rows={2}
+                    placeholder="e.g., soft diffused light, studio lighting, natural lighting"
+                    style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+                  />
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label className={styles.label}>Camera & Composition Rules:</label>
+                  <textarea
+                    value={customCompositionRules}
+                    onChange={(e) => setCustomCompositionRules(e.target.value)}
+                    className={styles.textarea}
+                    rows={2}
+                    placeholder="e.g., full body view, character sprite perspective, vertical composition"
+                    style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+                  />
+                  <p className={styles.description} style={{ color: theme.colors.foreground, opacity: 0.6, fontSize: '12px', marginTop: '4px' }}>
+                    Default: "full body view, character sprite perspective, vertical composition showing complete figure from head to toe"
+                  </p>
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label className={styles.label}>Negative Prompt (Optional):</label>
+                  <textarea
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    className={styles.textarea}
+                    rows={3}
+                    placeholder="Things to avoid in the image (leave blank for modern models that don't need negative prompts)"
+                    style={{ backgroundColor: theme.colors.background, borderColor: theme.colors.foreground || '#333', color: theme.colors.foreground }}
+                  />
+                  <p className={styles.description} style={{ color: theme.colors.foreground, opacity: 0.6, fontSize: '12px', marginTop: '4px' }}>
+                    Most modern models (like minimax, flux, etc.) work better without negative prompts. Only use if your model specifically benefits from them.
+                  </p>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button onClick={handleSaveAdvancedSettings} className={`${styles.button} ${styles.smallButton}`} style={{ backgroundColor: theme.colors.accent, color: theme.colors.background }}>
+                    Save Advanced Settings
+                  </button>
+                  <button onClick={handleResetAdvancedSettings} className={`${styles.button} ${styles.smallButton}`} style={{ backgroundColor: theme.colors.secondary, color: theme.colors.background }}>
+                    Reset to Defaults
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className={styles.section}>
             <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Generation Mode</h3>
             <div className={styles.toggleGroup}>
               <label className={styles.radioLabel}><input type="radio" name="generationMode" value="currentState" checked={generationMode === 'currentState'} onChange={() => setGenerationMode('currentState')} /> From Current Avatar State</label>
@@ -511,14 +767,37 @@ export const ImageGenerationModal: React.FC<ImageGenerationModalProps> = ({
           )}
         </div>
 
+        {/* Background Removal Options */}
+        {activeProviderId === 'replicate' && (
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle} style={{ color: theme.colors.accent }}>Post-Processing</h3>
+            <div className={styles.toggleGroup}>
+              <label className={styles.checkboxLabel}>
+                <input 
+                  type="checkbox" 
+                  checked={removeBackground} 
+                  onChange={(e) => setRemoveBackground(e.target.checked)}
+                  style={{ marginRight: '8px' }}
+                />
+                Remove background automatically (lucataco/remove-bg)
+              </label>
+              {isRemovingBackground && (
+                <p style={{ color: theme.colors.secondary, fontSize: '0.9rem', marginTop: '4px' }}>
+                  🗑️ Removing background...
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className={styles.footer}>
           <button
             onClick={handleGenerate}
-            disabled={isGenerating || !activeProviderId}
+            disabled={isGenerating || isRemovingBackground || !activeProviderId}
             className={`${styles.button} ${styles.primaryButton}`}
-            style={{ backgroundColor: theme.colors.accent, borderColor: theme.colors.accent, color: theme.colors.background, opacity: (isGenerating || !activeProviderId) ? 0.5 : 1 }}
+            style={{ backgroundColor: theme.colors.accent, borderColor: theme.colors.accent, color: theme.colors.background, opacity: (isGenerating || isRemovingBackground || !activeProviderId) ? 0.5 : 1 }}
           >
-            {isGenerating ? 'Generating...' : 'Generate Image'}
+            {isGenerating ? 'Generating...' : isRemovingBackground ? 'Removing Background...' : 'Generate Image'}
           </button>
         </div>
       </div>

@@ -98,9 +98,9 @@ const fragmentShader = `
     col = applyPhosphorMask(col, curvedUv, phosphorIntensity);
     
     if (scanlineIntensity > 0.0 && scanlineDensity > 0.0) {
-      float actualScanlineDensity = scanlineDensity * (resolution.y / 1000.0); 
-      float scanlineEffect = sin(curvedUv.y * actualScanlineDensity - time * 5.0); 
-      scanlineEffect = smoothstep(0.0, 1.0, pow(scanlineEffect * 0.5 + 0.5, 2.5)); 
+      float actualScanlineDensity = scanlineDensity; 
+      float scanlineEffect = sin(curvedUv.y * actualScanlineDensity + time * 2.0); 
+      scanlineEffect = scanlineEffect * 0.5 + 0.5; // Normalize to 0-1
       col = mix(col, col * (1.0 - scanlineIntensity), scanlineEffect); 
     }
     
@@ -124,7 +124,7 @@ const fragmentShader = `
     
     if (vignetteStrength > 0.0) {
       float vignetteDist = distance(curvedUv, vec2(0.5));
-      float vig = smoothstep(vignetteSmoothness, 0.2, vignetteDist); 
+      float vig = smoothstep(vignetteSmoothness, 0.8, vignetteDist); 
       col *= mix(1.0, vig, vignetteStrength);
     }
     
@@ -260,6 +260,7 @@ export function CRTShaderWrapper({ children, enabled = true, themeObject }: CRTS
   const [isCapturing, setIsCapturing] = useState(false);
   const [renderError, setRenderError] = useState(false);
 
+
   const crtSettings = useMemo(() => {
     // Use theme object's CRT shader parameters if available, otherwise fall back to defaults
     if (themeObject?.effects?.crtShader) {
@@ -378,11 +379,30 @@ export function CRTShaderWrapper({ children, enabled = true, themeObject }: CRTS
           pointerEvents: 'none', 
         }}>
           <Canvas 
-            gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
-            dpr={window.devicePixelRatio || 1}
+            gl={{ 
+              antialias: false, 
+              alpha: true, 
+              powerPreference: "high-performance",
+              preserveDrawingBuffer: false,
+              failIfMajorPerformanceCaveat: false
+            }}
+            dpr={Math.min(window.devicePixelRatio || 1, 2)} // Limit DPR to reduce resource usage
             style={{ width: '100%', height: '100%' }}
             camera={{ position: [0, 0, 1], near: 0.1, far: 2 }}
-            flat frameloop="always"
+            flat frameloop="demand" // Change from "always" to "demand" to reduce resource usage
+            onCreated={({ gl }) => {
+              // Handle WebGL context loss more gracefully
+              const canvas = gl.domElement;
+              canvas.addEventListener('webglcontextlost', (e: Event) => {
+                console.warn('🚨 WebGL context lost, preventing default behavior');
+                e.preventDefault();
+                setRenderError(true);
+              });
+              canvas.addEventListener('webglcontextrestored', () => {
+                console.log('✅ WebGL context restored');
+                setRenderError(false);
+              });
+            }}
           >
             <CRTMesh 
               texture={currentTextureForMesh} 
