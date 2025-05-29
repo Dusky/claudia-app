@@ -26,6 +26,18 @@ import { toolsCommand } from './builtin/tools';
 import { mcpCommand } from './builtin/mcp';
 import { crtCommand } from './builtin/crt';
 import { shortcutsCommand } from './builtin/shortcuts';
+import { 
+  psCommand, 
+  topCommand, 
+  uptimeCommand, 
+  whoamiCommand, 
+  pwdCommand, 
+  lsCommand, 
+  freeCommand, 
+  unameCommand,
+  catCommand,
+  dateCommand
+} from './builtin/os-commands';
 
 import {
   personalityCommand, 
@@ -89,6 +101,18 @@ export function createCommandRegistry(): CommandRegistryImpl {
     mcpCommand,
     crtCommand,
     shortcutsCommand,
+    
+    // OS-style commands
+    psCommand,
+    topCommand,
+    uptimeCommand,
+    whoamiCommand,
+    pwdCommand,
+    lsCommand,
+    freeCommand,
+    unameCommand,
+    catCommand,
+    dateCommand,
   ];
 
   commandsToRegister.forEach(command => {
