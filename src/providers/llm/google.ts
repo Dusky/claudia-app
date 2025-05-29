@@ -109,6 +109,10 @@ export class GoogleProvider implements LLMProvider {
           throw new Error(`Google API error (${status}): ${data?.error?.message || 'Unknown error'}`);
         }
       } else if (error.request) {
+        // Check if this is a CORS error
+        if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
+          throw new Error('CORS Error: Google API calls must be made from a backend server. This is a browser limitation for security.');
+        }
         throw new Error('No response from Google API. Please check your internet connection.');
       } else {
         throw new Error(`Google API configuration error: ${error.message}`);
@@ -229,6 +233,11 @@ export class GoogleProvider implements LLMProvider {
           throw new Error(`Google API error (${status}): ${data?.error?.message || 'Unknown error'}`);
         }
       } else {
+        // Check if this is a CORS error
+        if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin') || 
+            error.message.includes('No response body reader')) {
+          throw new Error('CORS Error: Google API calls must be made from a backend server. This is a browser limitation for security.');
+        }
         throw new Error(`Google streaming API error: ${error.message}`);
       }
     }
@@ -254,6 +263,17 @@ export class GoogleProvider implements LLMProvider {
   async listModels(): Promise<Array<{ id: string; name: string; description: string }>> {
     if (!this.isConfigured()) {
       throw new Error('Google provider not configured');
+    }
+
+    // CORS Fix: Google's API doesn't allow direct browser access
+    // Skip API call in browser environment and return static models
+    if (typeof window !== 'undefined') {
+      console.warn('Google models API not available in browser due to CORS. Using static model list.');
+      return [
+        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast and efficient model' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Advanced reasoning model' },
+        { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro', description: 'Production-ready model' }
+      ];
     }
 
     try {

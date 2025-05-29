@@ -331,27 +331,8 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
     Object.keys(currentParamsForHash).forEach(key => (currentParamsForHash as any)[key] === undefined && delete (currentParamsForHash as any)[key]);
     const promptHash = this.generatePromptHash(currentParamsForHash as InternalAvatarGenerationParams & { prompt?: string, negativePrompt?: string });
     
-    let cachedImage = null;
-    if (this.database && typeof this.database.getCachedAvatar === 'function') {
-      try {
-        cachedImage = await this.database.getCachedAvatar(promptHash);
-      } catch (dbError) {
-        console.error("Error fetching cached avatar:", dbError);
-      }
-      if (cachedImage) {
-        // Cleanup previous image URL if it's a blob URL
-        if (this.previousImageUrl && this.previousImageUrl.startsWith('blob:')) {
-          memoryManager.revokeObjectURL(this.previousImageUrl);
-        }
-        
-        this.state.imageUrl = cachedImage.imageUrl;
-        this.previousImageUrl = cachedImage.imageUrl;
-        this.notifyStateChange(); 
-        return;
-      }
-    } else {
-      console.warn('AvatarController: this.database.getCachedAvatar is not a function or database not available. Skipping cache check.');
-    }
+    // Skip caching for TOS compliance - provider URLs should not be cached
+    console.log('🚫 Avatar caching disabled to comply with provider Terms of Service');
 
     this.state.isGenerating = true;
     this.state.hasError = false;
@@ -383,15 +364,8 @@ Output ONLY the generated image prompt. Do not include any preambles, apologies,
       // Log prompt to file if enabled
       await this.logPromptToFile(finalImagePrompt, negativePrompt, response.imageUrl, params, promptComponents);
       
-      if (this.database && typeof this.database.cacheAvatarImage === 'function') {
-        try {
-          await this.database.cacheAvatarImage(promptHash, response.imageUrl, params as unknown as Record<string, unknown>);
-        } catch (dbError) {
-          console.error("Error caching avatar image:", dbError);
-        }
-      } else {
-        console.warn('AvatarController: this.database.cacheAvatarImage is not a function or database not available. Skipping caching.');
-      }
+      // Skip caching to comply with provider Terms of Service - URLs should not be stored
+      console.log('🚫 Avatar image caching disabled for TOS compliance');
       // Cleanup previous image URL if it's a blob URL
       if (this.previousImageUrl && this.previousImageUrl.startsWith('blob:')) {
         memoryManager.revokeObjectURL(this.previousImageUrl);

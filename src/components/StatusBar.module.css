@@ -1,21 +1,21 @@
+/* DEPRECATED: This file is no longer used. StatusBar now uses StatusBar/StatusBar.module.css */
+
 .statusBar {
-  /* Remove fixed positioning - now part of flex layout */
+  /* This class is deprecated - use the new StatusBar directory structure */
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 15px; /* Reduced padding for a slimmer bar */
-  font-size: 0.8em; /* Slightly smaller font */
-  height: 28px; /* Fixed height for the bar */
+  padding: 5px 15px;
+  font-size: 0.8em;
+  height: 28px;
   box-sizing: border-box;
   border-top: 1px solid var(--border-color, #555);
   background-color: var(--bg-color, #1e1e1e);
   color: var(--fg-color, #cccccc);
   font-family: var(--font-family, "Courier New", monospace);
-  z-index: 100; /* Ensure it's above terminal content but below modals */
-  flex-shrink: 0; /* Prevent the status bar from shrinking */
-  /* Optional: Add a subtle backdrop filter if supported and desired */
-  /* backdrop-filter: blur(5px); */
+  z-index: 100;
+  flex-shrink: 0;
 }
 
 .statusBarSection {

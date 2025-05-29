@@ -11,7 +11,7 @@ const availablePoses: AvatarPose[] = ['standing', 'sitting', 'leaning', 'crossed
 
 export const avatarCommand: Command = {
   name: 'avatar',
-  description: 'Control avatar appearance and behavior',
+  description: 'Configure visual interface subsystem',
   usage: '/avatar <show|hide|expression|position|action|pose> [value]',
   aliases: ['av'],
   
@@ -25,7 +25,7 @@ export const avatarCommand: Command = {
       lines.push({
         id: `avatar-status-${timestamp}-header`,
         type: 'system',
-        content: 'Avatar Status:', // Emoji removed
+        content: 'Visual Interface Subsystem Status:',
         timestamp, user: 'claudia'
       });
       

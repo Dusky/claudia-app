@@ -283,7 +283,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             expression: newAvatarState.expression,
             pose: newAvatarState.pose,
             action: newAvatarState.action,
-            imageUrl: newAvatarState.imageUrl,
+            // Exclude imageUrl to avoid caching provider URLs that violate TOS
             lastUpdate: newAvatarState.lastUpdate
           }));
           return { avatarState: newAvatarState };
@@ -295,7 +295,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             expression: newAvatarState.expression,
             pose: newAvatarState.pose,
             action: newAvatarState.action,
-            imageUrl: newAvatarState.imageUrl,
+            // Exclude imageUrl to avoid caching provider URLs that violate TOS
             lastUpdate: newAvatarState.lastUpdate
           }));
           return { avatarState: newAvatarState };
@@ -310,7 +310,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       expression: state.expression,
       pose: state.pose,
       action: state.action,
-      imageUrl: state.imageUrl,
+      // Exclude imageUrl to avoid caching provider URLs that violate TOS
       lastUpdate: state.lastUpdate
     }));
   },
@@ -327,11 +327,11 @@ export const useAppStore = create<AppState>((set, get) => ({
             expression: savedState.expression || 'neutral',
             pose: savedState.pose || 'standing',
             action: savedState.action || 'idle',
-            imageUrl: savedState.imageUrl,
+            // Don't restore imageUrl to avoid using cached provider URLs that violate TOS
             lastUpdate: savedState.lastUpdate || new Date().toISOString()
           }
         }));
-        console.log('✅ Avatar state restored from localStorage');
+        console.log('✅ Avatar state restored from localStorage (without imageUrl)');
       }
     } catch (error) {
       console.warn('Failed to restore avatar state:', error);

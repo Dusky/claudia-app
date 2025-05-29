@@ -27,7 +27,8 @@ export interface AppSetting {
 
 export interface CachedAvatarImage {
   promptHash: string;
-  imageUrl: string;
+  imageUrl: string; // This will be the blob URL for cached images
+  originalUrl?: string; // Keep track of the original URL for reference
   localPath?: string;
   parameters: Record<string, unknown>; 
   createdAt: string;
@@ -93,6 +94,7 @@ export interface StorageService {
   ): Promise<void>;
   getCachedAvatar(promptHash: string): Promise<CachedAvatarImage | null>;
   cleanupOldAvatarCache(maxAgeDays?: number): Promise<number>;
+  cleanupExpiredAvatarCache?(): Promise<number>;
   clearAvatarCache?(): Promise<void>; 
 
   // Memory/RAG methods

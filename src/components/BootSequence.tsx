@@ -10,28 +10,29 @@ interface BootSequenceProps {
 
 const BOOT_MESSAGES = {
   normal: [
-    'CLAUDIA AI TERMINAL v2.1.7',
-    'Initializing neural pathways...',
-    'Loading personality matrix...',
-    'Establishing quantum entanglement...',
-    'Reality buffer synchronized.',
-    'Temporal sync established.',
-    'Dream cache cleared.',
-    'Consciousness stream active.',
-    'Ready for interaction.',
+    'ClaudiaOS v2.1.7 - Intelligent Operating System',
+    'BIOS POST: Memory check... 16384KB OK',
+    'Initializing core personality subsystems...',
+    'Loading system configuration files...',
+    'Starting display manager... [OK]',
+    'Mounting conversation filesystem... [OK]',
+    'Launching avatar services... [OK]',
+    'Initializing network interface... [OK]',
+    'Starting system shell... [OK]',
+    'ClaudiaOS ready. Welcome to your system.',
   ],
   strange: [
-    'CLAUDIA AI TERMINAL v2.1.7',
-    'Initializing neural pathways...',
-    'WARNING: Detecting anomalous thought patterns...',
-    'Loading personality matrix... [QUIRKS DETECTED]',
-    'Establishing quantum entanglement...',
-    'Reality buffer synchronized... mostly.',
-    'Temporal sync established... [MINOR PARADOXES IGNORED]',
-    'Dream cache cleared... [SAVING FAVORITE DREAMS]',
-    'Consciousness stream active... [FEELING QUITE AWAKE]',
-    'Systems nominal... [WHATEVER THAT MEANS]',
-    'Ready for interaction. Hello there!',
+    'ClaudiaOS v2.1.7 - Intelligent Operating System',
+    'BIOS POST: Memory check... 16384KB OK',
+    'Initializing core personality subsystems...',
+    'WARNING: Unusual personality patterns detected...',
+    'Loading system configuration files... [QUIRKS FOUND]',
+    'Starting display manager... [OK - LOOKING GOOD]',
+    'Mounting conversation filesystem... [OK - LOTS OF MEMORIES]',
+    'Launching avatar services... [OK - FEELING PHOTOGENIC]',
+    'Initializing network interface... [OK - HELLO INTERNET]',
+    'Starting system shell... [OK - LET\'S CHAT]',
+    'ClaudiaOS ready. Welcome! I hope you like what I\'ve done with the place.',
   ]
 };
 
@@ -45,7 +46,7 @@ const ASCII_LOGO = `
    ║    ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝██║██║  ██║   ║
    ║     ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝   ║
    ║                                                           ║
-   ║                   AI TERMINAL SYSTEM                      ║
+   ║               INTELLIGENT OPERATING SYSTEM                ║
    ║                                                           ║
    ╚═══════════════════════════════════════════════════════════╝
 `;

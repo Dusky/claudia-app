@@ -1,28 +1,30 @@
 import React from 'react';
+import type { TerminalTheme } from './themes';
 
 interface ContentRendererProps {
   content: string;
+  theme: TerminalTheme;
   className?: string;
   style?: React.CSSProperties;
 }
 
 // Parse content with markdown and HTML support
-const parseContent = (content: string): React.ReactNode => {
+const parseContent = (content: string, theme: TerminalTheme): React.ReactNode => {
   // First, split content into paragraphs and handle them separately
   const paragraphs = content.split(/\n\s*\n/).filter(p => p.trim());
   
   if (paragraphs.length > 1) {
     return paragraphs.map((paragraph, paragraphIndex) => (
-      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? '16px' : '0' }}>
-        {parseContentSegment(paragraph.trim())}
+      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? theme.content.spacing.paragraphMargin : '0' }}>
+        {parseContentSegment(paragraph.trim(), theme)}
       </div>
     ));
   }
   
-  return parseContentSegment(content);
+  return parseContentSegment(content, theme);
 };
 
-const parseContentSegment = (content: string): React.ReactNode => {
+const parseContentSegment = (content: string, theme: TerminalTheme): React.ReactNode => {
   const elements: React.ReactNode[] = [];
   let remaining = content;
   let index = 0;
@@ -65,7 +67,7 @@ const parseContentSegment = (content: string): React.ReactNode => {
       // and the content doesn't look like code/identifiers
       const emphasisMatch = remaining.match(/^_([^_]+)_/);
       if (emphasisMatch && !/\w_\w/.test(remaining.slice(0, 10))) {
-        elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: 0.8 }}>{emphasisMatch[1]}</em>);
+        elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: theme.content.emphasis.opacity }}>{emphasisMatch[1]}</em>);
         remaining = remaining.slice(emphasisMatch[0].length);
         matched = true;
       }
@@ -80,13 +82,13 @@ const parseContentSegment = (content: string): React.ReactNode => {
             key={index++}
             style={{ 
               fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
-              backgroundColor: 'rgba(0, 255, 255, 0.08)',
-              color: 'rgba(0, 255, 255, 0.9)',
-              padding: '3px 6px',
-              borderRadius: '3px',
+              backgroundColor: theme.content.codeBlock.background,
+              color: theme.content.codeBlock.color,
+              padding: theme.content.codeBlock.padding,
+              borderRadius: theme.content.codeBlock.borderRadius,
               fontSize: '0.9em',
-              border: '1px solid rgba(0, 255, 255, 0.2)',
-              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
+              border: theme.content.codeBlock.border,
+              textShadow: theme.content.codeBlock.textShadow
             }}
           >
             {codeMatch[1]}
@@ -103,16 +105,16 @@ const parseContentSegment = (content: string): React.ReactNode => {
       if (spanMatch) {
         const [fullMatch, colorClass, text] = spanMatch;
         const colorMap: Record<string, string> = {
-          'red': '#ff6b6b',
-          'green': '#51cf66',
-          'blue': '#74c0fc',
-          'yellow': '#ffd43b',
-          'cyan': '#66d9ef',
-          'magenta': '#ff79c6',
-          'orange': '#ff9f43',
-          'purple': '#b197fc',
-          'gray': '#868e96',
-          'grey': '#868e96',
+          'red': theme.content.colors.red,
+          'green': theme.content.colors.green,
+          'blue': theme.content.colors.blue,
+          'yellow': theme.content.colors.yellow,
+          'cyan': theme.content.colors.cyan,
+          'magenta': theme.content.colors.magenta,
+          'orange': theme.content.colors.orange,
+          'purple': theme.content.colors.purple,
+          'gray': theme.content.colors.gray,
+          'grey': theme.content.colors.gray,
           'accent': 'var(--accent-color, #00ff00)',
           'success': 'var(--success-color, #00ff00)',
           'warning': 'var(--warning-color, #ffff00)', 
@@ -171,13 +173,13 @@ const parseContentSegment = (content: string): React.ReactNode => {
             key={index++}
             style={{ 
               fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
-              backgroundColor: 'rgba(0, 255, 255, 0.08)',
-              color: 'rgba(0, 255, 255, 0.9)',
-              padding: '3px 6px',
-              borderRadius: '3px',
+              backgroundColor: theme.content.codeBlock.background,
+              color: theme.content.codeBlock.color,
+              padding: theme.content.codeBlock.padding,
+              borderRadius: theme.content.codeBlock.borderRadius,
               fontSize: '0.9em',
-              border: '1px solid rgba(0, 255, 255, 0.2)',
-              textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
+              border: theme.content.codeBlock.border,
+              textShadow: theme.content.codeBlock.textShadow
             }}
           >
             {codeMatch[1]}
@@ -207,8 +209,8 @@ const parseContentSegment = (content: string): React.ReactNode => {
           <span 
             key={index++}
             style={{ 
-              color: '#66ccff',
-              textDecoration: 'underline',
+              color: theme.content.link.color,
+              textDecoration: theme.content.link.textDecoration,
               cursor: 'default'
             }}
             title={url}
@@ -238,8 +240,8 @@ const parseContentSegment = (content: string): React.ReactNode => {
   return elements;
 };
 
-export const ContentRenderer: React.FC<ContentRendererProps> = ({ content, className, style }) => {
-  const renderedContent = parseContent(content);
+export const ContentRenderer: React.FC<ContentRendererProps> = ({ content, theme, className, style }) => {
+  const renderedContent = parseContent(content, theme);
   
   return (
     <span className={className} style={style}>

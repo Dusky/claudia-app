@@ -1,18 +1,20 @@
 import React from 'react';
 import { ContentSanitizer, isContentSafe } from '../utils/contentSanitizer';
+import type { TerminalTheme } from './themes';
 
 interface SecureContentRendererProps {
   content: string;
+  theme: TerminalTheme;
   className?: string;
   style?: React.CSSProperties;
 }
 
 // Security-focused content parser that sanitizes all input
-const parseSecureContent = (content: string): React.ReactNode => {
+const parseSecureContent = (content: string, theme: TerminalTheme): React.ReactNode => {
   // First, check if content is fundamentally safe
   if (!isContentSafe(content)) {
     console.warn('Potentially unsafe content detected and blocked');
-    return <span style={{ color: '#ff6b6b' }}>[Content blocked for security]</span>;
+    return <span style={{ color: theme.content.colors.red }}>[Content blocked for security]</span>;
   }
 
   // Sanitize the content
@@ -23,16 +25,16 @@ const parseSecureContent = (content: string): React.ReactNode => {
   
   if (paragraphs.length > 1) {
     return paragraphs.map((paragraph, paragraphIndex) => (
-      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? '16px' : '0' }}>
-        {parseSecureContentSegment(paragraph.trim())}
+      <div key={paragraphIndex} style={{ marginBottom: paragraphIndex < paragraphs.length - 1 ? theme.content.spacing.paragraphMargin : '0' }}>
+        {parseSecureContentSegment(paragraph.trim(), theme)}
       </div>
     ));
   }
   
-  return parseSecureContentSegment(sanitizedContent);
+  return parseSecureContentSegment(sanitizedContent, theme);
 };
 
-const parseSecureContentSegment = (content: string): React.ReactNode => {
+const parseSecureContentSegment = (content: string, theme: TerminalTheme): React.ReactNode => {
   const elements: React.ReactNode[] = [];
   let remaining = content;
   let index = 0;
@@ -83,7 +85,7 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
       if (emphasisMatch && !/\w_\w/.test(remaining.slice(0, 10))) {
         const text = ContentSanitizer.escapeHtml(emphasisMatch[1]);
         if (ContentSanitizer.validateTextContent(text)) {
-          elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: 0.8 }}>{text}</em>);
+          elements.push(<em key={index++} style={{ fontStyle: 'italic', opacity: theme.content.emphasis.opacity }}>{text}</em>);
           remaining = remaining.slice(emphasisMatch[0].length);
           matched = true;
         }
@@ -101,13 +103,13 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
               key={index++}
               style={{ 
                 fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
-                backgroundColor: 'rgba(0, 255, 255, 0.08)',
-                color: 'rgba(0, 255, 255, 0.9)',
-                padding: '3px 6px',
-                borderRadius: '3px',
+                backgroundColor: theme.content.codeBlock.background,
+                color: theme.content.codeBlock.color,
+                padding: theme.content.codeBlock.padding,
+                borderRadius: theme.content.codeBlock.borderRadius,
                 fontSize: '0.9em',
-                border: '1px solid rgba(0, 255, 255, 0.2)',
-                textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
+                border: theme.content.codeBlock.border,
+                textShadow: theme.content.codeBlock.textShadow
               }}
             >
               {text}
@@ -144,20 +146,20 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
               // Secure color span handling
               const colorClass = sanitizedAttributes.class;
               const colorMap: Record<string, string> = {
-                'color-red': '#ff6b6b',
-                'color-green': '#51cf66',
-                'color-blue': '#74c0fc',
-                'color-yellow': '#ffd43b',
-                'color-cyan': '#66d9ef',
-                'color-magenta': '#ff79c6',
-                'color-orange': '#ff9f43',
-                'color-purple': '#b197fc',
-                'color-gray': '#868e96',
-                'color-grey': '#868e96',
-                'color-accent': 'var(--accent-color, #00ff00)',
-                'color-success': 'var(--success-color, #00ff00)',
-                'color-warning': 'var(--warning-color, #ffff00)', 
-                'color-error': 'var(--error-color, #ff0000)'
+                'color-red': theme.content.colors.red,
+                'color-green': theme.content.colors.green,
+                'color-blue': theme.content.colors.blue,
+                'color-yellow': theme.content.colors.yellow,
+                'color-cyan': theme.content.colors.cyan,
+                'color-magenta': theme.content.colors.magenta,
+                'color-orange': theme.content.colors.orange,
+                'color-purple': theme.content.colors.purple,
+                'color-gray': theme.content.colors.gray,
+                'color-grey': theme.content.colors.gray,
+                'color-accent': theme.colors.accent,
+                'color-success': theme.colors.success,
+                'color-warning': theme.colors.warning, 
+                'color-error': theme.colors.error
               };
               
               elements.push(
@@ -180,13 +182,13 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
                   key={index++}
                   style={{ 
                     fontFamily: 'JetBrains Mono, Monaco, Consolas, "Courier New", monospace',
-                    backgroundColor: 'rgba(0, 255, 255, 0.08)',
-                    color: 'rgba(0, 255, 255, 0.9)',
-                    padding: '3px 6px',
-                    borderRadius: '3px',
+                    backgroundColor: theme.content.codeBlock.background,
+                    color: theme.content.codeBlock.color,
+                    padding: theme.content.codeBlock.padding,
+                    borderRadius: theme.content.codeBlock.borderRadius,
                     fontSize: '0.9em',
-                    border: '1px solid rgba(0, 255, 255, 0.2)',
-                    textShadow: '0 0 2px rgba(0, 255, 255, 0.3)'
+                    border: theme.content.codeBlock.border,
+                    textShadow: theme.content.codeBlock.textShadow
                   }}
                 >
                   {sanitizedInnerText}
@@ -230,8 +232,8 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
             <span 
               key={index++}
               style={{ 
-                color: '#66ccff',
-                textDecoration: 'underline',
+                color: theme.content.link.color,
+                textDecoration: theme.content.link.textDecoration,
                 cursor: 'default'
               }}
               title={sanitizedUrl}
@@ -266,6 +268,7 @@ const parseSecureContentSegment = (content: string): React.ReactNode => {
 
 export const SecureContentRenderer: React.FC<SecureContentRendererProps> = ({ 
   content, 
+  theme,
   className, 
   style 
 }) => {
@@ -280,7 +283,7 @@ export const SecureContentRenderer: React.FC<SecureContentRendererProps> = ({
     ? content.substring(0, maxLength) + '... [truncated for security]'
     : content;
 
-  const renderedContent = parseSecureContent(truncatedContent);
+  const renderedContent = parseSecureContent(truncatedContent, theme);
   
   return (
     <span className={className} style={style}>

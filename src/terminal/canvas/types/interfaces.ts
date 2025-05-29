@@ -27,6 +27,7 @@ export interface CRTConfig {
   // Animation settings
   typewriterSpeed: number; // characters per second
   cursorBlinkRate: number; // blinks per second
+  cursorBlink: boolean;
 }
 
 export interface FontMetrics {
@@ -39,6 +40,7 @@ export interface FontMetrics {
 
 export interface TerminalChar {
   char: string;
+  character: string; // alias for compatibility
   x: number;
   y: number;
   timestamp: number; // for phosphor decay
@@ -78,3 +80,25 @@ export type AnimationCallback = (deltaTime: number) => void;
 
 // Effect render function type
 export type EffectRenderer = (ctx: CanvasRenderingContext2D, config: CRTConfig) => void;
+
+// Additional types needed for export
+export interface PhosphorPixel {
+  x: number;
+  y: number;
+  brightness: number;
+  timestamp: number;
+}
+
+export interface PerformanceMetrics {
+  fps: number;
+  renderTime: number;
+  memoryUsage: number;
+  frameDrops: number;
+}
+
+export interface OptimizationSuggestion {
+  type: 'disable_effect' | 'reduce_quality' | 'optimize_rendering';
+  target: string;
+  reason: string;
+  impact: 'low' | 'medium' | 'high';
+}

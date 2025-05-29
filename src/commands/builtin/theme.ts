@@ -4,7 +4,7 @@ import { getAllThemes } from '../../terminal/themes';
 
 export const themeCommand: Command = {
   name: 'theme',
-  description: 'Change the terminal theme',
+  description: 'Switch display subsystem configuration',
   usage: '/theme <theme-name>',
   aliases: ['t'],
   
@@ -16,14 +16,14 @@ export const themeCommand: Command = {
       lines.push({
         id: `theme-${timestamp}-1`,
         type: 'output',
-        content: `Info: Current theme: ${context.currentTheme}`,
+        content: `System Status: Active display configuration: ${context.currentTheme}`,
         timestamp, user: 'claudia'
       });
       
       lines.push({
         id: `theme-${timestamp}-2`,
         type: 'output',
-        content: 'Info: Use /themes to see available themes.',
+        content: 'System Info: Use /themes to list available display configurations.',
         timestamp, user: 'claudia'
       });
       
@@ -40,14 +40,14 @@ export const themeCommand: Command = {
       lines.push({
         id: `theme-${timestamp}`,
         type: 'output',
-        content: `Info: Theme changed to: ${foundTheme.name} (${foundTheme.era})`, // Emoji removed
+        content: `System: Display subsystem reconfigured to ${foundTheme.name} (${foundTheme.era})`,
         timestamp, user: 'claudia'
       });
     } else {
       lines.push({
         id: `theme-${timestamp}-1`,
         type: 'error',
-        content: `Error: Unknown theme: ${themeName}`, // Emoji removed
+        content: `System Error: Unknown display configuration: ${themeName}`,
         timestamp, user: 'claudia'
       });
       

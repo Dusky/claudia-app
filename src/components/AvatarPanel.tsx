@@ -20,6 +20,7 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
   const memoryManager = useMemoryManager('AvatarPanel');
   const previousImageUrl = useRef<string | null>(null);
 
+
   // Cleanup previous image URL when state changes
   useEffect(() => {
     if (previousImageUrl.current && previousImageUrl.current !== state.imageUrl) {
@@ -41,11 +42,13 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
   }, [memoryManager]);
 
   const handleImageLoad = () => {
+    console.log('🖼️ Avatar image loaded successfully:', state.imageUrl?.substring(0, 50) + '...');
     setIsImageLoaded(true);
     setHasImageError(false);
   };
 
   const handleImageError = () => {
+    console.error('❌ Avatar image failed to load:', state.imageUrl);
     setHasImageError(true);
     setIsImageLoaded(false);
   };
@@ -131,6 +134,7 @@ export const AvatarPanel: React.FC<AvatarPanelProps> = ({
             alt={`Claudia avatar - ${state.expression} expression`}
             onLoad={handleImageLoad}
             onError={handleImageError}
+            crossOrigin="anonymous"
             className={`${styles.avatarImage} ${isImageLoaded && !state.isGenerating ? styles.breathing : ''}`}
             style={{
               opacity: isImageLoaded ? (state.visible ? state.opacity : 0.3) : 0,

@@ -151,7 +151,7 @@ export class ContentSanitizer {
     for (const [attrName, attrValue] of Object.entries(attributes)) {
       const lowerAttrName = attrName.toLowerCase();
       
-      if (!allowedAttrs.includes(lowerAttrName as any)) {
+      if (!(allowedAttrs as readonly string[]).includes(lowerAttrName)) {
         continue; // Skip disallowed attributes
       }
       

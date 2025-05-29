@@ -5,7 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 const AvatarPanel = lazy(() => import('./components/AvatarPanel').then(module => ({ default: module.AvatarPanel })));
 const ImageGenerationModal = lazy(() => import('./components/ImageGenerationModal').then(module => ({ default: module.ImageGenerationModal })));
 const PersonalityModal = lazy(() => import('./components/PersonalityModal').then(module => ({ default: module.PersonalityModal })));
-const AIOptionsModal = lazy(() => import('./components/AIOptionsModal').then(module => ({ default: module.AIOptionsModal })));
+const AIOptionsModal = lazy(() => import('./components/AIOptionsModal'));
 const AppSettingsModal = lazy(() => import('./components/AppSettingsModal').then(module => ({ default: module.AppSettingsModal })));
 const MCPPermissionsModal = lazy(() => import('./components/MCPPermissionsModal').then(module => ({ default: module.MCPPermissionsModal })));
 
@@ -14,9 +14,9 @@ import { ConfigModal } from './components/ConfigModal';
 import type { ConfigSettings } from './store/appStore';
 import { HelpModal } from './components/HelpModal';
 import { BootAnimation } from './components/BootAnimation';
-import { StatusBar } from './components/StatusBar';
+import { StatusBar } from './components/StatusBar/StatusBar';
 import { TopBar } from './components/TopBar';
-// import { CRTShaderWrapper } from './components/CRTShader'; // Removed CRTShaderWrapper
+import { CRTShaderWrapper } from './components/CRTShader';
 import { getTheme, type TerminalTheme } from './terminal/themes';
 import { LLMProviderManager } from './providers/llm/manager';
 import { ImageProviderManager } from './providers/image/manager';
@@ -209,6 +209,24 @@ function App() {
 
   const themeObject: TerminalTheme = getTheme(currentTheme);
   
+  // Centralized effect control logic
+  const shouldUseWebGLEffects = useMemo(() => {
+    // Check if WebGL effects are enabled in config
+    const configEnabled = config.enableCRTEffect !== false;
+    
+    // Check if theme supports CRT shader effects
+    const themeSupportsWebGL = themeObject.effects.crt && !!themeObject.effects.crtShader;
+    
+    return configEnabled && themeSupportsWebGL;
+  }, [config.enableCRTEffect, themeObject.effects.crt, themeObject.effects.crtShader]);
+  
+  // CSS overlays are used when:
+  // 1. WebGL is disabled, OR
+  // 2. Theme has overlay effects defined
+  const shouldUseCSSOverlays = useMemo(() => {
+    return !shouldUseWebGLEffects && !!themeObject.overlayClassName;
+  }, [shouldUseWebGLEffects, themeObject.overlayClassName]);
+  
   const addLineWithDelay = (
     storeAddLinesFunc: (line: TerminalLine | TerminalLine[]) => void,
     line: TerminalLine,
@@ -227,7 +245,9 @@ function App() {
   }, [imageModalOpen]);
 
 
-  const handleThemeStatusClick = () => handleInput("/themes");
+  const handleThemeChange = (themeId: string) => {
+    handleInput(`/theme ${themeId}`);
+  };
 
   const handleConversationSwitch = async (conversationId: string) => {
     try {
@@ -302,8 +322,8 @@ function App() {
   const handleBootSequenceComplete = async () => {
     setShowBootSequence(false);
     const bootLines: TerminalLine[] = [
-      { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-      { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-8', type: 'output', content: 'ClaudiaOS initialization complete. System ready for user interaction.', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-9', type: 'output', content: 'Type /help for system documentation, or begin natural language interaction.', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
     ];
     for (const line of bootLines) {
       await addLineWithDelay(addLines, line, 500);
@@ -311,7 +331,7 @@ function App() {
     if (imageManager.getActiveProvider() && avatarController) {
       const currentState = avatarController.getState();
       if (!currentState.imageUrl) {
-        console.log('🎬 Boot sequence complete - generating welcome avatar');
+        console.log('🎬 ClaudiaOS boot complete - initializing visual interface subsystem');
         await avatarController.executeCommands([{
           show: true, expression: 'happy', action: 'wave', pose: 'standing'
         }]);
@@ -327,8 +347,8 @@ function App() {
   const handleBootSequenceSkip = () => {
     setShowBootSequence(false);
     const bootLines: TerminalLine[] = [
-      { id: 'boot-8', type: 'output', content: 'Hey there! I\'m Claudia, your AI companion. Ready to assist!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
-      { id: 'boot-9', type: 'output', content: 'Type /help to see available commands, or just start chatting!', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-8', type: 'output', content: 'ClaudiaOS initialization complete. System ready for user interaction.', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
+      { id: 'boot-9', type: 'output', content: 'Type /help for system documentation, or begin natural language interaction.', timestamp: new Date().toISOString(), user: 'claudia', isChatResponse: true },
     ];
     addLines(bootLines);
   };
@@ -473,7 +493,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
 
   return (
     <ErrorBoundary>
-      {/* <CRTShaderWrapper enabled={config.enableCRTEffect !== false} theme={currentTheme}> */}
+      <CRTShaderWrapper enabled={shouldUseWebGLEffects} themeObject={themeObject}>
         <div className="App">
           {showBootSequence && (!shouldSkipBoot || forceShowBoot) && (
             <BootAnimation
@@ -503,7 +523,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
           
           {!showBootSequence && (
             <>
-              {themeObject.overlayClassName && (
+              {shouldUseCSSOverlays && (
                 <div className={`shader-overlay ${themeObject.overlayClassName}`}></div>
               )}
               <TopBar
@@ -529,7 +549,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
                 theme={themeObject} currentTheme={currentTheme}
                 llmManager={llmManager} imageManager={imageManager} storage={database}
                 activeConversationId={activeConversationId}
-                onThemeClick={handleThemeStatusClick}
+                onThemeChange={handleThemeChange}
                 onPersonalityClick={() => openPersonalityEditorModal(database)}
                 onImageProviderClick={() => {
                   console.log("App.tsx: onImageProviderClick in StatusBar triggered. Attempting to open ImageGenerationModal.");
@@ -541,7 +561,7 @@ user: 'claudia' // Use claudia instead of system for type compatibility
             </>
           )}
         </div>
-      {/* </CRTShaderWrapper> */}
+      </CRTShaderWrapper>
 
       <Suspense fallback={<ComponentLoader type="modal" />}>
         <PersonalityModal

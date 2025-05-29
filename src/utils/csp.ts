@@ -102,7 +102,7 @@ export const isUrlAllowedByCSP = (url: string, directive: keyof typeof CSP_DIREC
   const sources = CSP_DIRECTIVES[directive];
   
   // Check for exact matches
-  if (sources.includes("'self'" as any) && (url.startsWith('/') || url.startsWith('./'))) {
+  if ((sources as readonly string[]).includes("'self'") && (url.startsWith('/') || url.startsWith('./'))) {
     return true;
   }
   
@@ -137,6 +137,9 @@ export const getSecurityHeaders = (): Record<string, string> => {
   };
 };
 
+// Store reference to original fetch before overriding
+const originalFetch = globalThis.fetch;
+
 /**
  * Secure fetch wrapper that applies security headers
  */
@@ -158,7 +161,7 @@ export const secureFetch = async (
     }
   };
   
-  return fetch(url, secureOptions);
+  return originalFetch(url, secureOptions);
 };
 
 /**
@@ -168,8 +171,7 @@ export const initializeSecurity = (): void => {
   // Apply CSP
   applyCSPMeta();
   
-  // Override fetch globally to use secure fetch
-  const originalFetch = window.fetch;
+  // Override fetch globally to use secure fetch  
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input instanceof URL ? input.href : 
                 typeof input === 'string' ? input : input.url;

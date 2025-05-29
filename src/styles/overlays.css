@@ -1,13 +1,19 @@
+/* 
+ * OVERLAY EFFECTS - Theme-specific full-screen visual overlays
+ * These provide CSS-based CRT effects, scanlines, noise, and other visual enhancements
+ * Applied conditionally based on theme.overlayClassName
+ */
+
 /* Base styles for any shader overlay */
 .shader-overlay {
-  position: fixed; /* Or absolute if .App is the positioning context */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Allows clicks to pass through to elements underneath */
-  z-index: 9999; /* Ensures it's on top of other content, adjust as needed */
-  opacity: 0.5; /* Default opacity, can be overridden by specific overlays */
+  pointer-events: none; /* Allows clicks to pass through */
+  z-index: 9999; /* Above all content */
+  opacity: 0.5; /* Default opacity, overridden by specific overlays */
 }
 
 /* Example: Mainframe 70s Overlay (Strong Scanlines & Glow) */

@@ -96,6 +96,31 @@ The avatar responds to AI commands automatically embedded in chat responses:
 [AVATAR:expression=happy,action=wave,position=center]
 ```
 
+### Status Bar Indicators & Color Codes
+
+The status bar provides real-time system monitoring with the following indicators:
+
+| Indicator | Description | Status Colors |
+|-----------|-------------|---------------|
+| **Theme** ⌘ | Current terminal theme | Click to switch themes |
+| **Personality** 👤 | Active AI personality | Click to edit personality |
+| **LLM** 💬 | Language model provider + latency | 🟢 Ready / 🔴 Needs API Key |
+| **Image** 📷 | Image generation provider | 🟢 Ready / 🔴 Needs API Key |
+| **Plugins** 🔌 | MCP plugin system health | 🟢 All healthy / 🟡 Some issues / 🔴 Problems |
+| **Network** 🌐 | Online/offline status | 🟢 Online / 🔴 Offline |
+| **FPS** 🎮 | Frame rate monitor | 🟢 ≥60fps / 🟡 30-59fps / 🔴 <30fps |
+| **Tokens** 🧮 | Session token usage vs limits | 🟡 Near limit (>80%) |
+| **Errors** ⚠️ | Unhandled error indicator | 🔴 Flashes on error |
+| **Time** 🕐 | Current UTC time | HH:MM UTC format |
+
+**Keyboard Shortcuts:**
+- `Ctrl+B` - Toggle between compact and full status bar modes
+- Responsive design automatically switches to compact mode on screens <600px
+
+**Status Bar Modes:**
+- **Full Mode**: Shows all indicators with labels
+- **Compact Mode**: Essential indicators only, icons without labels
+
 ## Development
 
 ### Available Scripts
@@ -125,6 +150,7 @@ src/
 │   ├── core/         # Command execution engine
 │   └── ai/           # AI integration handlers
 ├── components/       # React UI components
+│   └── StatusBar/    # Status bar with indicators and monitoring
 ├── providers/        # Multi-provider architecture
 │   ├── llm/          # LLM providers (Anthropic, Google, Local)
 │   ├── image/        # Image generation providers
@@ -132,7 +158,7 @@ src/
 ├── storage/          # Data persistence layer
 ├── terminal/         # Terminal display and themes
 ├── store/            # Zustand state management
-├── hooks/            # Custom React hooks
+├── hooks/            # Custom React hooks (including monitoring hooks)
 ├── utils/            # Utility functions
 └── types/            # TypeScript type definitions
 ```

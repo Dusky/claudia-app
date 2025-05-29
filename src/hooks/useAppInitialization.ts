@@ -75,6 +75,14 @@ export const useAppInitialization = ({
 
     const initializeSystem = async () => {
       try {
+        // Clean up expired avatar cache entries
+        if (database && typeof database.cleanupExpiredAvatarCache === 'function') {
+          const cleanedCount = await database.cleanupExpiredAvatarCache();
+          if (cleanedCount > 0) {
+            console.log(`🧹 Cleaned up ${cleanedCount} expired avatar cache entries`);
+          }
+        }
+
         // Initialize personality system
         const activeP = await database.getActivePersonality();
         if (!activeP) {
@@ -91,20 +99,33 @@ export const useAppInitialization = ({
           await database.updatePersonality('default', { allowImageGeneration: true });
         }
 
+        // Clear any TOS-violating cached avatar URLs before restoring state
+        try {
+          localStorage.removeItem('claudia_avatar_cache');
+          if (database && typeof database.clearAvatarCache === 'function') {
+            await database.clearAvatarCache();
+            console.log('🧹 Cleared avatar cache for TOS compliance');
+          }
+        } catch (error) {
+          console.warn('Failed to clear avatar cache:', error);
+        }
+
         // Restore avatar state from previous session
         await restoreAvatarState();
         
-        // Sync the restored state with avatar controller
+        // Sync the restored state with avatar controller (without imageUrl to avoid TOS violations)
         const restoredAvatarState = useAppStore.getState().avatarState;
-        if (restoredAvatarState.imageUrl) {
-          console.log('🔄 Syncing restored avatar state with controller:', {
-            imageUrl: restoredAvatarState.imageUrl.substring(0, 50) + '...',
-            expression: restoredAvatarState.expression,
-            pose: restoredAvatarState.pose,
-            action: restoredAvatarState.action
-          });
-          avatarController.setState(restoredAvatarState);
-        }
+        console.log('🔄 Syncing restored avatar state with controller:', {
+          expression: restoredAvatarState.expression,
+          pose: restoredAvatarState.pose,
+          action: restoredAvatarState.action,
+          visible: restoredAvatarState.visible
+        });
+        // Set state without imageUrl - avatar will be regenerated if needed
+        avatarController.setState({
+          ...restoredAvatarState,
+          imageUrl: undefined // Clear any cached imageUrl to avoid TOS violations
+        });
 
         // Initialize active conversation
         const { activeConvId: activeConvIdToUse, playBootAnimation } = await initializeActiveConversation(database);

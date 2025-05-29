@@ -1,4 +1,4 @@
-import { TerminalChar, CRTConfig } from '../types/interfaces.js';
+import type { TerminalChar, CRTConfig } from '../types/interfaces.js';
 
 export interface AccessibilityOptions {
   enableScreenReader: boolean;
@@ -312,8 +312,7 @@ export class AccessibilityManager {
       return {
         ...config,
         flicker: false,
-        cursorBlink: false,
-        typewriterVariation: 0 // No timing variation
+        cursorBlink: false
       };
     }
 

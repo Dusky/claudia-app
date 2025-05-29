@@ -24,7 +24,7 @@ export class AIHandler {
       const errorLine: TerminalLine = {
         id: `error-no-llm-${timestamp}`,
         type: 'error',
-        content: 'No AI provider is configured or active. Please check your settings.',
+        content: 'System Error: Intelligence provider subsystem offline. Check system configuration.',
         timestamp,
         user: 'claudia'
       };
@@ -34,7 +34,7 @@ export class AIHandler {
         await context.storage.addMessage({
           conversationId: context.activeConversationId,
           role: 'assistant',
-          content: 'Error: No AI provider configured or active.',
+          content: 'System Error: Intelligence provider subsystem offline.',
           timestamp
         });
       }

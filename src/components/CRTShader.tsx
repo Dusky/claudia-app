@@ -46,13 +46,23 @@ const fragmentShader = `
 
   vec3 applyPhosphorMask(vec3 color, vec2 uv, float intensity) {
     if (intensity <= 0.0) return color;
-    float R = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 0.5));
-    float G = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 - 1.57079)); 
-    float B = smoothstep(0.0, 0.3, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 2.61799)); 
-    vec3 mask = vec3(R,G,B);
+    
+    // Create RGB phosphor pattern
+    float R = smoothstep(0.0, 0.5, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 0.5));
+    float G = smoothstep(0.0, 0.5, sin(uv.x * resolution.x * 0.3333 * 3.14159 - 1.57079)); 
+    float B = smoothstep(0.0, 0.5, sin(uv.x * resolution.x * 0.3333 * 3.14159 + 2.61799)); 
+    vec3 mask = vec3(R, G, B);
+    
+    // Add bloom/glow effect around bright pixels
     float brightnessFactor = dot(color, vec3(0.299, 0.587, 0.114));
-    mask = mix(vec3(1.0), mask, brightnessFactor * 0.7);
-    return mix(color, color * mask, intensity);
+    vec3 bloomColor = color * brightnessFactor * 2.0;
+    
+    // Apply phosphor mask with bloom
+    mask = mix(vec3(1.0), mask, brightnessFactor * 0.5);
+    vec3 phosphorColor = color * mask;
+    
+    // Blend original color with phosphor and bloom
+    return mix(color, phosphorColor + bloomColor * 0.3, intensity);
   }
 
   void main() {
@@ -223,10 +233,12 @@ function CRTMesh({
   );
 }
 
+import type { TerminalTheme } from '../terminal/themes';
+
 interface CRTShaderWrapperProps {
   children: React.ReactNode;
   enabled?: boolean;
-  theme?: string;
+  themeObject?: TerminalTheme;
 }
 
 function debounce<F extends (...args: any[]) => Promise<void>>(func: F, waitFor: number) {
@@ -241,7 +253,7 @@ function debounce<F extends (...args: any[]) => Promise<void>>(func: F, waitFor:
   };
 }
 
-export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }: CRTShaderWrapperProps) {
+export function CRTShaderWrapper({ children, enabled = true, themeObject }: CRTShaderWrapperProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const textureRef = useRef<THREE.CanvasTexture | null>(null);
   const [currentTextureForMesh, setCurrentTextureForMesh] = useState<THREE.CanvasTexture | null>(null);
@@ -249,47 +261,27 @@ export function CRTShaderWrapper({ children, enabled = true, theme = 'modern' }:
   const [renderError, setRenderError] = useState(false);
 
   const crtSettings = useMemo(() => {
-    const defaults = { 
-      curvature: 20.0, scanlineDensity: 800.0, scanlineIntensity: 0.15, 
-      noiseIntensity: 0.05, brightness: 1.0, distortionAmount: 0.2,
-      vignetteStrength: 0.8, vignetteSmoothness: 0.5,
-      wobbleIntensity: 0.001, wobbleSpeed: 2.0,
-      textBlurIntensity: 0.2, phosphorIntensity: 0.1,
-    };
-    switch (theme) {
-      case 'mainframe70s':
-        return { 
-          ...defaults, curvature: 15.0, scanlineDensity: 600.0, scanlineIntensity: 0.30, 
-          noiseIntensity: 0.12, brightness: 1.15, distortionAmount: 0.25,
-          vignetteStrength: 1.4, vignetteSmoothness: 0.4,
-          wobbleIntensity: 0.003, wobbleSpeed: 1.5,
-          textBlurIntensity: 0.6, phosphorIntensity: 0.35,
-        };
-      case 'pc80s':
-        return { 
-          ...defaults, curvature: 18.0, scanlineDensity: 700.0, scanlineIntensity: 0.25, 
-          noiseIntensity: 0.08, brightness: 1.05, distortionAmount: 0.35,
-          vignetteStrength: 1.2, vignetteSmoothness: 0.5,
-          wobbleIntensity: 0.002, wobbleSpeed: 2.5,
-          textBlurIntensity: 0.4, phosphorIntensity: 0.2,
-        };
-      case 'bbs90s':
-        return { 
-          ...defaults, curvature: 20.0, scanlineDensity: 750.0, scanlineIntensity: 0.20, 
-          noiseIntensity: 0.10, brightness: 1.1, distortionAmount: 0.5,
-          vignetteStrength: 1.0, vignetteSmoothness: 0.6,
-          wobbleIntensity: 0.0015, wobbleSpeed: 3.5, 
-          textBlurIntensity: 0.3, phosphorIntensity: 0.15,
-        };
-      case 'modern':
-      default:
-        return { 
-          ...defaults, curvature: 8.0, scanlineDensity: 800.0, scanlineIntensity: 0.10, 
-          noiseIntensity: 0.03, distortionAmount: 0.1, vignetteStrength: 0.6, vignetteSmoothness: 0.7, brightness: 1.0,
-          wobbleIntensity: 0.0005, textBlurIntensity: 0.1, phosphorIntensity: 0.05,
-        };
+    // Use theme object's CRT shader parameters if available, otherwise fall back to defaults
+    if (themeObject?.effects?.crtShader) {
+      return themeObject.effects.crtShader;
     }
-  }, [theme]);
+    
+    // Default fallback settings (for backwards compatibility)
+    return {
+      curvature: 20.0,
+      scanlineDensity: 800.0,
+      scanlineIntensity: 0.15,
+      noiseIntensity: 0.05,
+      brightness: 1.0,
+      distortionAmount: 0.2,
+      vignetteStrength: 0.8,
+      vignetteSmoothness: 0.5,
+      wobbleIntensity: 0.001,
+      wobbleSpeed: 2.0,
+      textBlurIntensity: 0.2,
+      phosphorIntensity: 0.1,
+    };
+  }, [themeObject]);
   
   const debouncedCaptureAndSetTexture = useMemo(
     () =>

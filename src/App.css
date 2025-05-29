@@ -42,13 +42,13 @@ html, body, #root {
   width: 100vw;
   overflow: hidden;
   position: relative;
-  /* This background is for the content that gets captured by html2canvas for the shader */
-  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+  /* Neutral background - themes control their own backgrounds */
+  background: #0a0a0a;
   display: flex;
   flex-direction: column;
 }
 
-/* Combined background effects with CRT gradient for the .App div (screen content) */
+/* Simplified background effects for app shell */
 .App::before {
   content: '';
   position: absolute;
@@ -56,11 +56,7 @@ html, body, #root {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    var(--crt-gradient-background, none),
-    radial-gradient(circle at 20% 50%, rgba(0, 255, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 0, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 40% 80%, rgba(0, 255, 0, 0.02) 0%, transparent 50%);
+  background: var(--crt-gradient-background, none);
   animation: backgroundPulse 8s ease-in-out infinite;
   pointer-events: none;
   z-index: 1; /* Above .App's direct background, below its content */
@@ -154,15 +150,13 @@ html, body, #root {
 .terminal-container[data-theme="modern"] { ... }
 */
 
-/* Avatar enhancements */
+/* Avatar positioning and z-index only - styling moved to theme system */
 .claudia-avatar {
   z-index: 1000; /* Ensure avatar is above terminal content but below modals */
-  filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.3));
   transition: all 0.3s ease;
 }
 
 .claudia-avatar:hover {
-  filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.5));
   transform: scale(1.02);
 }
 
@@ -171,288 +165,59 @@ html, body, #root {
   scrollbar-width: thin;
 }
 
-/* Enhanced scrollbar styling */
-.terminal-container::-webkit-scrollbar {
-  width: 12px;
+/* REMOVED: Enhanced scrollbar styling - now handled by TerminalDisplay.tsx theme system */
+
+/* Global selection styling - uses CSS custom properties for theme flexibility */
+:root {
+  --selection-background: rgba(0, 255, 255, 0.3);
+  --selection-text-shadow: 0 0 8px currentColor;
 }
 
-.terminal-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-}
-
-.terminal-container::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, 
-    rgba(0, 255, 255, 0.3) 0%, 
-    rgba(0, 255, 255, 0.6) 50%, 
-    rgba(0, 255, 255, 0.3) 100%
-  );
-  border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-.terminal-container::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, 
-    rgba(0, 255, 255, 0.5) 0%, 
-    rgba(0, 255, 255, 0.8) 50%, 
-    rgba(0, 255, 255, 0.5) 100%
-  );
-  background-clip: content-box;
-}
-
-/* Custom selection color for terminal */
 ::selection {
-  background: rgba(0, 255, 255, 0.3);
+  background: var(--selection-background);
   color: inherit;
-  text-shadow: 0 0 8px currentColor;
+  text-shadow: var(--selection-text-shadow);
 }
 
 ::-moz-selection {
-  background: rgba(0, 255, 255, 0.3);
+  background: var(--selection-background);
   color: inherit;
-  text-shadow: 0 0 8px currentColor;
+  text-shadow: var(--selection-text-shadow);
 }
 
-/* Terminal text enhancements */
-.terminal-line {
-  position: relative;
-  margin-bottom: 8px; 
-  padding-bottom: 4px; 
-  min-height: 24px; 
-}
+/* REMOVED: Terminal text enhancements - now handled by TerminalDisplay.tsx theme system */
 
-/* Glow effect for important lines */
-.terminal-line[data-type="system"] {
-  text-shadow: 0 0 10px currentColor;
-  animation: systemGlow 2s ease-in-out infinite;
-}
+/* REMOVED: Loading animation enhancement - now handled by TerminalDisplay.tsx theme system */
 
-@keyframes systemGlow {
-  0%, 100% { 
-    text-shadow: 0 0 5px currentColor;
-    opacity: 0.9;
-  }
-  50% { 
-    text-shadow: 0 0 15px currentColor, 0 0 25px currentColor;
-    opacity: 1;
-  }
-}
+/* REMOVED: Input field enhancements - now handled by TerminalDisplay.tsx theme system */
 
-/* Loading animation enhancement */
-.loading-dots span {
-  display: inline-block;
-  animation: loadingPulse 1.5s ease-in-out infinite;
-  text-shadow: 0 0 10px currentColor;
-}
-
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes loadingPulse {
-  0%, 100% { 
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  50% { 
-    opacity: 1;
-    transform: scale(1.2);
-    text-shadow: 0 0 15px currentColor;
-  }
-}
-
-/* Input field enhancements */
-.terminal-input-line input {
-  text-shadow: 0 0 5px currentColor;
-}
-
-.terminal-input-line input:focus {
-  text-shadow: 0 0 10px currentColor;
-}
-
-/* Responsive design */
+/* Responsive design - layout only */
 @media (max-width: 768px) { 
-  .claudia-avatar {
-    transform: scale(0.8);
-  }
-  
-  .terminal-container {
-    font-size: 14px; 
-  }
+  /* Layout adjustments if needed */
 }
 
 @media (max-width: 480px) { 
-  .claudia-avatar {
-    transform: scale(0.65); 
-  }
-  
-  .terminal-container {
-    font-size: 13px; 
-    padding: 10px; 
-  }
-
   .App::before {
     animation: backgroundPulse 12s ease-in-out infinite; 
-  }
-
-  .terminal-line[data-type="system"] {
-    animation: systemGlow 3s ease-in-out infinite; 
   }
 }
 
 @media (max-width: 360px) { 
-  .claudia-avatar {
-    transform: scale(0.55); 
-  }
-  
-  .terminal-container {
-    font-size: 12px; 
-    padding: 8px; 
-  }
-
   .App::after { 
     opacity: 0.4;
   }
-  
-  .loading-dots span {
-    animation-duration: 1.8s; 
-  }
 }
 
 
-/* Special effects for different terminal themes */
-.terminal-container[data-theme="mainframe70s"] .terminal-line {
-  animation: scanlineGlow 0.1s linear infinite;
-}
+/* REMOVED: Special effects for different terminal themes - now handled by overlays.css and theme system */
 
-@keyframes scanlineGlow {
-  0%, 100% { background: transparent; }
-  50% { background: rgba(0, 255, 0, 0.01); }
-}
+/* REMOVED: Enhanced Loading Animations - now handled by TerminalDisplay.tsx theme system */
 
-.terminal-container[data-theme="bbs90s"] .terminal-line {
-  position: relative;
-}
+/* REMOVED: Theme-specific loading dots - now handled by TerminalDisplay.tsx theme system */
 
-.terminal-container[data-theme="bbs90s"] .terminal-line::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 0, 255, 0.5) 50%,
-    transparent 100%
-  );
-  animation: bbsBorder 3s ease-in-out infinite;
-}
-
-@keyframes bbsBorder {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-/* Enhanced Loading Animations */
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-@keyframes aiThinking {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
-}
-
-@keyframes loadingPulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-@keyframes loadingSlide {
-  0% { transform: translateX(-10px); opacity: 0; }
-  50% { opacity: 1; }
-  100% { transform: translateX(0); opacity: 0.7; }
-}
-
-/* Enhanced Loading States */
-.terminal-line.loading {
-  animation: loadingSlide 2s ease-in-out infinite !important;
-}
-
-.loading-indicator {
-  position: relative;
-}
-
-.loading-dots {
-  display: inline-flex;
-  gap: 2px;
-}
-
-.loading-dots span {
-  animation: aiThinking 1.4s ease-in-out infinite;
-  font-size: 1.2em;
-  transform-origin: center;
-}
-
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* Claudia Theme Loading Enhancements */
-.terminal-container[data-theme="claudia"] .loading-indicator {
-  color: #FFED4A;
-  text-shadow: 0 0 8px rgba(255, 237, 74, 0.3);
-}
-
-.terminal-container[data-theme="claudia"] .loading-dots span {
-  color: #FFED4A;
-  filter: drop-shadow(0 0 4px rgba(255, 237, 74, 0.4));
-}
-
-/* Theme-specific Loading Dots */
-.terminal-container[data-theme="mainframe70s"] .loading-dots span {
-  color: #33FF33;
-  text-shadow: 0 0 6px rgba(51, 255, 51, 0.5);
-}
-
-.terminal-container[data-theme="pc80s"] .loading-dots span {
-  color: #FFFF00;
-  text-shadow: 0 0 6px rgba(255, 255, 0, 0.5);
-}
-
-.terminal-container[data-theme="bbs90s"] .loading-dots span {
-  color: #FF00FF;
-  text-shadow: 0 0 6px rgba(255, 0, 255, 0.5);
-}
-
-.terminal-container[data-theme="modern"] .loading-dots span {
-  color: #00AACC;
-  text-shadow: 0 0 6px rgba(0, 170, 204, 0.5);
-}
-
-/* Enhanced Theme Transitions */
+/* Global transitions for theme switching */
 .App {
   transition: background-color 0.6s ease-in-out, background 0.6s ease-in-out;
-}
-
-.terminal-container {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.terminal-line {
-  transition: color 0.3s ease-in-out, text-shadow 0.3s ease-in-out;
 }
 
 /* Theme Switch Animation */

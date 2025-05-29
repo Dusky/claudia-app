@@ -92,28 +92,34 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
   isWebGLShaderActive: boolean;
   isInGroup?: boolean;
 }) => {
+  // Memoize commonly used style values
+  const lineStyles = useMemo(() => ({
+    marginBottom: isInGroup ? theme.spacing.lineMarginTight : theme.spacing.lineMarginNormal,
+    paddingLeft: isInGroup ? theme.spacing.indent : '0',
+  }), [isInGroup, theme.spacing.lineMarginTight, theme.spacing.lineMarginNormal, theme.spacing.indent]);
+  
+  const prefixStyles = useMemo(() => ({
+    color: theme.colors.accent, 
+    marginRight: theme.spacing.textGap,
+    fontSize: isInGroup ? '0.9em' : '1em',
+    opacity: isInGroup ? theme.styles.opacity.muted : 1
+  }), [isInGroup, theme.colors.accent, theme.spacing.textGap, theme.styles.opacity.muted]);
   let textShadowStyle = {};
   if (theme.effects.glow) {
     if (isWebGLShaderActive) {
-      // Subtle glow/halo when WebGL shader is active, slightly more visible
-      textShadowStyle = { textShadow: `0 0 5px ${getLineTypeColor(line.type)}50, 0 0 2px ${getLineTypeColor(line.type)}30` };
+      // Subtle glow when WebGL shader is active - let the shader handle most effects
+      textShadowStyle = { textShadow: theme.styles.textShadow.subtle };
     } else {
-      // More pronounced CSS glow/blur if WebGL shader is off
-      if (theme.id === 'mainframe70s') {
-        textShadowStyle = { textShadow: `0 0 1px ${getLineTypeColor(line.type)}90, 0 0 3px ${getLineTypeColor(line.type)}50, 0 0 5px ${getLineTypeColor(line.type)}30` };
-      } else if (theme.id === 'pc80s') {
-        textShadowStyle = { textShadow: `0 0 1px ${getLineTypeColor(line.type)}70, 0 0 2px ${getLineTypeColor(line.type)}40` };
-      } else { // bbs90s and others
-        textShadowStyle = { textShadow: `0 0 2px ${getLineTypeColor(line.type)}60, 0 0 4px ${getLineTypeColor(line.type)}40` };
-      }
+      // Enhanced CSS glow using theme-defined text shadows
+      textShadowStyle = { textShadow: theme.styles.textShadow.normal };
     }
   }
 
   // Add command success feedback styling
   const isCommandSuccess = line.metadata?.commandSuccess;
   const successStyle = isCommandSuccess ? {
-    borderLeft: `2px solid ${theme.colors.success}`,
-    paddingLeft: '8px',
+    borderLeft: `${theme.spacing.borderWidth} solid ${theme.colors.success}`,
+    paddingLeft: theme.spacing.textGap,
     background: `linear-gradient(90deg, ${theme.colors.success}10 0%, transparent 50%)`,
     animation: 'commandSuccess 0.8s ease-out'
   } : {};
@@ -128,22 +134,16 @@ const LineComponent = React.memo(({ line, theme, getLineTypeColor, getUserPrefix
         wordBreak: 'break-word',
         display: 'flex',
         alignItems: 'baseline',
-        marginBottom: isInGroup ? '4px' : '12px',
-        paddingLeft: isInGroup ? '12px' : '0',
+        ...lineStyles,
         ...textShadowStyle,
         ...successStyle
       }}
     >
-      <span className="line-prefix" style={{ 
-        color: theme.colors.accent, 
-        marginRight: '0.5em',
-        fontSize: isInGroup ? '0.9em' : '1em',
-        opacity: isInGroup ? 0.7 : 1
-      }}>
+      <span className="line-prefix" style={prefixStyles}>
         {isInGroup ? '' : getUserPrefix(line)}
       </span>
       <span className="line-content" style={{ flex: 1 }}>
-        <SecureContentRenderer content={line.content} />
+        <SecureContentRenderer content={line.content} theme={theme} />
       </span>
     </div>
   );
@@ -176,9 +176,9 @@ const MessageGroup = React.memo(({ group, theme, getLineTypeColor, getUserPrefix
   // Group styling with better theme support
   const getGroupStyles = () => {
     const baseStyles = {
-      marginBottom: '16px',
-      padding: '12px 16px',
-      borderRadius: '6px',
+      marginBottom: theme.spacing.groupMargin,
+      padding: `${theme.spacing.lineMarginNormal} ${theme.spacing.groupMargin}`,
+      borderRadius: theme.styles.borderRadius,
       position: 'relative' as const,
       background: 'rgba(0, 0, 0, 0.15)',
       border: `1px solid ${theme.colors.accent}15`,
@@ -217,14 +217,14 @@ const MessageGroup = React.memo(({ group, theme, getLineTypeColor, getUserPrefix
         color: group.groupType === 'claudia' ? theme.colors.accent 
              : group.groupType === 'user' ? (theme.colors.secondary || theme.colors.foreground)
              : theme.colors.error,
-        marginBottom: '10px',
-        opacity: 0.9,
+        marginBottom: theme.spacing.textGap,
+        opacity: theme.styles.opacity.header,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: '1px',
         display: 'flex',
         alignItems: 'center',
-        gap: '6px'
+        gap: theme.spacing.lineMarginTight
       }}>
         <span style={{ 
           width: '6px', 
@@ -268,6 +268,10 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   const outputRef = useRef<HTMLDivElement>(null);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLSpanElement>(null);
+  const accessibilityLogRef = useRef<HTMLDivElement>(null);
+  
+  // Accessibility buffer for screen readers
+  const [accessibilityBuffer, setAccessibilityBuffer] = useState<string[]>([]);
 
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyPointer, setHistoryPointer] = useState<number>(-1);
@@ -289,6 +293,12 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [lines, isLoading]);
+
+  // Update accessibility buffer when lines change
+  useEffect(() => {
+    const buffer = lines.map(line => `${line.type}: ${line.content}`);
+    setAccessibilityBuffer(buffer);
+  }, [lines]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -483,12 +493,19 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
   }, [effectiveAppBackground, theme.colors.background, theme.spacing.padding, theme.effects.screenCurvature, config?.screenCurvature, isWebGLShaderActive]);
 
   const outputAreaStyle = useMemo((): React.CSSProperties => ({
-    position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: '4px', 
-  }), []);
+    position: 'relative', flexGrow: 1, overflowY: 'auto', overflowX: 'hidden', paddingRight: theme.spacing.lineMarginTight, 
+  }), [theme.spacing.lineMarginTight]);
 
   const inputAreaStyle = useMemo((): React.CSSProperties => ({
-    position: 'relative', paddingTop: theme.spacing.lineSpacing, flexShrink: 0,
-  }), [theme.spacing.lineSpacing]);
+    position: 'sticky', 
+    bottom: 0,
+    paddingTop: theme.spacing.lineSpacing, 
+    paddingBottom: theme.spacing.lineSpacing,
+    flexShrink: 0,
+    backgroundColor: theme.colors.background,
+    borderTop: `1px solid ${theme.colors.accent}20`,
+    zIndex: 10,
+  }), [theme.spacing.lineSpacing, theme.colors.background, theme.colors.accent]);
 
   return (
     <>
@@ -616,15 +633,15 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
                   fontWeight: 'inherit', letterSpacing: 'inherit', flex: 1,
                   caretColor: theme.colors.cursor, transition: 'all 0.2s ease-in-out',
                   ...(theme.effects.glow && !isWebGLShaderActive && { 
-                     textShadow: theme.id === 'mainframe70s' ? `0 0 1px ${theme.colors.foreground}90, 0 0 3px ${theme.colors.foreground}50` : `0 0 2px ${theme.colors.foreground}60`
+                     textShadow: theme.styles.textShadow.normal
                   }),
                   ...(theme.effects.glow && isWebGLShaderActive && { 
-                     textShadow: `0 0 5px ${theme.colors.foreground}55, 0 0 2px ${theme.colors.foreground}35` 
+                     textShadow: theme.styles.textShadow.subtle
                   }),
                   ...(isInputFocused && {
                     filter: 'brightness(1.1)',
                     textShadow: theme.effects.glow 
-                      ? (isWebGLShaderActive ? `0 0 5px ${theme.colors.foreground}60, 0 0 2px ${theme.colors.cursor}45` : `0 0 5px ${theme.colors.foreground}80, 0 0 2px ${theme.colors.cursor}60`)
+                      ? theme.styles.textShadow.intense
                       : `0 0 2px ${theme.colors.cursor}40`
                   })
                 }}
@@ -643,6 +660,11 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
 
         <style>{`
           .terminal-container {
+            font-family: ${theme.font.family};
+            font-size: ${theme.font.size};
+            font-weight: ${theme.font.weight};
+            line-height: ${theme.font.lineHeight};
+            letter-spacing: ${theme.spacing.characterSpacing};
             font-smooth: never;
             -webkit-font-smoothing: none;
             -moz-osx-font-smoothing: grayscale;
@@ -677,14 +699,14 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
           
           .suggestions-box {
             position: absolute; bottom: 100%; right: 0; max-height: 150px; overflow-y: auto;
-            background-color: ${theme.colors.background || '#1e1e1e'}EE; 
-            border: 1px solid ${theme.colors.accent || '#00FFFF'}80; border-bottom: none; 
-            border-radius: 4px 4px 0 0; z-index: 100; color: ${theme.colors.foreground || '#FFFFFF'};
+            background-color: ${theme.colors.background}EE; 
+            border: 1px solid ${theme.colors.accent}80; border-bottom: none; 
+            border-radius: ${theme.styles.borderRadius} ${theme.styles.borderRadius} 0 0; z-index: 100; color: ${theme.colors.foreground};
             font-family: ${theme.font.family}; font-size: calc(${theme.font.size} * 0.9); 
             box-shadow: 0 -2px 5px rgba(0,0,0,0.2); 
           }
           .suggestion-item {
-            padding: 6px 10px; cursor: pointer; border-bottom: 1px solid ${theme.colors.accent || '#00FFFF'}30;
+            padding: ${theme.spacing.lineMarginTight} ${theme.spacing.textGap}; cursor: pointer; border-bottom: 1px solid ${theme.colors.accent}30;
             white-space: nowrap; transition: all 0.15s ease-in-out; position: relative; overflow: hidden;
           }
           .suggestion-item:last-child { border-bottom: none; }
@@ -694,7 +716,7 @@ export const TerminalDisplay: React.FC<TerminalDisplayProps> = ({
             transition: left 0.3s ease-in-out;
           }
           .suggestion-item:hover {
-            background-color: ${theme.colors.accent || '#00FFFF'}40; color: ${theme.colors.background};
+            background-color: ${theme.colors.accent}40; color: ${theme.colors.background};
             transform: translateX(2px); box-shadow: 0 2px 4px ${theme.colors.accent}30;
           }
           .suggestion-item:hover::before { left: 100%; }

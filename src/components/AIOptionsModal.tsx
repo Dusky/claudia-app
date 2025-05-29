@@ -143,9 +143,7 @@ export const AIOptionsModal: React.FC<AIOptionsModalProps> = ({ isOpen, onClose,
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay ai-options-modal-overlay">
@@ -284,3 +282,5 @@ export const AIOptionsModal: React.FC<AIOptionsModalProps> = ({ isOpen, onClose,
     </div>
   );
 };
+
+export default AIOptionsModal;

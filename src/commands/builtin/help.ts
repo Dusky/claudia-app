@@ -3,7 +3,7 @@ import type { TerminalLine } from '../../terminal/TerminalDisplay';
 
 export const helpCommand: Command = {
   name: 'help',
-  description: 'Show available commands and usage information',
+  description: 'Access system documentation and command reference',
   usage: '/help [command_name]',
   aliases: ['h', '?'],
   
@@ -21,7 +21,7 @@ export const helpCommand: Command = {
       lines: [{
         id: `help-modal-${timestamp}`,
         type: 'system',
-        content: 'Opening help modal...',
+        content: 'System: Accessing documentation subsystem...',
         timestamp,
         user: 'claudia'
       } as TerminalLine]

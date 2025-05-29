@@ -2,8 +2,8 @@
  * Testing utilities and helpers for Claudia App
  */
 
-import React, { ReactElement } from 'react';
-import { render, RenderOptions } from '@testing-library/react';
+import React, { type ReactElement } from 'react';
+import { render, type RenderOptions } from '@testing-library/react';
 import { vi } from 'vitest';
 import type { TerminalTheme } from '../terminal/themes';
 import type { LLMProviderManager } from '../providers/llm/manager';
@@ -40,6 +40,12 @@ export const createMockTheme = (overrides: Partial<TerminalTheme> = {}): Termina
     padding: '10px',
     lineSpacing: '4px',
     characterSpacing: 'normal',
+    borderWidth: '1px',
+    indent: '12px',
+    textGap: '8px',
+    groupMargin: '16px',
+    lineMarginTight: '4px',
+    lineMarginNormal: '8px',
   },
   effects: {
     scanlines: false,
@@ -47,6 +53,49 @@ export const createMockTheme = (overrides: Partial<TerminalTheme> = {}): Termina
     flicker: false,
     crt: false,
     noise: false,
+  },
+  styles: {
+    textShadow: {
+      subtle: '0 0 2px rgba(0, 255, 0, 0.1)',
+      normal: '0 0 4px rgba(0, 255, 0, 0.3)',
+      intense: '0 0 8px rgba(0, 255, 0, 0.5)',
+    },
+    borderRadius: '4px',
+    opacity: {
+      muted: 0.6,
+      header: 0.8,
+    },
+  },
+  content: {
+    codeBlock: {
+      background: 'rgba(0, 255, 0, 0.08)',
+      color: 'rgba(0, 255, 0, 0.9)',
+      border: '1px solid rgba(0, 255, 0, 0.2)',
+      textShadow: '0 0 2px rgba(0, 255, 0, 0.3)',
+      borderRadius: '3px',
+      padding: '3px 6px',
+    },
+    link: {
+      color: '#66ccff',
+      textDecoration: 'underline',
+    },
+    emphasis: {
+      opacity: 0.8,
+    },
+    colors: {
+      red: '#ff6b6b',
+      green: '#51cf66',
+      blue: '#74c0fc',
+      yellow: '#ffd43b',
+      cyan: '#66d9ef',
+      magenta: '#ff79c6',
+      orange: '#ff9f43',
+      purple: '#b197fc',
+      gray: '#868e96',
+    },
+    spacing: {
+      paragraphMargin: '16px',
+    },
   },
   ...overrides
 });

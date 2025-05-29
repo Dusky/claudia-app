@@ -260,24 +260,42 @@ export class MockDatabase implements StorageService {
     fileSize?: number
   ): Promise<void> {
     const now = new Date().toISOString();
+    
+    // For browser compatibility, just store the original URL without blob conversion
+    // This avoids CORS issues with external image providers like Replicate
+    console.log('💾 Caching avatar image URL:', imageUrl.substring(0, 50) + '...');
+    
     this.avatarCache.set(promptHash, {
       promptHash,
       imageUrl,
-      parameters, // Store as object
+      parameters,
       createdAt: now,
-      accessedAt: now, // Set accessedAt on creation
+      accessedAt: now,
       localPath,
       file_size: fileSize,
     });
     this.saveToLocalStorage();
+    console.log('✅ Avatar image URL cached successfully');
   }
 
   async getCachedAvatar(promptHash: string): Promise<CachedAvatarImage | null> {
     const cached = this.avatarCache.get(promptHash);
     if (cached) {
+      // Check cache expiration (24 hours for external URLs)
+      const cacheAge = Date.now() - new Date(cached.createdAt).getTime();
+      const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (cacheAge > maxCacheAge) {
+        console.log('🗑️ Removing expired cache entry:', cached.imageUrl.substring(0, 50) + '...');
+        this.avatarCache.delete(promptHash);
+        this.saveToLocalStorage();
+        return null;
+      }
+      
       cached.accessedAt = new Date().toISOString(); // Update accessedAt
       this.avatarCache.set(promptHash, cached); // Save updated cache entry
       this.saveToLocalStorage();
+      console.log('✅ Using cached avatar URL');
       return cached;
     }
     return null;
@@ -286,6 +304,26 @@ export class MockDatabase implements StorageService {
   async clearAvatarCache(): Promise<void> {
     this.avatarCache.clear();
     this.saveToLocalStorage();
+  }
+
+  async cleanupExpiredAvatarCache(): Promise<number> {
+    let cleanedCount = 0;
+    const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
+    const now = Date.now();
+    
+    for (const [key, value] of this.avatarCache.entries()) {
+      // Remove cache entries older than 24 hours
+      const cacheAge = now - new Date(value.createdAt).getTime();
+      if (cacheAge > maxCacheAge) {
+        console.log('🗑️ Cleaning up expired avatar cache:', value.imageUrl.substring(0, 50) + '...');
+        this.avatarCache.delete(key);
+        cleanedCount++;
+      }
+    }
+    if (cleanedCount > 0) {
+      this.saveToLocalStorage();
+    }
+    return cleanedCount;
   }
   
   async cleanupOldAvatarCache(maxAgeDays = 7): Promise<number> {
@@ -448,7 +486,7 @@ export class MockDatabase implements StorageService {
         if (typeof aVal === 'string' && typeof bVal === 'string') {
           return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
-        return sortOrder === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+        return sortOrder === 'asc' ? ((aVal ?? 0) < (bVal ?? 0) ? -1 : 1) : ((aVal ?? 0) > (bVal ?? 0) ? -1 : 1);
       });
     } else {
       // Default sort by generatedAt descending

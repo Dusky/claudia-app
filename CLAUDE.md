@@ -85,10 +85,12 @@ This is a React TypeScript application for an AI terminal companion called "Clau
 ```bash
 VITE_ANTHROPIC_API_KEY=sk-ant-api03-...
 VITE_REPLICATE_API_TOKEN=r8_...
-VITE_GOOGLE_API_KEY=...        # Optional - for Google LLM provider
+VITE_GOOGLE_API_KEY=...        # Optional - for Google LLM provider (browser CORS limitations apply)
 VITE_GOOGLE_IMAGE_API_KEY=...  # Optional - for Google Image provider (separate from LLM)
 VITE_DEBUG_MODE=true           # Optional
 ```
+
+**Google API CORS Limitation**: Google's Generative Language API has CORS restrictions that prevent direct browser access. In the browser environment, model listing uses static fallbacks and content generation may fail. For production use, implement a backend proxy server.
 
 ### Key Integration Points
 

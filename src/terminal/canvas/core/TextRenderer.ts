@@ -82,6 +82,7 @@ export class TextRenderer {
       // Add character to buffer
       this.textBuffer.push({
         char,
+        character: char, // alias for compatibility
         x,
         y,
         timestamp,

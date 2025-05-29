@@ -95,7 +95,6 @@ class Logger {
       error: '❌'
     }[level];
     
-    const tagColor = this.getTagColor(tag);
     const formattedTag = `%c[${tag.toUpperCase()}]%c`;
     
     let formattedMessage = `${levelEmoji} ${timestamp} ${formattedTag} ${message}`;

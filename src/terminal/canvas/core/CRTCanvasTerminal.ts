@@ -55,7 +55,8 @@ export class CRTCanvasTerminal {
     targetFPS: 60,
     enableAntialiasing: true,
     typewriterSpeed: 30,
-    cursorBlinkRate: 1.0
+    cursorBlinkRate: 1.0,
+    cursorBlink: true
   };
 
   constructor(canvas: HTMLCanvasElement, userConfig: Partial<CRTConfig> = {}, accessibilityOptions: Partial<AccessibilityOptions> = {}, mobileConfig: Partial<MobileConfig> = {}) {

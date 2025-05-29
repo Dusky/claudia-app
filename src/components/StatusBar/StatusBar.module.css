@@ -1,0 +1,257 @@
+/* StatusBar Container */
+.statusBar {
+  /* Layout */
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--status-bar-gap, 16px);
+  padding: var(--status-bar-padding, 6px 16px);
+  min-height: var(--status-bar-height, 32px);
+  box-sizing: border-box;
+  
+  /* Typography */
+  font-family: var(--font-family, "Courier New", monospace);
+  font-size: var(--status-bar-font-size, 0.8rem);
+  line-height: 1.2;
+  
+  /* Colors */
+  background: var(--status-bar-bg, linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%));
+  color: var(--status-bar-fg, #cccccc);
+  border-top: 1px solid var(--status-bar-border, #333);
+  
+  /* Effects */
+  backdrop-filter: blur(var(--status-bar-blur, 8px));
+  transition: all 0.3s ease;
+  user-select: none;
+  
+  /* Layering */
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+/* Responsive modes */
+.statusBar.mode-compact {
+  --status-bar-gap: 8px;
+  --status-bar-padding: 4px 12px;
+  --status-bar-font-size: 0.75rem;
+}
+
+/* Status bar sections */
+.section {
+  display: flex;
+  align-items: center;
+  gap: var(--section-gap, 12px);
+  flex-wrap: nowrap;
+}
+
+.statusBar.mode-compact .section {
+  --section-gap: 8px;
+}
+
+/* Individual indicator styles */
+.indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--indicator-gap, 4px);
+  padding: var(--indicator-padding, 2px 6px);
+  border-radius: var(--indicator-radius, 4px);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 0; /* Allow shrinking */
+}
+
+.indicator.clickable {
+  cursor: pointer;
+  padding: var(--indicator-padding-clickable, 3px 8px);
+}
+
+.indicator.clickable:hover {
+  background: var(--indicator-hover-bg, rgba(255, 255, 255, 0.1));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--indicator-hover-shadow, rgba(0, 0, 0, 0.2));
+}
+
+.indicator.clickable:focus {
+  outline: 2px solid var(--accent-color, #00d4aa);
+  outline-offset: 1px;
+}
+
+.indicator.clickable:active {
+  transform: translateY(0);
+}
+
+/* Icon styles */
+.icon {
+  font-size: 1em;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* Label and value styles */
+.label {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.value {
+  font-family: var(--monospace-font, "SF Mono", Monaco, "Cascadia Code", monospace);
+  font-weight: 400;
+  opacity: 0.9;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status variants */
+.indicator.status-success {
+  color: var(--status-success-color, #4ec9b0);
+}
+
+.indicator.status-warning {
+  color: var(--status-warning-color, #ffcc00);
+}
+
+.indicator.status-error {
+  color: var(--status-error-color, #f44747);
+  animation: var(--status-error-animation, pulse-error 2s infinite);
+}
+
+.indicator.status-disabled {
+  opacity: 0.5;
+  color: var(--status-disabled-color, #666);
+}
+
+/* Error pulse animation */
+@keyframes pulse-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Theme-specific variables */
+
+/* Mainframe 70s Theme */
+.statusBar.theme-mainframe70s {
+  --status-bar-bg: linear-gradient(180deg, #001100 0%, #000800 100%);
+  --status-bar-fg: #00ff00;
+  --status-bar-border: #008800;
+  --accent-color: #00ff00;
+  --status-success-color: #00ff00;
+  --status-warning-color: #ffff00;
+  --status-error-color: #ff0000;
+  --status-disabled-color: #004400;
+  --indicator-hover-bg: rgba(0, 255, 0, 0.1);
+  --indicator-hover-shadow: rgba(0, 255, 0, 0.2);
+}
+
+/* PC 80s Theme */
+.statusBar.theme-pc80s {
+  --status-bar-bg: linear-gradient(180deg, #001122 0%, #000811 100%);
+  --status-bar-fg: #00ff88;
+  --status-bar-border: #004444;
+  --accent-color: #00ff88;
+  --status-success-color: #00ff88;
+  --status-warning-color: #ffaa00;
+  --status-error-color: #ff4444;
+  --status-disabled-color: #004444;
+  --indicator-hover-bg: rgba(0, 255, 136, 0.1);
+  --indicator-hover-shadow: rgba(0, 255, 136, 0.2);
+}
+
+/* BBS 90s Theme */
+.statusBar.theme-bbs90s {
+  --status-bar-bg: linear-gradient(180deg, #0000aa 0%, #000055 100%);
+  --status-bar-fg: #ffff55;
+  --status-bar-border: #666600;
+  --accent-color: #ffff55;
+  --status-success-color: #00aa00;
+  --status-warning-color: #ffaa00;
+  --status-error-color: #ff0000;
+  --status-disabled-color: #444400;
+  --indicator-hover-bg: rgba(255, 255, 85, 0.1);
+  --indicator-hover-shadow: rgba(255, 255, 85, 0.2);
+}
+
+/* Modern Theme */
+.statusBar.theme-modern {
+  --status-bar-bg: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  --status-bar-fg: #ffffff;
+  --status-bar-border: #333333;
+  --accent-color: #00d4aa;
+  --status-success-color: #4ec9b0;
+  --status-warning-color: #ffcc00;
+  --status-error-color: #f44747;
+  --status-disabled-color: #666666;
+  --indicator-hover-bg: rgba(0, 212, 170, 0.1);
+  --indicator-hover-shadow: rgba(0, 212, 170, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .statusBar {
+    --status-bar-gap: 8px;
+    --status-bar-padding: 4px 8px;
+    --status-bar-font-size: 0.7rem;
+    --section-gap: 6px;
+  }
+  
+  .section:last-child {
+    /* Right section gets priority on mobile */
+    flex-shrink: 0;
+  }
+  
+  .section:first-child {
+    /* Left section can shrink more on mobile */
+    flex-shrink: 2;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .statusBar {
+    --status-bar-gap: 4px;
+    --status-bar-padding: 3px 6px;
+    --section-gap: 4px;
+  }
+  
+  /* Hide labels on very small screens, keep only icons and values */
+  .indicator .label {
+    display: none;
+  }
+  
+  .indicator .icon {
+    margin-right: 0;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .statusBar,
+  .indicator,
+  .indicator.clickable:hover {
+    transition: none;
+    animation: none;
+  }
+  
+  .indicator.status-error {
+    animation: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .statusBar {
+    border-top-width: 2px;
+  }
+  
+  .indicator.clickable:focus {
+    outline-width: 3px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .statusBar {
+    display: none;
+  }
+}
